@@ -281,7 +281,9 @@ function registerIpc() {
   handle('setAutostart', (on: boolean) => setAutostart(on));
   handle('setStartElevated', (on: boolean) => setStartElevated(on));
   handle('elevated:restart', async () => {
+    app.releaseSingleInstanceLock();
     const r = await runElevatedTask();
+    if (r.code !== 0) app.requestSingleInstanceLock();
     if (r.code === 0) setTimeout(quit, 500);
     return r.code === 0;
   });
@@ -291,6 +293,8 @@ function registerIpc() {
     const r = installForUser((f, s) => writeShortcut(f, s));
     if (r.ok && r.executable) {
       setTimeout(() => {
+        // let the installed copy take the single-instance lock
+        app.releaseSingleInstanceLock();
         spawn(r.executable!, relaunchArgs().filter((a) => a !== '--hidden'), { detached: true, stdio: 'ignore' }).unref();
         quit();
       }, 300);

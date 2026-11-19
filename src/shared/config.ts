@@ -127,7 +127,7 @@ export const MenuEntrySchema: z.ZodType<MenuEntry> = z.lazy(() =>
     })
     .strict(),
 );
-export const MenuNodeSchema: z.ZodType<MenuNode> = z.lazy(() => z.union([SeparatorSchema, MenuEntrySchema]));
+export const MenuNodeSchema: z.ZodType<MenuNode> = z.lazy(() => z.union([SeparatorSchema, MenuEntrySchema]).meta({ id: 'MenuNode', title: 'Menu entry or separator' }));
 
 export const TraySchema = z
   .object({

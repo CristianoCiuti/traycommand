@@ -14,14 +14,14 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "node scripts/build.mjs --dev && electron . --dev",
+    "dev": "node scripts/build.mjs && electron .",
     "build": "node scripts/build.mjs",
     "start": "npm run build && electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
-    "schema": "node scripts/schema.mjs",
+    "schema": "node scripts/schema.mts",
     "package": "npm run build && electron-builder --publish never",
     "site:dev": "vitepress dev site",
     "site:build": "npm run schema && vitepress build site"
@@ -32,6 +32,7 @@
     "@preact/signals": "^2.11.4",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^22.20.5",
+    "ajv": "^8.20.0",
     "electron": "^45.4.1",
     "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",

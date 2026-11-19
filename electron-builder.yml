@@ -1,0 +1,46 @@
+appId: io.github.cristianociuti.traycommand
+productName: TrayCommand
+copyright: Copyright © 2026 Cristiano Ciuti
+directories:
+  output: packages
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+  - '!**/*.map'
+extraResources:
+  - from: assets
+    to: assets
+    filter: ['*.png']
+asar: true
+electronLanguages: [en-US, it]
+
+win:
+  icon: build/icon.ico
+  executableName: TrayCommand
+  target:
+    - target: zip
+      arch: [x64]
+  artifactName: TrayCommand-${version}-win-${arch}.${ext}
+
+linux:
+  icon: build/icon.png
+  executableName: traycommand
+  category: Utility
+  target:
+    - target: AppImage
+      arch: [x64]
+  artifactName: TrayCommand-${version}-linux-x86_64.${ext}
+
+mac:
+  icon: build/icon.png
+  category: public.app-category.utilities
+  identity: null
+  target:
+    - target: zip
+      arch: [universal]
+  artifactName: TrayCommand-${version}-mac-universal.${ext}
+  extendInfo:
+    LSUIElement: true
+
+publish: null

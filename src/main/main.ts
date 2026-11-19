@@ -109,8 +109,9 @@ function launchTarget(): LaunchTarget {
 }
 
 function applySettings(config: Config) {
-  // Autostart points to the running executable; only for packaged builds (never to the dev electron.exe).
-  if (app.isPackaged && !state.get().startElevated) {
+  // Autostart points to the running executable; only for packaged builds (never to the dev electron.exe)
+  // and never for isolated runs with --data-dir (tests), so they cannot touch the real Startup folder.
+  if (app.isPackaged && !option('data-dir') && !state.get().startElevated) {
     try {
       syncAutostart(autostartEnv, config.settings.autostart, launchTarget());
     } catch (error) {

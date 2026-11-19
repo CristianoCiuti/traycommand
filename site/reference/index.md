@@ -45,6 +45,7 @@ The schema is also available here: [config.schema.json](/traycommand/schema/v2/c
 | `checkUpdates` | boolean | `true` | Check GitHub releases every 6 hours. See [updates](../guide/startup-and-updates#updates). |
 | `autostart` | boolean | `false` | Start TrayCommand when you log in. See [start at login](../guide/startup-and-updates#start-at-login). |
 | `allowAdminCommands` | boolean | `false` | Allow actions with `"admin": true` (prompt on each run). See [administrator](../guide/administrator). |
+| `skillUpdates` | `"auto"` \| `"ask"` | `"auto"` | Update the [skill for AI assistants](../guide/ai-assistants) automatically, or ask first. |
 
 ## Variables
 

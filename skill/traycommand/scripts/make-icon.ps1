@@ -8,7 +8,7 @@
   names below, or a hex code point such as E749.
   print globe settings folder play stop code cloud wifi lock monitor mail document search power
   sync info warning terminal home calendar people phone camera music video download upload
-  link shield key bug heart star flag clock car shop
+  link shield key bug heart star flag clock moon sun car shop
 
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File make-icon.ps1 -Text "DB" -Color "#2e7d32" -Out "C:\cfg\icons\db_on.png"
@@ -54,7 +54,7 @@ $glyphs = @{
   power = 'E7E8'; sync = 'E895'; info = 'E946'; warning = 'E7BA'; terminal = 'E756'; home = 'E80F'; calendar = 'E787'
   people = 'E716'; phone = 'E717'; camera = 'E722'; music = 'E8D6'; video = 'E714'; download = 'E896'; upload = 'E898'
   link = 'E71B'; shield = 'EA18'; key = 'E8D7'; bug = 'EBE8'; heart = 'EB51'; star = 'E734'; flag = 'E7C1'
-  clock = 'E823'; car = 'E804'; shop = 'E719'
+  clock = 'E823'; moon = 'E708'; sun = 'E706'; car = 'E804'; shop = 'E719'
 }
 if ($Glyph) {
   $code = if ($glyphs.ContainsKey($Glyph.ToLower())) { $glyphs[$Glyph.ToLower()] } else { $Glyph }

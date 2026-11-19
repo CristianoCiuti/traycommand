@@ -42,11 +42,12 @@ Turn "a tray that does X" into concrete choices. Ask the user only what you cann
 
 - **New tray icon or entry in an existing menu?** Several related commands usually belong in the menu of one tray rather than in many icons. Look at the existing trays first.
 - **Plain action or toggle?** If X has an ON/OFF nature (a service, a proxy, a VPN, a container, a setting), make a toggle: `state.check` + `action` (turn on) + `offAction` (turn off). Otherwise a plain `action`.
+- **Clicks**: on a tray, left click runs `action` (`offAction` while ON) and right click opens `menu`; without `action`, both clicks open the menu; `rightAction` replaces the menu on right click. So a toggle tray can also have a menu of related commands.
 - **Script**: write it for the shell that will run it (`defaultShell` or an explicit `shell`). On Windows the default is Windows PowerShell 5.1 (not PowerShell 7: no `&&`, no `??`, no ternary).
 - **Visible or hidden?** Scripts run hidden. Long-running or interactive commands whose output the user wants to see need `"terminal": true`. GUI programs should be launched without waiting (`Start-Process` on Windows, `… &` / `nohup` / `open` elsewhere), otherwise the entry stays busy.
 - **Needs administrator?** (services, Program Files, HKLM, system files…) Use `"admin": true` on the action (one UAC prompt per click). Such actions run only when `settings.allowAdminCommands` is `true`: if it is off, **do not turn it on yourself** unless the user explicitly asks; tell them to enable **Settings → Advanced → Allow commands as administrator** (`--validate` warns about it). State checks cannot be admin: choose a check that works without elevation.
 - **Feedback**: `"notify": "text"` for actions whose effect is not visible; `"confirm": "question?"` for destructive ones; `"timeout"` (seconds) for anything that could hang: 30–120 for services and network calls, more for builds and downloads.
-- **Where**: a new tray goes at the end of `trays`; a new menu entry goes next to related entries, otherwise at the end of the menu (before any trailing separator). Respect the order the user asks for.
+- **Where**: a new tray goes at the end of `trays` (after hidden ones too); a new menu entry goes next to related entries, otherwise at the end of the menu (before any trailing separator). Respect the order the user asks for.
 
 ## 3. Test the scripts before saving
 
@@ -63,8 +64,8 @@ Never run actions that change the system (admin actions, stopping services, dele
 
 ## 4. Edit the file
 
-1. Read the whole file.
-2. Make a backup copy first: `<backupsDir>/traycommand-<yyyyMMdd-HHmmss>-agent.json` (TrayCommand lists it under **Settings → Backups**).
+1. Read the whole file. Files are UTF-8: in Windows PowerShell use `Get-Content -Raw -Encoding UTF8` and write with `-Encoding UTF8` (the default encoding of PowerShell 5.1 garbles non-ASCII characters).
+2. Make a backup copy first (create `backupsDir` if it does not exist): `<backupsDir>/traycommand-<yyyyMMdd-HHmmss>-agent.json` (TrayCommand lists it under **Settings → Backups**).
 3. Change only what was asked. Keep everything else as it is: other trays, `settings`, `variables`, order, `$schema`, the `"version": 2` line. Keep 2-space indentation.
 4. Rules that are easy to get wrong:
    - every `id` must be unique in the whole file; trays need an `id`, menu entries only if referenced; use short `snake_case` ids;
@@ -78,7 +79,7 @@ Never run actions that change the system (admin actions, stopping services, dele
    powershell -NoProfile -ExecutionPolicy Bypass -File "<this skill folder>/scripts/make-icon.ps1" -Glyph print -Color "#9e9e9e" -Out "<configDir>/icons/printer_off.png"
    powershell -NoProfile -ExecutionPolicy Bypass -File "<this skill folder>/scripts/make-icon.ps1" -Text "DB" -Color "#6a1b9a" -Out "<configDir>/icons/db.png"
    ```
-   Glyphs: `print globe settings folder play stop code cloud wifi lock monitor mail document search power sync info warning terminal home calendar people phone camera music video download upload link shield key bug heart star flag clock car shop` (or a Segoe Fluent Icons hex code like `E749`). Options: `-Shape circle`, `-TextColor`. For toggles use a colour for ON and grey (`#9e9e9e`) for `iconOff`. Do not overwrite existing icon files unless asked. Without an icon a tray shows the TrayCommand logo. On Linux and macOS reuse existing images or leave the icon out.
+   Glyphs: `print globe settings folder play stop code cloud wifi lock monitor mail document search power sync info warning terminal home calendar people phone camera music video download upload link shield key bug heart star flag clock moon sun car shop` (or a Segoe Fluent Icons hex code like `E749`). Options: `-Shape circle`, `-TextColor`. For toggles use a colour for ON and grey (`#9e9e9e`) for `iconOff`. Do not overwrite existing icon files unless asked. Without an icon a tray shows the TrayCommand logo. On Linux and macOS reuse existing images or leave the icon out.
 6. To hide a tray or entry without deleting it, set `"hidden": true`; to show it again remove the property.
 
 ## 5. Validate
@@ -91,7 +92,7 @@ Never run actions that change the system (admin actions, stopping services, dele
 {{TRAYCOMMAND_PS}} --validate | Out-String
 ```
 
-It validates the configuration file that `--info` reports (or another one with `--validate=<file>`) and prints `{"ok":true|false,"file":"…","issues":[{"path":"trays[2].action","message":"…"}],"warnings":[…]}`; the exit code is 0 when valid. Fix every issue and validate again. Read the warnings too: missing icon files, admin actions while admin commands are off, `offAction` without `state`. If the file is invalid the running app keeps the previous configuration and shows an error, so never leave it invalid.
+(In PowerShell the exit code is in `$LASTEXITCODE` afterwards.) It validates the configuration file that `--info` reports (or another one with `--validate=<file>`) and prints `{"ok":true|false,"file":"…","issues":[{"path":"trays[2].action","message":"…"}],"warnings":[…]}`; the exit code is 0 when valid. Fix every issue and validate again. Read the warnings too: missing icon files, admin actions while admin commands are off, `offAction` without `state`. If the file is invalid the running app keeps the previous configuration and shows an error, so never leave it invalid.
 
 ## 6. Report
 

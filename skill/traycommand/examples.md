@@ -14,7 +14,7 @@ Left click runs the action, right click opens the menu. GUI programs are started
   "action": "Start-Process notepad",
   "menu": [
     { "label": "Calculator", "action": "Start-Process calc" },
-    { "label": "Downloads", "action": "Start-Process \"$env:USERPROFILE/Downloads\"" },
+    { "label": "Downloads", "action": "Start-Process explorer.exe 'shell:Downloads'" },
     { "separator": true },
     { "label": "Intranet", "action": "Start-Process https://intranet.example.com" }
   ]
@@ -97,6 +97,27 @@ The check fails (exit code ≠ 0) when the process does not exist → OFF.
   "offAction": "Set-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Explorer/Advanced' Hidden 0"
 }
 ```
+
+## Toggle: dark mode for apps
+
+The value is inverted: `AppsUseLightTheme` = 0 means dark mode ON. A menu adds related commands (right click).
+
+```json
+{
+  "id": "dark_mode",
+  "label": "Dark mode",
+  "icon": "icons/dark_on.png",
+  "state": { "check": "(Get-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Themes/Personalize' -ErrorAction Stop).AppsUseLightTheme", "on": "^0$", "interval": 10, "iconOff": "icons/dark_off.png" },
+  "action": "Set-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Themes/Personalize' AppsUseLightTheme 0 -Type DWord",
+  "offAction": "Set-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Themes/Personalize' AppsUseLightTheme 1 -Type DWord",
+  "menu": [
+    { "label": "Also for Windows (taskbar)", "action": "Set-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Themes/Personalize' SystemUsesLightTheme 0 -Type DWord" },
+    { "label": "Restart Explorer", "action": { "run": "Stop-Process -Name explorer -Force", "confirm": "Restart Windows Explorer? The taskbar disappears for a few seconds." } }
+  ]
+}
+```
+
+Icons: `make-icon.ps1 -Glyph moon -Color "#3949ab"` and `-Color "#9e9e9e"`. Windows restarts Explorer by itself after `Stop-Process`; tray icons (TrayCommand's too) disappear briefly.
 
 ## Toggle that drives others
 

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { UpdateInfo } from '../shared/api';
 import { runScript } from './runner';
-import { assetName, compareVersions, download, fetchLatestRelease, parseChecksums, sha256, windowsRunnerScript, type RunnerJob } from './update';
+import { assetName, compareVersions, download, fetchLatestRelease, parseChecksums, sha256, type RunnerJob } from './update';
 import { currentInstallRoot, installedExecutable } from './paths';
 
 /** Checks GitHub releases, downloads and verifies the new version, then hands over to the update runner. */
@@ -115,26 +115,27 @@ export class Updater {
         resultFile: path.join(this.dataDir, 'update-result.json'),
         version,
       };
+      // Windows: the new TrayCommand.exe runs the runner, so the folder being replaced is not in use
+      if (process.platform === 'win32') job.copy = true;
       const jobFile = path.join(dir, 'job.json');
       fs.writeFileSync(jobFile, JSON.stringify(job, null, 2));
-      if (process.platform === 'win32') {
-        const script = path.join(dir, 'update-runner.ps1');
-        fs.writeFileSync(script, `﻿${windowsRunnerScript(job)}`, 'utf8');
-        spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script], {
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true,
-        }).unref();
-      } else {
-        // Run a copy of the runner from the temp folder so the install folder is not needed while replaced.
-        const runner = path.join(dir, 'update-runner.cjs');
-        fs.copyFileSync(path.join(__dirname, 'update-runner.cjs'), runner);
-        spawn(process.execPath, [runner, jobFile], {
-          detached: true,
-          stdio: 'ignore',
-          env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', TRAYCOMMAND_UPDATE_RUNNER: '1' },
-        }).unref();
-      }
+      const runner = path.join(dir, 'update-runner.cjs');
+      fs.copyFileSync(path.join(__dirname, 'update-runner.cjs'), runner);
+      const runtime = process.platform === 'win32' ? installedExecutable(source) : process.execPath;
+      if (!fs.existsSync(runtime)) throw new Error(`The update does not contain ${path.basename(runtime)}`);
+      const child = spawn(runtime, [runner, jobFile], {
+        cwd: dir,
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', TRAYCOMMAND_UPDATE_RUNNER: '1' },
+      });
+      // make sure it really started before quitting
+      await new Promise<void>((resolve, reject) => {
+        child.once('spawn', () => resolve());
+        child.once('error', reject);
+      });
+      child.unref();
       this.set({ state: 'ready' });
       quit();
     } catch (error) {

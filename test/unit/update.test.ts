@@ -67,33 +67,46 @@ describe('applyUpdate', () => {
   });
 });
 
-describe.skipIf(process.platform !== 'win32')('windows runner script', () => {
-  it('swaps folders with PowerShell and writes the result', async () => {
-    const { windowsRunnerScript } = await import('../../src/main/update');
-    const { runScript } = await import('../../src/main/runner');
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-psrun-'));
+describe('detached update runner', () => {
+  it('survives its parent, copies the new version from a folder in use, writes the result and relaunches', async () => {
+    const { build } = await import('esbuild');
+    const { spawn } = await import('node:child_process');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-runner-'));
+    const runner = path.join(root, 'update-runner.cjs');
+    await build({ entryPoints: [path.resolve(__dirname, '../../src/main/updateRunner.ts')], outfile: runner, bundle: true, platform: 'node', format: 'cjs', logLevel: 'silent' });
     const target = path.join(root, 'Tray Command');
-    const source = path.join(root, 'new');
+    const source = path.join(root, 'update', 'extracted');
     fs.mkdirSync(target);
     fs.writeFileSync(path.join(target, 'v.txt'), 'old');
-    fs.mkdirSync(source);
+    fs.mkdirSync(source, { recursive: true });
     fs.writeFileSync(path.join(source, 'v.txt'), 'new');
-    const script = path.join(root, 'run.ps1');
-    fs.writeFileSync(
-      script,
-      `﻿${windowsRunnerScript({ pid: 999999, target, source, kind: 'dir', relaunch: { command: 'cmd.exe', args: ['/c', 'exit'], cwd: root }, resultFile: path.join(root, 'result.json'), version: '9.9.9' })}`,
-    );
-    const r = await runScript(`& powershell.exe -NoProfile -ExecutionPolicy Bypass -File '${script}'`, { shell: 'powershell' });
-    expect(r.code).toBe(0);
+    const relaunched = path.join(root, 'relaunched.txt');
+    const job = {
+      pid: 999999,
+      target,
+      source,
+      kind: 'dir',
+      copy: true,
+      relaunch: { command: process.execPath, args: ['-e', `require('fs').writeFileSync(${JSON.stringify(relaunched)}, 'yes')`], cwd: root },
+      resultFile: path.join(root, 'result.json'),
+      version: '9.9.9',
+    };
+    const jobFile = path.join(root, 'job.json');
+    fs.writeFileSync(jobFile, JSON.stringify(job));
+    // like the app: detached, hidden, run from the folder of the new version
+    const child = spawn(process.execPath, [runner, jobFile], { cwd: source, detached: true, stdio: 'ignore', windowsHide: true, env: { ...process.env, TRAYCOMMAND_UPDATE_RUNNER: '1' } });
+    child.unref();
+    const deadline = Date.now() + 20000;
+    while (!fs.existsSync(relaunched) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 200));
+    const result = JSON.parse(fs.readFileSync(job.resultFile, 'utf8'));
+    expect(result).toMatchObject({ ok: true, version: '9.9.9' });
     expect(fs.readFileSync(path.join(target, 'v.txt'), 'utf8')).toBe('new');
-    const result = JSON.parse(fs.readFileSync(path.join(root, 'result.json'), 'utf8').replace(/^﻿/, ''));
-    expect(result.ok).toBe(true);
-    expect(result.version).toBe('9.9.9');
-    await new Promise((r) => setTimeout(r, 1000));
+    expect(fs.existsSync(`${target}.old`)).toBe(false);
+    expect(fs.readFileSync(relaunched, 'utf8')).toBe('yes');
     try {
       fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     } catch {
-      /* the relaunched process may still hold the temp folder */
+      /* still in use by the exiting runner */
     }
-  });
+  }, 30000);
 });

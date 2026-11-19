@@ -14,7 +14,7 @@ import { ConfigStore } from './configStore';
 import { createAdminRunner, disableElevatedScript, enableElevatedScript, runElevatedOnce, runElevatedTask } from './elevation';
 import { evaluateState, Engine } from './engine';
 import { iconDataUrl } from './icons';
-import { installForUser, isInstalled } from './install';
+import { installForUser, isInstalled, startMenuShortcut } from './install';
 import { LogStore } from './logStore';
 import { APP_ID, APP_NAME, currentInstallRoot, DOCS_URL, machineInstallDir, samePath, userInstallDir } from './paths';
 import { onRunningChange, runningProcesses, runScript } from './runner';
@@ -565,6 +565,19 @@ void app.whenReady().then(() => {
       /* ignore */
     }
     fs.rmSync(resultFile, { force: true });
+    // the runner may still be closing: clean the downloaded files a bit later
+    setTimeout(() => {
+      try {
+        fs.rmSync(path.join(dataDir, 'update'), { recursive: true, force: true, maxRetries: 5, retryDelay: 1000 });
+      } catch {
+        /* removed at the next update */
+      }
+    }, 15000).unref();
+  }
+
+  // Installed for this user but the Start menu shortcut is gone: put it back.
+  if (process.platform === 'win32' && app.isPackaged && !option('data-dir') && samePath(currentInstallRoot(), userInstallDir()) && !fs.existsSync(startMenuShortcut())) {
+    writeShortcut(startMenuShortcut(), { target: process.execPath, args: '', cwd: path.dirname(process.execPath), description: 'Run commands from the tray', icon: process.execPath, appUserModelId: APP_ID });
   }
 
   const firstRun = state.get().lastVersion === undefined;

@@ -105,46 +105,6 @@ export interface RunnerJob {
   relaunch: { command: string; args: string[]; cwd: string };
   resultFile: string;
   version: string;
-}
-
-const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
-
-/**
- * Windows runner as a PowerShell script: no Electron runtime involved, so nothing
- * inside the install folder stays locked while it is being replaced.
- */
-export function windowsRunnerScript(job: RunnerJob): string {
-  const args = job.relaunch.args.length ? ` -ArgumentList ${job.relaunch.args.map((a) => psq(a.includes(' ') ? `"${a}"` : a)).join(',')}` : '';
-  return `$ErrorActionPreference = 'Stop'
-$target = ${psq(job.target)}
-$source = ${psq(job.source)}
-$backup = "$target.old"
-function Retry([scriptblock]$Action) {
-  $deadline = (Get-Date).AddSeconds(20)
-  while ($true) {
-    try { & $Action; return } catch { if ((Get-Date) -gt $deadline) { throw } ; Start-Sleep -Milliseconds 250 }
-  }
-}
-$result = @{ ok = $true; version = ${psq(job.version)}; time = [DateTimeOffset]::Now.ToUnixTimeMilliseconds() }
-try {
-  $p = Get-Process -Id ${job.pid} -ErrorAction SilentlyContinue
-  if ($p) { $null = $p.WaitForExit(60000) }
-  Start-Sleep -Milliseconds 500
-  if (Test-Path -LiteralPath $backup) { Retry { Remove-Item -LiteralPath $backup -Recurse -Force } }
-  $had = Test-Path -LiteralPath $target
-  if ($had) { Retry { Move-Item -LiteralPath $target -Destination $backup } }
-  try {
-    Retry { Move-Item -LiteralPath $source -Destination $target }
-  } catch {
-    if ($had) { Retry { Move-Item -LiteralPath $backup -Destination $target } }
-    throw
-  }
-  try { Remove-Item -LiteralPath $backup -Recurse -Force } catch {}
-} catch {
-  $result.ok = $false
-  $result.message = $_.Exception.Message
-}
-$result | ConvertTo-Json -Compress | Set-Content -Encoding UTF8 -LiteralPath ${psq(job.resultFile)}
-Start-Process -FilePath ${psq(job.relaunch.command)} -WorkingDirectory ${psq(job.relaunch.cwd)}${args}
-`;
+  /** Copy the source instead of moving it (Windows: the runner runs from the source folder, which stays locked). */
+  copy?: boolean;
 }

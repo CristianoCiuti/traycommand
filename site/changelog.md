@@ -2,6 +2,11 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.1.1 — update fix (Windows)
+
+- **Updates on Windows work again.** In 2.0.0 and 2.1.0 the helper that replaces the installation could be stopped by Windows before it ran: TrayCommand closed after the download and did not come back. The helper is now run by the new version itself. Versions 2.0.0 and 2.1.0 cannot update themselves to 2.1.1: download the zip once from the releases page, run `TrayCommand.exe` and click **Install** (your configuration is kept).
+- If the Start menu shortcut is missing, TrayCommand puts it back when it starts.
+
 ## 2.1.0 — AI assistants
 
 - **Skill for Claude Code and opencode**: TrayCommand finds the agents on your PC and proposes to install a skill that teaches them how to create and change trays. Kept up to date automatically, or after asking (`settings.skillUpdates`). See [AI assistants](./guide/ai-assistants).

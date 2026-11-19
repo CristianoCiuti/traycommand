@@ -1,10 +1,13 @@
 /*
- * Detached update runner. Started with ELECTRON_RUN_AS_NODE=1 from a copy in a temp
- * folder, so it does not lock the installation it replaces.
+ * Detached update runner, started with ELECTRON_RUN_AS_NODE=1 and never from the
+ * installation it replaces: on Windows by the NEW TrayCommand.exe in the extracted
+ * update (so the new version is copied, not moved: its folder is in use), elsewhere by
+ * the current executable running a copy of this file from the update folder.
+ * (A detached powershell.exe is not used: Windows ends it before it runs.)
  *
  *   1. waits for TrayCommand to exit
  *   2. moves the current installation aside (<target>.old)
- *   3. moves the new version in place (rolls back on failure)
+ *   3. moves or copies the new version in place (rolls back on failure)
  *   4. writes the result and relaunches TrayCommand
  */
 import fs from 'node:fs';
@@ -55,9 +58,11 @@ export async function applyUpdate(job: RunnerJob): Promise<{ ok: boolean; messag
   const hadTarget = fs.existsSync(job.target);
   if (hadTarget) await retry(() => move(job.target, backup, job.kind));
   try {
-    await retry(() => move(job.source, job.target, job.kind));
+    if (job.copy) await retry(() => fs.cpSync(job.source, job.target, { recursive: job.kind === 'dir', force: true }));
+    else await retry(() => move(job.source, job.target, job.kind));
     if (job.kind === 'file') fs.chmodSync(job.target, 0o755);
   } catch (error) {
+    await retry(() => fs.rmSync(job.target, { recursive: true, force: true }), 5000).catch(() => undefined);
     if (hadTarget) await retry(() => move(backup, job.target, job.kind)).catch(() => undefined);
     return { ok: false, message: (error as Error).message };
   }

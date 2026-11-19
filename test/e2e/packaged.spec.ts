@@ -12,7 +12,13 @@ test.skip(!fs.existsSync(exe), 'packaged app not built (npm run package)');
 test('packaged app starts, loads the config and shows the welcome page', async () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-pkg-'));
   fs.cpSync(path.join(here, 'fixtures'), work, { recursive: true });
-  const app = await electron.launch({ executablePath: exe, args: [`--data-dir=${path.join(work, 'data')}`, `--config=${path.join(work, 'config.json')}`] });
+  const agents = path.join(work, 'home');
+  fs.mkdirSync(path.join(agents, '.claude'), { recursive: true });
+  const app = await electron.launch({
+    executablePath: exe,
+    args: [`--data-dir=${path.join(work, 'data')}`, `--config=${path.join(work, 'config.json')}`],
+    env: { ...process.env, TRAYCOMMAND_AGENTS_HOME: agents },
+  });
   const page = await app.firstWindow();
   await page.setViewportSize({ width: 1200, height: 800 });
   // not installed in %LOCALAPPDATA%\Programs → welcome page offering the per-user install
@@ -22,5 +28,10 @@ test('packaged app starts, loads the config and shows the welcome page', async (
   await page.getByText('Continue').click();
   await expect(page.getByTestId('tray-row')).toHaveCount(4);
   expect(await app.evaluate(({ app }) => app.isPackaged)).toBe(true);
+  // the skill ships in resources/skill and is rendered with the packaged executable
+  await page.getByTestId('skill-banner-install').click();
+  const skill = fs.readFileSync(path.join(agents, '.claude', 'skills', 'traycommand', 'SKILL.md'), 'utf8');
+  expect(skill).toContain(exe.replace(/\\/g, '/'));
+  expect(fs.existsSync(path.join(agents, '.claude', 'skills', 'traycommand', 'scripts', 'make-icon.ps1'))).toBe(true);
   await app.evaluate(({ app }) => app.exit(0));
 });

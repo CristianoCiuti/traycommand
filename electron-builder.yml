@@ -12,6 +12,8 @@ extraResources:
   - from: assets
     to: assets
     filter: ['*.png']
+  - from: skill
+    to: skill
 asar: true
 electronLanguages: [en-US, it]
 

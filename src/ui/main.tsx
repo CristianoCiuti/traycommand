@@ -1,8 +1,8 @@
 import { render } from 'preact';
 import { useEffect } from 'preact/hooks';
-import { Activity, Braces, Loader2, Settings as SettingsIcon, SquareTerminal, CircleAlert } from 'lucide-preact';
+import { Activity, Braces, Loader2, Settings as SettingsIcon, SquareTerminal, CircleAlert, Sparkles } from 'lucide-preact';
 import './styles.css';
-import { dirty, discard, draft, info, init, loadIssues, navigate, route, save, toast, validation } from './store';
+import { api, dirty, discard, draft, info, init, loadIssues, navigate, route, save, showToast, skills, skillsSnoozed, toast, validation } from './store';
 import { TraysView } from './views/TraysView';
 import { SettingsView } from './views/SettingsView';
 import { LogsView } from './views/LogsView';
@@ -32,6 +32,37 @@ function SaveBar() {
       <button class="btn primary" disabled={invalid} onClick={() => void save()} data-testid="save">
         Save <span class="kbd" style={{ color: 'inherit', borderColor: 'currentColor', opacity: 0.7 }}>Ctrl+S</span>
       </button>
+    </div>
+  );
+}
+
+function names(labels: string[]) {
+  return labels.length > 1 ? `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}` : (labels[0] ?? '');
+}
+
+/** Proposes to install (or update) the TrayCommand skill for the AI agents found on this PC. */
+function SkillBanner() {
+  const s = skills.value;
+  if (!s || !s.offer.length || skillsSnoozed.value) return null;
+  const offered = s.agents.filter((a) => s.offer.includes(a.id));
+  const missing = offered.filter((a) => a.state === 'missing');
+  const changed = offered.filter((a) => a.state === 'modified');
+  const text = missing.length === offered.length
+    ? <>{names(offered.map((a) => a.label))} {offered.length > 1 ? 'are' : 'is'} on this PC. Install the TrayCommand skill and just ask: <i>“add a tray that starts my Docker stack”</i>.</>
+    : <>A newer TrayCommand skill is available for {names(offered.map((a) => a.label))}.{changed.length ? ` Your changes to the skill for ${names(changed.map((a) => a.label))} will be replaced.` : ''}</>;
+  return (
+    <div class="banner" data-testid="skill-banner">
+      <Sparkles size={18} color="var(--accent)" />
+      <span class="msg">{text}</span>
+      <button class="btn sm primary" data-testid="skill-banner-install" onClick={async () => {
+        const r = await api.installSkill(s.offer);
+        skills.value = r;
+        showToast(r.error ?? `TrayCommand skill installed for ${names(offered.map((a) => a.label))}`, r.error ? 'error' : 'ok');
+      }}>
+        {missing.length === offered.length ? 'Install' : 'Update'}
+      </button>
+      <button class="btn sm ghost" onClick={() => (skillsSnoozed.value = true)}>Not now</button>
+      <button class="btn sm ghost" data-testid="skill-banner-decline" onClick={async () => (skills.value = await api.declineSkill(s.offer))}>Don't ask again</button>
     </div>
   );
 }
@@ -84,7 +115,8 @@ function App() {
         </nav>
         <span class="spacer" />
       </header>
-      <div style={{ minHeight: 0 }}>
+      <div class="content">
+        <div>{current !== '/welcome' && <SkillBanner />}</div>
         {current === '/welcome' ? <WelcomeView /> : current === '/json' || (broken && current !== '/logs') ? <JsonView /> : current === '/settings' ? <SettingsView /> : current === '/logs' ? <LogsView /> : <TraysView />}
       </div>
       <SaveBar />

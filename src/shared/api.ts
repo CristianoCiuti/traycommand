@@ -70,6 +70,23 @@ export interface UpdateInfo {
   error?: string;
 }
 
+export interface AgentSkillInfo {
+  id: 'claude' | 'opencode';
+  label: string;
+  present: boolean;
+  state: 'missing' | 'current' | 'outdated' | 'modified';
+  version?: string;
+  dir: string;
+}
+
+export interface SkillsInfo {
+  agents: AgentSkillInfo[];
+  /** Agents to propose (install or update), not declined by the user. */
+  offer: AgentSkillInfo['id'][];
+  auto: boolean;
+  error?: string;
+}
+
 export interface SaveResult {
   ok: boolean;
   issues?: ConfigIssue[];
@@ -106,6 +123,11 @@ export interface TrayCommandApi {
   restoreBackup(name: string): Promise<SaveResult>;
   backups(): Promise<{ name: string; time: number }[]>;
   onNavigate(handler: (route: string) => void): () => void;
+  skills(): Promise<SkillsInfo>;
+  installSkill(ids: AgentSkillInfo['id'][]): Promise<SkillsInfo>;
+  uninstallSkill(id: AgentSkillInfo['id']): Promise<SkillsInfo>;
+  declineSkill(ids: AgentSkillInfo['id'][]): Promise<SkillsInfo>;
+  onSkills(handler: (info: SkillsInfo) => void): () => void;
   windowControl(action: 'minimize' | 'maximize' | 'close'): void;
 }
 

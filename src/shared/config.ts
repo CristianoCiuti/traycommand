@@ -151,6 +151,10 @@ export const SettingsSchema = z
     checkUpdates: z.boolean().default(true),
     autostart: z.boolean().default(false).describe('Start TrayCommand when you log in.'),
     allowAdminCommands: z.boolean().default(false).describe('Allow actions with "admin": true (UAC prompt on each run).'),
+    skillUpdates: z
+      .enum(['auto', 'ask'])
+      .default('auto')
+      .describe('TrayCommand skill for AI agents (Claude Code, opencode): "auto" = update it silently when TrayCommand has a newer one, "ask" = ask first.'),
   })
   .strict();
 export type Settings = z.infer<typeof SettingsSchema>;

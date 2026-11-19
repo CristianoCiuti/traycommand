@@ -74,6 +74,10 @@ a:hover { text-decoration: underline; }
 
 /* ---------- shell ---------- */
 .app { display: grid; grid-template-rows: 44px 1fr; height: 100%; }
+.content { display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+.banner { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--accent-soft); border-bottom: 1px solid var(--border); font-size: 13px; }
+.banner .msg { flex: 1; min-width: 0; }
+.skill-status { display: inline-flex; align-items: center; gap: 6px; }
 .titlebar {
   -webkit-app-region: drag;
   display: flex; align-items: center; gap: 18px;

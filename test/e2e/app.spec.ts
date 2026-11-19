@@ -10,6 +10,7 @@ const shots = path.join(root, 'test-results', 'screens');
 let app: ElectronApplication;
 let page: Page;
 let work: string;
+let agents: string;
 
 async function shot(name: string) {
   fs.mkdirSync(shots, { recursive: true });
@@ -19,10 +20,14 @@ async function shot(name: string) {
 test.beforeAll(async () => {
   work = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-e2e-'));
   fs.cpSync(path.join(here, 'fixtures'), work, { recursive: true });
+  // fake home with Claude Code and opencode user folders: the real ones are never touched
+  agents = path.join(work, 'home');
+  fs.mkdirSync(path.join(agents, '.claude'), { recursive: true });
+  fs.mkdirSync(path.join(agents, '.config', 'opencode'), { recursive: true });
   for (const f of ['tc-e2e-proxy', 'tc-e2e-git']) fs.rmSync(path.join(os.tmpdir(), f), { force: true });
   app = await electron.launch({
     args: [root, `--data-dir=${path.join(work, 'data')}`, `--config=${path.join(work, 'config.json')}`],
-    env: { ...process.env, TRAYCOMMAND_E2E: '1' },
+    env: { ...process.env, TRAYCOMMAND_E2E: '1', TRAYCOMMAND_AGENTS_HOME: agents },
   });
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1200, height: 800 });
@@ -161,6 +166,39 @@ test('settings: elevated mode shows the red warning and needs explicit consent',
   await shot('08-elevated-warning');
   await page.getByTestId('elevated-cancel').click(); // never actually enabled in tests
   await expect(page.getByTestId('elevated-dialog')).toBeHidden();
+});
+
+test('AI skill: the banner offers it, install writes it for both agents, settings manage it', async () => {
+  await page.getByTestId('tab-trays').click();
+  const banner = page.getByTestId('skill-banner');
+  await expect(banner).toContainText('Claude Code and opencode');
+  await shot('12-skill-banner');
+  await page.getByTestId('skill-banner-install').click();
+  await expect(banner).toBeHidden();
+  const claude = path.join(agents, '.claude', 'skills', 'traycommand', 'SKILL.md');
+  const opencode = path.join(agents, '.config', 'opencode', 'skills', 'traycommand', 'SKILL.md');
+  expect(fs.readFileSync(claude, 'utf8')).toMatch(/^---\nname: traycommand\n/);
+  expect(fs.readFileSync(claude, 'utf8')).toContain('--validate');
+  expect(fs.existsSync(opencode)).toBe(true);
+  await page.getByTestId('tab-settings').click();
+  await expect(page.getByTestId('skill-claude')).toContainText('Skill installed');
+  await page.getByTestId('skills-card').scrollIntoViewIfNeeded();
+  await shot('13-skill-settings');
+  // a change made by the user is detected, Update restores the shipped skill
+  fs.appendFileSync(claude, '\nlocal notes\n');
+  await page.getByTestId('tab-trays').click();
+  await page.getByTestId('tab-settings').click();
+  await expect(page.getByTestId('skill-claude')).toContainText('changed after installation');
+  await expect(banner).toContainText('Your changes');
+  await page.getByTestId('skill-update-claude').click();
+  await expect(page.getByTestId('skill-claude')).toContainText('Skill installed');
+  expect(fs.readFileSync(claude, 'utf8')).not.toContain('local notes');
+  // removing for one agent remembers the choice: no banner for it afterwards
+  await page.getByTestId('skill-remove-opencode').click();
+  await expect(page.getByTestId('skill-opencode')).toContainText('skill not installed');
+  expect(fs.existsSync(opencode)).toBe(false);
+  await page.getByTestId('tab-trays').click();
+  await expect(banner).toBeHidden();
 });
 
 test('json view shows validation errors', async () => {

@@ -2,6 +2,11 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.1.0 — AI assistants
+
+- **Skill for Claude Code and opencode**: TrayCommand finds the agents on your PC and proposes to install a skill that teaches them how to create and change trays. Kept up to date automatically, or after asking (`settings.skillUpdates`). See [AI assistants](./guide/ai-assistants).
+- **Command line tools**: `--info` prints where the configuration and data are, `--validate` checks a configuration file. See [command line](./reference/cli#tools-for-scripts-and-ai-agents).
+
 ## 2.0.0 — complete rewrite
 
 TrayCommand 2.0 is rewritten from scratch, with a new configuration format and a visual editor.

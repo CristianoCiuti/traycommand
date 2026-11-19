@@ -29,6 +29,7 @@ export default defineConfig({
             { text: 'The editor', link: '/guide/editor' },
             { text: 'Start at login and updates', link: '/guide/startup-and-updates' },
             { text: 'Administrator', link: '/guide/administrator' },
+            { text: 'AI assistants', link: '/guide/ai-assistants' },
             { text: 'Windows, Linux, macOS', link: '/guide/platforms' },
             { text: 'Migrating from 1.x', link: '/guide/migration' },
           ],

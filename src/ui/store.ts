@@ -1,5 +1,5 @@
 import { computed, signal } from '@preact/signals';
-import type { AppInfo, EntryStatus, ExecutionLog, UpdateInfo } from '../shared/api';
+import type { AppInfo, EntryStatus, ExecutionLog, SkillsInfo, UpdateInfo } from '../shared/api';
 import { type Config, type MenuEntry, type MenuNode, type Tray, isSeparator, parseConfig, type ConfigIssue } from '../shared/config';
 
 export const api = window.traycommand;
@@ -12,6 +12,9 @@ export const rawText = signal('');
 export const status = signal<Map<string, EntryStatus>>(new Map());
 export const logs = signal<ExecutionLog[]>([]);
 export const update = signal<UpdateInfo | undefined>(undefined);
+export const skills = signal<SkillsInfo | undefined>(undefined);
+/** The skill banner was closed with "Not now" (until the next start). */
+export const skillsSnoozed = signal(false);
 export const route = signal<string>(location.hash.replace(/^#/, '') || '/');
 /** Path of the selected entry: [trayIndex, menuIndex, ...] */
 export const selection = signal<number[]>([]);
@@ -65,6 +68,8 @@ export async function init() {
   api.onConfigChanged(() => void reload());
   api.onUpdate((u) => (update.value = u));
   api.onNavigate((to) => navigate(to));
+  api.onSkills((s) => (skills.value = s));
+  skills.value = await api.skills();
   if (draft.value?.trays.length && selection.value.length === 0) selection.value = [0];
 }
 

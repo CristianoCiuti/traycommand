@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
-import { ExternalLink, FolderOpen, History, RefreshCw, ShieldAlert, ShieldCheck, Download, FileCog } from 'lucide-preact';
+import { ExternalLink, FolderOpen, History, RefreshCw, ShieldAlert, ShieldCheck, Download, FileCog, Sparkles } from 'lucide-preact';
+import type { AgentSkillInfo } from '../../shared/api';
 import type { Settings } from '../../shared/config';
-import { api, draft, info, mutate, reload, showToast, update } from '../store';
+import { api, draft, info, mutate, reload, showToast, skills, update } from '../store';
 import { Card, Dialog, Switch } from '../components/ui';
 import { ShellSelect } from './ActionEditor';
 
@@ -14,6 +15,75 @@ function Setting(props: { title: string; desc?: string; children: preact.Compone
       </div>
       <div>{props.children}</div>
     </div>
+  );
+}
+
+function skillText(a: AgentSkillInfo): string {
+  if (a.state === 'current') return `Skill installed${a.version ? ` (TrayCommand ${a.version})` : ''}`;
+  if (a.state === 'outdated') return 'Skill installed, a newer version is available';
+  if (a.state === 'modified') return 'Skill changed after installation: updating replaces your changes';
+  return a.present ? 'Found on this PC, skill not installed' : 'Not found on this PC';
+}
+
+function SkillsCard(props: { mode: 'auto' | 'ask'; setMode: (m: 'auto' | 'ask') => void }) {
+  const s = skills.value;
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    // files may have changed outside TrayCommand
+    void api.skills().then((r) => (skills.value = r));
+  }, []);
+  const run = async (fn: () => Promise<typeof s>, done: string) => {
+    setBusy(true);
+    try {
+      const r = await fn();
+      skills.value = r;
+      showToast(r?.error ?? done, r?.error ? 'error' : 'ok');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card title="AI assistants" icon={<Sparkles size={16} />} desc="Create and change trays by asking Claude Code or opencode" testId="skills-card">
+      <div class="settings-list">
+        <div class="setting" style={{ gridTemplateColumns: '1fr' }}>
+          <div class="d" style={{ color: 'var(--text-2)' }}>
+            The TrayCommand skill teaches the agent what TrayCommand can do and where your configuration is. Then just ask, for example <i>“add a tray that turns the VPN on and off”</i> or <i>“hide the Docker tray”</i>. The agent edits the configuration file and TrayCommand applies it right away. Installed in your user folder of each agent; nothing else is changed.
+          </div>
+        </div>
+        {s?.agents.map((a) => (
+          <Setting title={a.label} desc={skillText(a)} testId={`skill-${a.id}`}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {a.state === 'missing' ? (
+                <button class="btn sm primary" disabled={busy || !a.present} onClick={() => run(() => api.installSkill([a.id]), `Skill installed for ${a.label}`)} data-testid={`skill-install-${a.id}`}>
+                  Install
+                </button>
+              ) : (
+                <>
+                  {a.state !== 'current' && (
+                    <button class="btn sm primary" disabled={busy} onClick={() => run(() => api.installSkill([a.id]), `Skill updated for ${a.label}`)} data-testid={`skill-update-${a.id}`}>
+                      Update
+                    </button>
+                  )}
+                  <button class="btn sm" title={a.dir} onClick={() => api.openPath(a.dir)}>
+                    <FolderOpen size={14} />
+                  </button>
+                  <button class="btn sm" disabled={busy} onClick={() => run(() => api.uninstallSkill(a.id), `Skill removed for ${a.label}`)} data-testid={`skill-remove-${a.id}`}>
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
+          </Setting>
+        ))}
+        <Setting title="Skill updates" desc="When a new version of TrayCommand brings a newer skill">
+          <select class="select" value={props.mode} onChange={(e) => props.setMode((e.currentTarget as HTMLSelectElement).value as 'auto' | 'ask')} data-testid="skill-updates">
+            <option value="auto">Update automatically</option>
+            <option value="ask">Ask me first</option>
+          </select>
+        </Setting>
+        {s?.error && <div class="card-empty" style={{ color: 'var(--danger)' }}>{s.error}</div>}
+      </div>
+    </Card>
   );
 }
 
@@ -155,6 +225,8 @@ export function SettingsView() {
             {!backups.length && <div class="card-empty">No backups yet.</div>}
           </div>
         </Card>
+
+        <SkillsCard mode={s.skillUpdates} setMode={(m) => set('skillUpdates', m)} />
 
         <Card title="Updates" icon={<Download size={16} />}>
           <div class="settings-list">

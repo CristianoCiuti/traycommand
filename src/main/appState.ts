@@ -12,6 +12,8 @@ export interface AppState {
   startElevated?: boolean;
   lastVersion?: string;
   updateResult?: { ok: boolean; version: string; message?: string; time: number };
+  /** AI agent skill: agents the user does not want it for, last version that sent a notification. */
+  skills?: { declined?: string[]; notifiedVersion?: string };
 }
 
 export class AppStateStore {

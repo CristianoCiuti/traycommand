@@ -42,6 +42,11 @@ const api: TrayCommandApi = {
   restoreBackup: invoke('config:restore') as TrayCommandApi['restoreBackup'],
   backups: invoke('config:backups') as TrayCommandApi['backups'],
   onNavigate: subscribe('navigate'),
+  skills: invoke('skills:status') as TrayCommandApi['skills'],
+  installSkill: invoke('skills:install') as TrayCommandApi['installSkill'],
+  uninstallSkill: invoke('skills:uninstall') as TrayCommandApi['uninstallSkill'],
+  declineSkill: invoke('skills:decline') as TrayCommandApi['declineSkill'],
+  onSkills: subscribe('skills'),
   windowControl: (action) => ipcRenderer.send('window', action),
 };
 

@@ -26,6 +26,25 @@ Examples:
 ```
 :::
 
+## Tools for scripts and AI agents
+
+These options print JSON and exit at once, without starting TrayCommand (they work while it is running too).
+
+| Option | Output | Exit code |
+| --- | --- | --- |
+| `--info` | `version`, `configPath`, `configDir`, `configExists`, `dataDir`, `backupsDir`, `platform`, `defaultShell`, `schema`, `docs` | 0 |
+| `--validate` | Validates the configuration file in use: `{ "ok", "file", "issues": [{ "path", "message" }], "warnings" }` | 0 valid, 1 invalid |
+| `--validate=<file>` | Same, for another file | 0 / 1 |
+
+They honour `--config`, `TRAYCOMMAND_CONFIG` and `--data-dir` like a normal start.
+
+::: tip PowerShell
+TrayCommand is a windowed app: PowerShell waits for it and shows its output only when the output is piped.
+```powershell
+& "$env:LOCALAPPDATA\Programs\TrayCommand\TrayCommand.exe" --validate | Out-String
+```
+:::
+
 ## Environment variable
 
 | Variable | Description |

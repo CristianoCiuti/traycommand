@@ -3,8 +3,11 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { normalizeAction, parseConfig, type Action, type Config } from '../shared/config';
-import type { AppInfo, ExecutionLog, LoadedConfig, SaveResult, TestResult } from '../shared/api';
+import { isSeparator, normalizeAction, parseConfig, SCHEMA_URL, type Action, type Config, type MenuEntry, type MenuNode, type Tray } from '../shared/config';
+import { expand } from '../shared/variables';
+import type { AgentSkillInfo, AppInfo, ExecutionLog, LoadedConfig, SaveResult, SkillsInfo, TestResult } from '../shared/api';
+import { defaultShell } from './shell';
+import { installSkill, planSkills, renderSkill, skillStatus, uninstallSkill, type SkillEnv } from './skills';
 import { AppStateStore } from './appState';
 import { defaultAutostartEnv, disableAutostart, isAutostartEnabled, startupFolder, syncAutostart, type LaunchTarget } from './autostart';
 import { ConfigStore } from './configStore';
@@ -32,22 +35,82 @@ const dataDir = app.getPath('userData');
 
 if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
 
+const state = new AppStateStore(path.join(dataDir, 'state.json'));
+const configPath = path.resolve(option('config') ?? process.env.TRAYCOMMAND_CONFIG ?? state.get().configPath ?? path.join(dataDir, 'traycommand.json'));
+
+/* ---------------- command line tools (also used by the AI agent skill) ---------------- */
+
+function cliExit(output: unknown, code: number): never {
+  process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+  app.exit(code);
+  process.exit(code);
+}
+
+if (flag('info')) {
+  let settingsShell: unknown;
+  try {
+    const raw = JSON.parse(fs.readFileSync(configPath, 'utf8').replace(/^﻿/, '')) as { settings?: { shell?: unknown } };
+    settingsShell = raw.settings?.shell;
+  } catch {
+    /* missing or invalid file: default shell */
+  }
+  cliExit(
+    {
+      version: app.getVersion(),
+      configPath,
+      configDir: path.dirname(configPath),
+      configExists: fs.existsSync(configPath),
+      dataDir,
+      backupsDir: path.join(dataDir, 'backups'),
+      platform: process.platform,
+      defaultShell: settingsShell ?? defaultShell(),
+      schema: SCHEMA_URL,
+      docs: DOCS_URL,
+    },
+    0,
+  );
+}
+
+const validateArg = argv.find((a) => a === '--validate' || a.startsWith('--validate='));
+if (validateArg) {
+  const file = path.resolve(validateArg.includes('=') ? validateArg.slice('--validate='.length) : configPath);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, ''));
+  } catch (error) {
+    cliExit({ ok: false, file, issues: [{ path: '', message: (error as Error).message }], warnings: [] }, 1);
+  }
+  const r = parseConfig(raw);
+  if (!r.ok) cliExit({ ok: false, file, issues: r.issues, warnings: [] }, 1);
+  // icons are resolved like at run time: variables, then relative to the file folder
+  const ctx = { variables: r.config.variables, env: process.env, configDir: path.dirname(file) };
+  const warnings = [...r.warnings];
+  const visit = (node: MenuNode | Tray, at: string) => {
+    if (isSeparator(node as MenuNode)) return;
+    const entry = node as MenuEntry;
+    for (const [key, value] of [['icon', entry.icon], ['state.iconOff', entry.state?.iconOff]] as const) {
+      if (value && !fs.existsSync(path.resolve(path.dirname(file), expand(value, ctx)))) warnings.push({ path: `${at}.${key}`, message: `Icon file not found: ${value}` });
+    }
+    entry.menu?.forEach((child, i) => visit(child, `${at}.menu[${i}]`));
+  };
+  r.config.trays.forEach((t, i) => visit(t, `trays[${i}]`));
+  cliExit({ ok: true, file, issues: [], warnings }, 0);
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
 
-const state = new AppStateStore(path.join(dataDir, 'state.json'));
 const logs = new LogStore(path.join(dataDir, 'logs'));
-const configPath = path.resolve(option('config') ?? process.env.TRAYCOMMAND_CONFIG ?? state.get().configPath ?? path.join(dataDir, 'traycommand.json'));
 
 /* ---------------- notifications & dialogs ---------------- */
 
-function notify(title: string, body: string, kind: 'info' | 'warning' | 'error' = 'info') {
+function notify(title: string, body: string, kind: 'info' | 'warning' | 'error' = 'info', route?: string) {
   if (!Notification.isSupported()) return;
   const n = new Notification({ title, body, silent: kind === 'info', urgency: kind === 'error' ? 'critical' : 'normal' });
   n.on('click', () => {
-    if (kind === 'error') showWindow(state, '/logs', devUrl);
+    if (route ?? kind === 'error') showWindow(state, route ?? '/logs', devUrl);
   });
   n.show();
 }
@@ -84,8 +147,19 @@ function applyLoaded(loaded: LoadedConfig) {
   engine.start();
   applyTheme(loaded.config.settings.theme);
   applySettings(loaded.config);
+  if (skillsStarted && skillsAutomatic && loaded.config.settings.skillUpdates === 'auto') {
+    // switched to automatic updates: bring outdated skills up to date now
+    try {
+      const outdated = skillsInfo().agents.filter((a) => a.state === 'outdated').map((a) => a.id);
+      if (outdated.length) installSkills(outdated);
+    } catch {
+      /* reported by skillsInfo */
+    }
+  }
+  if (skillsStarted) skillsChanged();
   sendToWindow('config-changed');
 }
+let skillsStarted = false;
 
 const store = new ConfigStore(configPath, path.join(dataDir, 'backups'), (loaded) => applyLoaded(loaded));
 
@@ -136,6 +210,111 @@ updater.onChange((info) => {
   sendToWindow('update', info);
   if (info.state === 'available') trays?.scheduleSync();
 });
+
+/* ---------------- AI agent skill (Claude Code, opencode) ---------------- */
+
+// Tests point the agents' home elsewhere; isolated runs (--data-dir) never act on their own.
+const agentsHome = process.env.TRAYCOMMAND_AGENTS_HOME ?? os.homedir();
+const skillsAutomatic = !!process.env.TRAYCOMMAND_AGENTS_HOME || !option('data-dir');
+let skillsError: string | undefined;
+
+function skillSource(): string {
+  const packaged = process.resourcesPath ? path.join(process.resourcesPath, 'skill', 'traycommand') : '';
+  if (packaged && fs.existsSync(packaged)) return packaged;
+  return path.join(__dirname, '..', '..', 'skill', 'traycommand');
+}
+
+/** Command line that starts this TrayCommand (packaged executable, AppImage, or electron + app folder in dev). */
+function cliParts(): string[] {
+  if (process.platform === 'linux' && process.env.APPIMAGE) return [process.env.APPIMAGE];
+  return app.isPackaged ? [process.execPath] : [process.execPath, app.getAppPath()];
+}
+
+function skillEnv(): SkillEnv {
+  const parts = cliParts();
+  const slash = (p: string) => (process.platform === 'win32' ? p.replace(/\\/g, '/') : p);
+  return {
+    home: agentsHome,
+    env: process.env,
+    platform: process.platform,
+    source: skillSource(),
+    version: app.getVersion(),
+    values: {
+      TRAYCOMMAND_VERSION: app.getVersion(),
+      TRAYCOMMAND_SH: parts.map((p) => `"${slash(p)}"`).join(' '),
+      TRAYCOMMAND_PS: `& ${parts.map((p) => `'${p.replace(/'/g, "''")}'`).join(' ')}`,
+    },
+  };
+}
+
+function skillsAuto(): boolean {
+  return store.loaded?.ok ? store.loaded.config.settings.skillUpdates === 'auto' : true;
+}
+
+function skillsInfo(): SkillsInfo {
+  try {
+    const agents = skillStatus(skillEnv());
+    const plan = planSkills(agents, { auto: false, declined: state.get().skills?.declined ?? [] });
+    // with automatic updates, plain "outdated" skills are handled without asking
+    const offer = plan.offer.filter((id) => !(skillsAuto() && agents.find((a) => a.id === id)?.state === 'outdated'));
+    return { agents, offer, auto: skillsAuto(), error: skillsError };
+  } catch (error) {
+    return { agents: [], offer: [], auto: skillsAuto(), error: (error as Error).message };
+  }
+}
+
+function skillsChanged() {
+  sendToWindow('skills', skillsInfo());
+}
+
+function setDeclined(ids: string[], declined: boolean) {
+  const current = new Set(state.get().skills?.declined ?? []);
+  for (const id of ids) {
+    if (declined) current.add(id);
+    else current.delete(id);
+  }
+  state.update({ skills: { ...state.get().skills, declined: [...current] } });
+}
+
+function installSkills(ids: AgentSkillInfo['id'][]): SkillsInfo {
+  skillsError = undefined;
+  try {
+    const e = skillEnv();
+    const rendered = renderSkill(e.source, e.values);
+    for (const id of ids) installSkill(e, id, rendered);
+    setDeclined(ids, false);
+  } catch (error) {
+    skillsError = `Cannot install the skill: ${(error as Error).message}`;
+  }
+  const info = skillsInfo();
+  skillsChanged();
+  return info;
+}
+
+/** At startup: silent update of outdated skills (when automatic), then a notification for what needs the user. */
+function startupSkills(windowShown: boolean) {
+  if (!skillsAutomatic) return;
+  try {
+    const e = skillEnv();
+    const rendered = renderSkill(e.source, e.values);
+    const status = skillStatus(e, rendered);
+    const plan = planSkills(status, { auto: skillsAuto(), declined: state.get().skills?.declined ?? [] });
+    for (const id of plan.autoUpdate) installSkill(e, id, rendered);
+    if (plan.autoUpdate.length) {
+      const names = plan.autoUpdate.map((id) => status.find((s) => s.id === id)!.label).join(' and ');
+      notify('TrayCommand', `TrayCommand skill updated for ${names}`);
+    }
+    const offer = skillsInfo().offer;
+    if (offer.length && !windowShown && state.get().skills?.notifiedVersion !== app.getVersion()) {
+      state.update({ skills: { ...state.get().skills, notifiedVersion: app.getVersion() } });
+      const names = offer.map((id) => status.find((s) => s.id === id)!.label).join(' and ');
+      notify('TrayCommand', `${names} found: install the TrayCommand skill to create and change trays by asking the AI. Click to set it up.`, 'info', '/settings');
+    }
+  } catch (error) {
+    skillsError = `Cannot update the skill: ${(error as Error).message}`;
+  }
+  skillsChanged();
+}
 
 function quit() {
   trays?.destroy();
@@ -287,6 +466,24 @@ function registerIpc() {
     if (r.code === 0) setTimeout(quit, 500);
     return r.code === 0;
   });
+  handle('skills:status', () => skillsInfo());
+  handle('skills:install', (ids: AgentSkillInfo['id'][]) => installSkills(ids));
+  handle('skills:uninstall', (id: AgentSkillInfo['id']) => {
+    skillsError = undefined;
+    try {
+      uninstallSkill({ home: agentsHome }, id);
+      setDeclined([id], true);
+    } catch (error) {
+      skillsError = `Cannot remove the skill: ${(error as Error).message}`;
+    }
+    skillsChanged();
+    return skillsInfo();
+  });
+  handle('skills:decline', (ids: AgentSkillInfo['id'][]) => {
+    setDeclined(ids, true);
+    skillsChanged();
+    return skillsInfo();
+  });
   handle('update:check', () => updater.check());
   handle('update:install', () => updater.install(quit));
   handle('install', () => {
@@ -373,7 +570,10 @@ void app.whenReady().then(() => {
   const firstRun = state.get().lastVersion === undefined;
   state.update({ lastVersion: app.getVersion() });
   const settings = loaded.ok ? loaded.config.settings : undefined;
-  if (!flag('hidden') || firstRun) showWindow(state, app.isPackaged && !isInstalled() && process.platform !== 'darwin' ? '/welcome' : '/', devUrl);
+  const showNow = !flag('hidden') || firstRun;
+  if (showNow) showWindow(state, app.isPackaged && !isInstalled() && process.platform !== 'darwin' ? '/welcome' : '/', devUrl);
   else if (settings?.notifyOnStartup) notify('TrayCommand', 'Running in the tray');
+  startupSkills(showNow);
+  skillsStarted = true;
 });
 

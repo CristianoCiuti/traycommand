@@ -6,7 +6,7 @@ import { EntryIcon } from '../components/ui';
 function describe(e: MenuEntry): string {
   const parts: string[] = [];
   const run = typeof e.action === 'string' ? e.action : e.action?.run;
-  if (e.menu?.length) parts.push(`${e.menu.length} items`);
+  if (e.menu?.length) parts.push(`${e.menu.length} ${e.menu.length === 1 ? 'item' : 'items'}`);
   if (run) parts.push(run.split('\n')[0]!);
   return parts.join(' · ');
 }

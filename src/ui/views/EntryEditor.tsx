@@ -135,7 +135,7 @@ export function EntryEditor(props: { path: number[] }) {
         </Card>
       )}
 
-      <Card title={isTray ? 'Menu' : 'Sub menu'} icon={<ListTree size={16} />} desc={`${(entry.menu ?? []).length} entries`} testId="card-menu">
+      <Card title={isTray ? 'Menu' : 'Sub menu'} icon={<ListTree size={16} />} desc={`${(entry.menu ?? []).length} ${(entry.menu ?? []).length === 1 ? 'entry' : 'entries'}`} testId="card-menu">
         <MenuEditor path={path} />
       </Card>
 

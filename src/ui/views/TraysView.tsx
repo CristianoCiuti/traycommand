@@ -24,7 +24,7 @@ function subtitle(tray: Tray) {
   const parts: string[] = [];
   if (tray.state) parts.push('toggle');
   if (tray.action) parts.push('click action');
-  if (tray.menu?.length) parts.push(`${tray.menu.length} menu entries`);
+  if (tray.menu?.length) parts.push(`${tray.menu.length} menu ${tray.menu.length === 1 ? 'entry' : 'entries'}`);
   return parts.join(' · ') || 'empty';
 }
 

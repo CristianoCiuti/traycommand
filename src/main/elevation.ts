@@ -33,9 +33,12 @@ ${script}
     args = `-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ${quoteWindowsArg(inner)}`;
   } else if (shell === 'cmd') {
     const inner = path.join(dir, 'command.cmd');
-    files[inner] = `@echo off
-chcp 65001 >nul
-${script}
+    files[inner] = `@echo off
+
+chcp 65001 >nul
+
+${script}
+
 `;
     exe = 'cmd.exe';
     args = `/d /c ${quoteWindowsArg(inner)}`;
@@ -112,7 +115,7 @@ export const ELEVATED_TASK_NAME = 'StartElevated';
 
 /** Elevated script that installs into Program Files and registers the logon task. */
 export function enableElevatedScript(sourceDir: string, targetDir: string, user: string, startupLnk: string): string {
-  const exe = path.join(targetDir, `${APP_NAME}.exe`);
+  const exe = path.win32.join(targetDir, `${APP_NAME}.exe`);
   return `$ErrorActionPreference='Stop'
 New-Item -ItemType Directory -Force -Path ${psQuote(targetDir)} | Out-Null
 if ((Resolve-Path ${psQuote(sourceDir)}).Path -ne (Resolve-Path ${psQuote(targetDir)}).Path) {

@@ -38,6 +38,7 @@ export interface RuntimeEntry {
   on?: boolean;
   busy: boolean;
   checking: boolean;
+  inflight?: Promise<void>;
   timer?: NodeJS.Timeout;
   lastCheck?: number;
 }
@@ -337,9 +338,12 @@ export class Engine {
     entry.timer = setTimeout(() => void this.check(entry, generation), delayMs);
   }
 
+  /** Runs a check now; if one is already running, waits for it and checks again with fresh data. */
   async checkNow(key: string) {
     const entry = this.get(key);
-    if (entry?.entry.state) await this.check(entry, this.generation, true);
+    if (!entry?.entry.state) return;
+    if (entry.inflight) await entry.inflight.catch(() => undefined);
+    await this.check(entry, this.generation, true);
   }
 
   private async check(entry: RuntimeEntry, generation: number, force = false) {
@@ -354,12 +358,15 @@ export class Engine {
     }
     entry.checking = true;
     let result: RunResult;
+    const pending = this.deps.run(this.expandText(state.check), {
+      ...this.runOptions(entry, { shell: state.shell, timeout: Math.max(state.interval, 30) }),
+    });
+    entry.inflight = pending.then(() => undefined);
     try {
-      result = await this.deps.run(this.expandText(state.check), {
-        ...this.runOptions(entry, { shell: state.shell, timeout: Math.max(state.interval, 30) }),
-      });
+      result = await pending;
     } finally {
       entry.checking = false;
+      entry.inflight = undefined;
     }
     if (generation !== this.generation) return;
     const on = evaluateState(result, state.on, state.off);

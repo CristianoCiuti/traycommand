@@ -98,6 +98,7 @@ export interface TrayCommandApi {
   setConfigPath(path: string): Promise<SaveResult>;
   setAutostart(on: boolean): Promise<boolean>;
   setStartElevated(on: boolean): Promise<{ ok: boolean; message?: string }>;
+  restartElevated(): Promise<boolean>;
   checkUpdate(): Promise<UpdateInfo>;
   installUpdate(): Promise<void>;
   onUpdate(handler: (info: UpdateInfo) => void): () => void;

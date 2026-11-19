@@ -66,3 +66,34 @@ describe('applyUpdate', () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 });
+
+describe.skipIf(process.platform !== 'win32')('windows runner script', () => {
+  it('swaps folders with PowerShell and writes the result', async () => {
+    const { windowsRunnerScript } = await import('../../src/main/update');
+    const { runScript } = await import('../../src/main/runner');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-psrun-'));
+    const target = path.join(root, 'Tray Command');
+    const source = path.join(root, 'new');
+    fs.mkdirSync(target);
+    fs.writeFileSync(path.join(target, 'v.txt'), 'old');
+    fs.mkdirSync(source);
+    fs.writeFileSync(path.join(source, 'v.txt'), 'new');
+    const script = path.join(root, 'run.ps1');
+    fs.writeFileSync(
+      script,
+      `﻿${windowsRunnerScript({ pid: 999999, target, source, kind: 'dir', relaunch: { command: 'cmd.exe', args: ['/c', 'exit'], cwd: root }, resultFile: path.join(root, 'result.json'), version: '9.9.9' })}`,
+    );
+    const r = await runScript(`& powershell.exe -NoProfile -ExecutionPolicy Bypass -File '${script}'`, { shell: 'powershell' });
+    expect(r.code).toBe(0);
+    expect(fs.readFileSync(path.join(target, 'v.txt'), 'utf8')).toBe('new');
+    const result = JSON.parse(fs.readFileSync(path.join(root, 'result.json'), 'utf8').replace(/^﻿/, ''));
+    expect(result.ok).toBe(true);
+    expect(result.version).toBe('9.9.9');
+    await new Promise((r) => setTimeout(r, 1000));
+    try {
+      fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    } catch {
+      /* the relaunched process may still hold the temp folder */
+    }
+  });
+});

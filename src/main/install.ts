@@ -6,7 +6,7 @@ import type { ShortcutSpec } from './autostart';
 
 /*
  * Per-user installation without installer and without admin rights
- * (same model as bbpm-sync-app): the app copies itself to
+ * : the app copies itself to
  *   Windows: %LOCALAPPDATA%\Programs\TrayCommand  (+ Start menu shortcut)
  *   Linux:   ~/.local/share/TrayCommand/TrayCommand.AppImage (+ .desktop launcher)
  * On macOS the user drags TrayCommand.app to Applications as usual.

@@ -8,7 +8,7 @@ import { APP_ID, APP_NAME } from './paths';
  *  - Windows: a shortcut in the user's Startup folder (shell:startup)
  *  - Linux:   ~/.config/autostart/traycommand.desktop
  *  - macOS:   ~/Library/LaunchAgents/<id>.plist
- * Same approach as bbpm-sync-app. No Electron import here, so it can be unit tested.
+ * No Electron import here, so it can be unit tested.
  */
 
 export interface ShortcutSpec {

@@ -1,0 +1,26 @@
+# Changelog
+
+Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
+
+## 2.0.0 — complete rewrite
+
+TrayCommand 2.0 is rewritten from scratch, with a new configuration format and a visual editor.
+
+::: warning Breaking change
+The 1.x configuration file is not read by 2.0. Convert it with the script described in [Migrating from 1.x](./guide/migration).
+:::
+
+### Highlights
+
+- **New configuration format (v2)** with clearer names (`action`, `offAction`, `state`, `menu`), a string shorthand for actions, [variables](./guide/concepts#variables) and a public [JSON Schema](./reference/#autocompletion-in-vs-code) for autocompletion.
+- **Visual editor** with live ON/OFF state, hide/show, drag to reorder, a **Test** button for every action and state check, validation before saving, and a raw [JSON page](./guide/editor#json).
+- **Toggles** decided by exit code and `on` / `off` regular expressions, with an icon for the OFF state and notifications on change.
+- **Composed actions** (`before`, `parallel`, `after`) with simple `"id"` / `"id:off"` references, and `enabledWhen` to follow another toggle.
+- **Hidden and disabled** entries: keep them in the file, with their state checks paused.
+- **Action options**: `confirm`, `timeout`, `terminal`, `cwd`, `env`, per-action `shell`, and [run as administrator](./guide/administrator#run-as-administrator) with a UAC prompt on each run.
+- **Activity page** with the output of every run, and **Running** processes you can stop.
+- **Install for this user** without administrator rights, and **self update** from GitHub releases verified with SHA-256.
+- **Start at login** with a Startup folder shortcut (Windows), `~/.config/autostart` (Linux) or a LaunchAgent (macOS): no Task Scheduler, no registry.
+- **Configuration file anywhere**, for example in a synced folder, chosen per PC, reloaded automatically when it changes, with the last 30 backups.
+- Optional, Windows-only [start as administrator without prompt](./guide/administrator#start-as-administrator-without-prompt), off by default and behind an explicit risk warning.
+- Windows, Linux and macOS builds.

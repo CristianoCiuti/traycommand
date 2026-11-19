@@ -1,0 +1,60 @@
+{
+  "$schema": "https://cristianociuti.github.io/traycommand/schema/v2/config.schema.json",
+  "version": 2,
+  "settings": { "shell": "powershell", "theme": "system", "appMenu": "own" },
+  "variables": { "WS": "${configDir}/workspaces" },
+  "trays": [
+    {
+      "id": "proxy",
+      "label": "Proxy",
+      "icon": "icons/globe_on.png",
+      "state": {
+        "check": "if (Test-Path \"$env:TEMP/tc-e2e-proxy\") { 'enabled' }",
+        "on": "enabled",
+        "interval": 5,
+        "iconOff": "icons/globe_off.png",
+        "notify": { "on": true, "off": true }
+      },
+      "action": { "run": "New-Item -Force \"$env:TEMP/tc-e2e-proxy\" | Out-Null", "parallel": ["git_proxy"] },
+      "offAction": { "run": "Remove-Item -Force \"$env:TEMP/tc-e2e-proxy\"", "parallel": ["git_proxy"] },
+      "menu": [
+        {
+          "id": "git_proxy",
+          "label": "Git proxy",
+          "state": { "check": "if (Test-Path \"$env:TEMP/tc-e2e-git\") { 'on' }", "on": "on", "interval": 5 },
+          "action": "New-Item -Force \"$env:TEMP/tc-e2e-git\" | Out-Null",
+          "offAction": "Remove-Item -Force \"$env:TEMP/tc-e2e-git\""
+        }
+      ]
+    },
+    {
+      "id": "server",
+      "label": "Web server",
+      "icon": "icons/server_on.png",
+      "state": { "check": "exit 1", "interval": 30, "iconOff": "icons/server_off.png" },
+      "action": { "run": "echo started", "notify": "Server (re)started" },
+      "menu": [
+        { "id": "server_stop", "label": "Stop server", "enabledWhen": "server", "action": "echo stop" },
+        { "label": "Open configuration", "action": "echo open" },
+        { "separator": true },
+        {
+          "label": "Sites",
+          "menu": [
+            { "label": "Intranet", "action": "echo intranet" },
+            { "label": "Public", "action": "echo public" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code",
+      "label": "VS Code",
+      "icon": "icons/code.png",
+      "menu": [
+        { "label": "Project A", "icon": "icons/code.png", "action": "echo ${WS}/a" },
+        { "label": "Project B", "icon": "icons/code.png", "action": "echo ${WS}/b" }
+      ]
+    },
+    { "id": "notes", "label": "Notes", "icon": "icons/note.png", "hidden": true, "action": "echo notes" }
+  ]
+}

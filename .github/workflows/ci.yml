@@ -17,6 +17,9 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    # GitHub's macOS runners are often unavailable: the job is cancelled after waiting in the
+    # queue without running a single step. It must not turn the whole run red.
+    continue-on-error: ${{ matrix.os == 'macos-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

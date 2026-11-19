@@ -151,7 +151,6 @@ export const SettingsSchema = z
     checkUpdates: z.boolean().default(true),
     autostart: z.boolean().default(false).describe('Start TrayCommand when you log in.'),
     allowAdminCommands: z.boolean().default(false).describe('Allow actions with "admin": true (UAC prompt on each run).'),
-    language: z.enum(['en', 'it']).default('en'),
   })
   .strict();
 export type Settings = z.infer<typeof SettingsSchema>;

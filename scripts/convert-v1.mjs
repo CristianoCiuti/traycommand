@@ -128,7 +128,6 @@ const config = {
     checkUpdates: true,
     autostart: misc.runOnStartUp === true,
     allowAdminCommands: false,
-    language: 'en',
   },
   variables: {},
   trays,

@@ -1,6 +1,7 @@
-import { ChevronRight, Eye, EyeOff, ListTree, MousePointerClick, MousePointer2, Power, Trash2, ToggleRight, Ban, Link2 } from 'lucide-preact';
+import { ChevronRight, Copy, Eye, EyeOff, ListTree, MousePointerClick, MousePointer2, Power, Trash2, ToggleRight, Ban, Link2 } from 'lucide-preact';
 import type { MenuEntry, Tray } from '../../shared/config';
-import { allIds, draft, entryAt, issuesFor, mutate, selection, siblingsOf, status, statusKey, updateEntry, type AnyEntry } from '../store';
+import { allIds, draft, entryAt, issuesFor, mutate, selection, siblingsOf, status, statusKey, uniqueId, updateEntry, type AnyEntry } from '../store';
+import { isSeparator, type MenuNode } from '../../shared/config';
 import { Card, Field, Switch } from '../components/ui';
 import { ActionEditor, AddActionButton } from './ActionEditor';
 import { StateEditor } from './StateEditor';
@@ -46,6 +47,23 @@ export function EntryEditor(props: { path: number[] }) {
     selection.value = path.length > 1 ? path.slice(0, -1) : draft.value!.trays.length > 1 ? [Math.max(0, path[0]! - 1)] : [];
   };
 
+  const duplicate = () => {
+    mutate((c) => {
+      const list = siblingsOf(c, path)!;
+      const copy = structuredClone(list[path.at(-1)!]!) as AnyEntry;
+      const renumber = (n: MenuNode | AnyEntry) => {
+        if (isSeparator(n as MenuNode)) return;
+        const e = n as AnyEntry;
+        if (e.id) e.id = uniqueId(c, e.id);
+        e.menu?.forEach(renumber);
+      };
+      renumber(copy);
+      copy.label = `${copy.label} (copy)`;
+      list.splice(path.at(-1)! + 1, 0, copy as never);
+    });
+    selection.value = [...path.slice(0, -1), path.at(-1)! + 1];
+  };
+
   const otherIds = allIds(draft.value).filter((x) => x.id !== entry.id);
 
   return (
@@ -73,6 +91,9 @@ export function EntryEditor(props: { path: number[] }) {
           </button>
           <button class={`btn sm${entry.disabled ? ' primary' : ''}`} onClick={() => setKey('disabled', !entry.disabled || undefined)} title="Disabled entries are greyed out and their state checks pause" data-testid="toggle-disabled">
             <Ban size={14} /> {entry.disabled ? 'Disabled' : 'Enabled'}
+          </button>
+          <button class="btn sm icon" onClick={duplicate} title="Duplicate" data-testid="duplicate-entry">
+            <Copy size={14} />
           </button>
           <button class="btn sm icon danger" onClick={remove} title="Delete" data-testid="delete-entry">
             <Trash2 size={14} />

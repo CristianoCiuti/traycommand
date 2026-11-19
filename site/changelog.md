@@ -2,6 +2,11 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.1.3 — update extraction fix (Windows)
+
+- The update could fail with `Cannot extract the update: /usr/bin/tar: Cannot connect to C: resolve failed` when another `tar` (for example Git for Windows' `usrin`) came before Windows' own in `PATH`. TrayCommand now uses `%SystemRoot%\System32	ar.exe` by its full path, and falls back to PowerShell's `Expand-Archive`.
+- After an update TrayCommand keeps the `--data-dir` option.
+
 ## 2.1.2 — skill installation fix
 
 - Installing the AI skill could fail with `EPERM` when opencode or Claude Code were running (they watch their skills folder) or the antivirus was scanning the new files. The skill files are now written in place, retrying while a file is busy; one agent failing no longer stops the other. Leftover `traycommand.tmp-*` folders are removed.

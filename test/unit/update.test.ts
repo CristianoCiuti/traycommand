@@ -67,6 +67,34 @@ describe('applyUpdate', () => {
   });
 });
 
+describe.skipIf(process.platform !== 'win32')('zip extraction on Windows', () => {
+  it('works even when another tar comes first on PATH (Git for Windows usr/bin)', async () => {
+    const { extractZipWindows } = await import('../../src/main/unzip');
+    const { runScript } = await import('../../src/main/runner');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-unzip-'));
+    fs.mkdirSync(path.join(root, 'src'));
+    fs.writeFileSync(path.join(root, 'src', 'TrayCommand.exe'), 'new');
+    const zip = path.join(root, 'update.zip');
+    await runScript(`Compress-Archive -Path '${path.join(root, 'src', '*')}' -DestinationPath '${zip}'`, { shell: 'powershell' });
+    // a fake "tar.exe" first on PATH that always fails, like GNU tar with C:\\ paths
+    const bin = path.join(root, 'bin');
+    fs.mkdirSync(bin);
+    fs.copyFileSync(path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'whoami.exe'), path.join(bin, 'tar.exe'));
+    const oldPath = process.env.PATH;
+    process.env.PATH = `${bin};${oldPath}`;
+    try {
+      const out = path.join(root, 'out');
+      fs.mkdirSync(out);
+      const r = await extractZipWindows(zip, out);
+      expect(r.code).toBe(0);
+      expect(fs.readFileSync(path.join(out, 'TrayCommand.exe'), 'utf8')).toBe('new');
+    } finally {
+      process.env.PATH = oldPath;
+      fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 });
+    }
+  }, 60000);
+});
+
 describe('detached update runner', () => {
   it('survives its parent, copies the new version from a folder in use, writes the result and relaunches', async () => {
     const { build } = await import('esbuild');

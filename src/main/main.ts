@@ -174,6 +174,7 @@ const autostartEnv = defaultAutostartEnv((file, spec) => writeShortcut(file, spe
 function relaunchArgs(): string[] {
   const args = ['--hidden'];
   if (option('config')) args.push(`--config=${configPath}`);
+  if (option('data-dir')) args.push(`--data-dir=${dataDir}`);
   return args;
 }
 

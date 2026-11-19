@@ -7,6 +7,7 @@ import type { UpdateInfo } from '../shared/api';
 import { runScript } from './runner';
 import { assetName, compareVersions, download, fetchLatestRelease, parseChecksums, sha256, type RunnerJob } from './update';
 import { currentInstallRoot, installedExecutable } from './paths';
+import { extractZipWindows } from './unzip';
 
 /** Checks GitHub releases, downloads and verifies the new version, then hands over to the update runner. */
 export class Updater {
@@ -90,10 +91,7 @@ export class Updater {
       if (process.platform === 'win32' || process.platform === 'darwin') {
         const extract = path.join(dir, 'extracted');
         fs.mkdirSync(extract);
-        const r =
-          process.platform === 'win32'
-            ? await runScript(`tar.exe -xf '${file}' -C '${extract}'`, { shell: 'powershell' })
-            : await runScript(`ditto -x -k '${file}' '${extract}'`, { shell: 'sh' });
+        const r = process.platform === 'win32' ? await extractZipWindows(file, extract) : await runScript(`ditto -x -k '${file}' '${extract}'`, { shell: 'sh' });
         if (r.code !== 0) throw new Error(`Cannot extract the update: ${r.stderr || r.error}`);
         const entries = fs.readdirSync(extract);
         source = process.platform === 'darwin' ? path.join(extract, entries.find((e) => e.endsWith('.app')) ?? '') : entries.length === 1 && fs.statSync(path.join(extract, entries[0]!)).isDirectory() ? path.join(extract, entries[0]!) : extract;

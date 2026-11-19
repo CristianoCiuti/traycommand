@@ -3,7 +3,8 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { normalizeAction, parseConfig, SCHEMA_URL, type Action, type Config } from '../shared/config';
+import { isSeparator, normalizeAction, parseConfig, SCHEMA_URL, type Action, type Config, type MenuEntry, type MenuNode, type Tray } from '../shared/config';
+import { expand } from '../shared/variables';
 import type { AgentSkillInfo, AppInfo, ExecutionLog, LoadedConfig, SaveResult, SkillsInfo, TestResult } from '../shared/api';
 import { defaultShell } from './shell';
 import { installSkill, planSkills, renderSkill, skillStatus, uninstallSkill, type SkillEnv } from './skills';
@@ -80,7 +81,20 @@ if (validateArg) {
     cliExit({ ok: false, file, issues: [{ path: '', message: (error as Error).message }], warnings: [] }, 1);
   }
   const r = parseConfig(raw);
-  cliExit(r.ok ? { ok: true, file, issues: [], warnings: r.warnings } : { ok: false, file, issues: r.issues, warnings: [] }, r.ok ? 0 : 1);
+  if (!r.ok) cliExit({ ok: false, file, issues: r.issues, warnings: [] }, 1);
+  // icons are resolved like at run time: variables, then relative to the file folder
+  const ctx = { variables: r.config.variables, env: process.env, configDir: path.dirname(file) };
+  const warnings = [...r.warnings];
+  const visit = (node: MenuNode | Tray, at: string) => {
+    if (isSeparator(node as MenuNode)) return;
+    const entry = node as MenuEntry;
+    for (const [key, value] of [['icon', entry.icon], ['state.iconOff', entry.state?.iconOff]] as const) {
+      if (value && !fs.existsSync(path.resolve(path.dirname(file), expand(value, ctx)))) warnings.push({ path: `${at}.${key}`, message: `Icon file not found: ${value}` });
+    }
+    entry.menu?.forEach((child, i) => visit(child, `${at}.menu[${i}]`));
+  };
+  r.config.trays.forEach((t, i) => visit(t, `trays[${i}]`));
+  cliExit({ ok: true, file, issues: [], warnings }, 0);
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -229,7 +243,6 @@ function skillEnv(): SkillEnv {
       TRAYCOMMAND_VERSION: app.getVersion(),
       TRAYCOMMAND_SH: parts.map((p) => `"${slash(p)}"`).join(' '),
       TRAYCOMMAND_PS: `& ${parts.map((p) => `'${p.replace(/'/g, "''")}'`).join(' ')}`,
-      TRAYCOMMAND_DATA: slash(dataDir),
     },
   };
 }

@@ -221,6 +221,13 @@ export function parseConfig(raw: unknown): ParseResult {
       else ids.set(entry.id, path);
     }
     if (entry.offAction && !entry.state) warnings.push({ path: `${path}.offAction`, message: 'offAction is used only together with state' });
+    if (!config.settings.allowAdminCommands) {
+      for (const key of ['action', 'offAction', 'rightAction'] as const) {
+        if (normalizeAction((entry as MenuEntry & { rightAction?: ActionInput })[key])?.admin) {
+          warnings.push({ path: `${path}.${key}.admin`, message: 'Runs as administrator, but settings.allowAdminCommands is off: it will be refused until it is turned on' });
+        }
+      }
+    }
     entry.menu?.forEach((child, i) => visit(child, `${path}.menu[${i}]`));
   };
   config.trays.forEach((tray, i) => visit(tray, `trays[${i}]`));

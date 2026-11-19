@@ -44,7 +44,7 @@ Removing the skill from **Settings** also stops TrayCommand from proposing it ag
 | `SKILL.md` | What TrayCommand is and the procedure: find the configuration, choose action or toggle, test the scripts, back up, edit, validate, report. |
 | `reference.md` | Every property of the [configuration file](../reference/). |
 | `examples.md` | Common patterns: launchers, menus, toggles for services, processes, Docker, registry, Linux and macOS. |
-| `scripts/make-icon.ps1` | Windows: creates a PNG icon (coloured square or circle with up to 3 letters). |
+| `scripts/make-icon.ps1` | Windows: creates a PNG icon, a coloured square or circle with a pictogram (printer, globe, cloud, play, lock…) or up to 3 letters. |
 
 The agent uses two [command line options](../reference/cli#tools-for-scripts-and-ai-agents) of TrayCommand: `--info` to find the configuration file and `--validate` to check it before you see it.
 

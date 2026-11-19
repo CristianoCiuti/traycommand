@@ -27,7 +27,7 @@ JSON Schema: https://cristianociuti.github.io/traycommand/schema/v2/config.schem
 | `allowAdminCommands` | boolean | `false` | Required for actions with `"admin": true`. |
 | `skillUpdates` | `"auto"` \| `"ask"` | `"auto"` | Update this AI skill automatically or ask first. |
 
-Do not change settings unless the user asks (except `allowAdminCommands`, and only after telling them).
+Do not change settings unless the user explicitly asks. In particular never turn on `allowAdminCommands` on your own: tell the user to do it.
 
 ## variables
 

@@ -15,6 +15,14 @@ describe('parseConfig', () => {
     expect(result.config.settings.allowAdminCommands).toBe(false);
   });
 
+  it('warns about admin actions while admin commands are off', () => {
+    const trays = [{ id: 'svc', label: 'S', state: { check: 'x' }, action: { run: 'a', admin: true }, offAction: 'b' }];
+    const off = parseConfig({ ...base, trays });
+    expect(off.ok && off.warnings.map((w) => w.path)).toEqual(['trays[0].action.admin']);
+    const on = parseConfig({ ...base, settings: { allowAdminCommands: true }, trays });
+    expect(on.ok && on.warnings).toEqual([]);
+  });
+
   it('rejects unknown properties and wrong version', () => {
     expect(parseConfig({ version: 1 }).ok).toBe(false);
     const r = parseConfig({ ...base, trays: [{ id: 'a', label: 'A', commandd: 'x' }] });

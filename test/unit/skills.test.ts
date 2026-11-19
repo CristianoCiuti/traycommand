@@ -14,7 +14,7 @@ function env(o: Partial<SkillEnv> = {}): SkillEnv {
     platform: process.platform,
     source,
     version: '9.9.9',
-    values: { TRAYCOMMAND_VERSION: '9.9.9', TRAYCOMMAND_SH: '"/opt/tc"', TRAYCOMMAND_PS: "& '/opt/tc'", TRAYCOMMAND_DATA: '/data/tc' },
+    values: { TRAYCOMMAND_VERSION: '9.9.9', TRAYCOMMAND_SH: '"/opt/tc"', TRAYCOMMAND_PS: "& '/opt/tc'" },
     ...o,
   };
 }

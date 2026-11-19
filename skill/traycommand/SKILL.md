@@ -10,7 +10,7 @@ TrayCommand (version {{TRAYCOMMAND_VERSION}}) is a desktop app that shows one or
 Everything is defined in **one JSON file**. The running app watches this file and applies changes as soon as it is saved: there is nothing to restart. Your job is to edit that file correctly.
 
 - Full field reference: [reference.md](reference.md) (read it before writing anything non-trivial).
-- Ready-made patterns: [examples.md](examples.md).
+- Ready-made patterns: [examples.md](examples.md). **Check it first**: many requests (launchers, services, processes, Docker, proxies, registry settings) have a pattern to adapt.
 - Online documentation: https://cristianociuti.github.io/traycommand/
 
 ## 1. Find the configuration file
@@ -27,12 +27,14 @@ Ask TrayCommand itself; never guess the path:
 
 (In PowerShell keep `| Out-String`: without a pipe PowerShell does not wait for the app and shows no output.)
 
-It prints JSON like `{"version":"…","configPath":"…","configDir":"…","dataDir":"…","platform":"…","defaultShell":"…","schema":"…"}`.
+It prints JSON with `version`, `configPath`, `configDir`, `configExists`, `dataDir`, `backupsDir`, `platform`, `defaultShell`, `schema`, `docs`:
 
 - `configPath` is the file to edit. Relative paths inside it (icons, `cwd`) are resolved from `configDir`.
+- `configExists: false` means there is no configuration yet: create `configPath` with `{"$schema": "<schema>", "version": 2, "trays": []}` and add to it.
+- `backupsDir` is where to put the backup copy (step 4).
 - `defaultShell` is the shell used by scripts that do not choose one (`powershell` on Windows unless `settings.shell` says otherwise).
 
-If the command is not available (TrayCommand moved), read `{{TRAYCOMMAND_DATA}}/state.json`: its `configPath` is the file; without it the file is `traycommand.json` in that same folder.
+The file it reports follows the user's choice: `--config=<file>` on TrayCommand's command line, else the `TRAYCOMMAND_CONFIG` environment variable, else the file chosen in TrayCommand's settings, else `traycommand.json` in the data folder. If the command does not run (TrayCommand moved or was uninstalled), the data folder is `%APPDATA%\TrayCommand` (Windows), `~/.config/TrayCommand` (Linux) or `~/Library/Application Support/TrayCommand` (macOS): its `state.json` has `configPath`, otherwise the file is `traycommand.json` there. Tell the user TrayCommand was not found.
 
 ## 2. Understand the request
 
@@ -42,8 +44,9 @@ Turn "a tray that does X" into concrete choices. Ask the user only what you cann
 - **Plain action or toggle?** If X has an ON/OFF nature (a service, a proxy, a VPN, a container, a setting), make a toggle: `state.check` + `action` (turn on) + `offAction` (turn off). Otherwise a plain `action`.
 - **Script**: write it for the shell that will run it (`defaultShell` or an explicit `shell`). On Windows the default is Windows PowerShell 5.1 (not PowerShell 7: no `&&`, no `??`, no ternary).
 - **Visible or hidden?** Scripts run hidden. Long-running or interactive commands whose output the user wants to see need `"terminal": true`. GUI programs should be launched without waiting (`Start-Process` on Windows, `… &` / `nohup` / `open` elsewhere), otherwise the entry stays busy.
-- **Needs administrator?** Use `"admin": true` on the action (one UAC prompt per click) and tell the user that **Settings → Advanced → Allow commands as administrator** (`settings.allowAdminCommands`) must be on. State checks cannot be admin: choose a check that works without elevation.
-- **Feedback**: `"notify": "text"` for actions whose effect is not visible; `"confirm": "question?"` for destructive ones; `"timeout"` for anything that could hang.
+- **Needs administrator?** (services, Program Files, HKLM, system files…) Use `"admin": true` on the action (one UAC prompt per click). Such actions run only when `settings.allowAdminCommands` is `true`: if it is off, **do not turn it on yourself** unless the user explicitly asks; tell them to enable **Settings → Advanced → Allow commands as administrator** (`--validate` warns about it). State checks cannot be admin: choose a check that works without elevation.
+- **Feedback**: `"notify": "text"` for actions whose effect is not visible; `"confirm": "question?"` for destructive ones; `"timeout"` (seconds) for anything that could hang: 30–120 for services and network calls, more for builds and downloads.
+- **Where**: a new tray goes at the end of `trays`; a new menu entry goes next to related entries, otherwise at the end of the menu (before any trailing separator). Respect the order the user asks for.
 
 ## 3. Test the scripts before saving
 
@@ -54,10 +57,14 @@ Run the check script and, when it is safe and the user agrees, the action script
 
 For PowerShell use `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "<script>"` to reproduce the TrayCommand environment.
 
+**PowerShell exit codes**: a failing cmdlet usually does *not* make the script exit with a non-zero code (non-terminating error). For checks and actions that must fail visibly, add `-ErrorAction Stop` to the cmdlet (an uncaught terminating error exits 1), or end with an explicit `exit 1`. A check like `(Get-Service X).Status` with `"on": "^Running$"` is fine without it, because a failure prints no `Running`.
+
+Never run actions that change the system (admin actions, stopping services, deleting files…) just to test them; if you cannot test something, say so in the report. Tested or not, check that the commands, names and paths exist (`Get-Command`, `Get-Service`, `Test-Path`, `which`).
+
 ## 4. Edit the file
 
 1. Read the whole file.
-2. Make a backup copy first: `{{TRAYCOMMAND_DATA}}/backups/traycommand-<yyyyMMdd-HHmmss>-agent.json`.
+2. Make a backup copy first: `<backupsDir>/traycommand-<yyyyMMdd-HHmmss>-agent.json` (TrayCommand lists it under **Settings → Backups**).
 3. Change only what was asked. Keep everything else as it is: other trays, `settings`, `variables`, order, `$schema`, the `"version": 2` line. Keep 2-space indentation.
 4. Rules that are easy to get wrong:
    - every `id` must be unique in the whole file; trays need an `id`, menu entries only if referenced; use short `snake_case` ids;
@@ -65,11 +72,13 @@ For PowerShell use `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypas
    - `on` / `off` are JavaScript regular expressions in a JSON string (`"\\d+"`);
    - unknown properties are errors (no comments in the file);
    - reuse existing `variables` (`${NAME}`), or add one when a path repeats; `${env:NAME}` and `${configDir}` are built in.
-5. Icons: `icon` (and `iconOff` for toggles) are image files (png, ico), relative to `configDir`. Reuse icons already in the configuration folder when they fit. To create new ones on Windows use [scripts/make-icon.ps1](scripts/make-icon.ps1):
+5. Icons: `icon` (and `iconOff` for toggles) are image files (png, ico), relative to `configDir`, usually in `<configDir>/icons/`. Reuse icons already there when they fit. To create new ones on Windows use [scripts/make-icon.ps1](scripts/make-icon.ps1): a coloured square with a white pictogram (`-Glyph`) or up to 3 letters (`-Text`, letters and digits only: emoji render as a box):
    ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File "<this skill folder>/scripts/make-icon.ps1" -Text "DB" -Color "#2e7d32" -Out "<configDir>/icons/db_on.png"
+   powershell -NoProfile -ExecutionPolicy Bypass -File "<this skill folder>/scripts/make-icon.ps1" -Glyph print -Color "#2e7d32" -Out "<configDir>/icons/printer_on.png"
+   powershell -NoProfile -ExecutionPolicy Bypass -File "<this skill folder>/scripts/make-icon.ps1" -Glyph print -Color "#9e9e9e" -Out "<configDir>/icons/printer_off.png"
+   powershell -NoProfile -ExecutionPolicy Bypass -File "<this skill folder>/scripts/make-icon.ps1" -Text "DB" -Color "#6a1b9a" -Out "<configDir>/icons/db.png"
    ```
-   For toggles make two variants (for example a colour and grey: `-Color "#9e9e9e"` for `iconOff`). Without an icon a tray shows the TrayCommand logo.
+   Glyphs: `print globe settings folder play stop code cloud wifi lock monitor mail document search power sync info warning terminal home calendar people phone camera music video download upload link shield key bug heart star flag clock car shop` (or a Segoe Fluent Icons hex code like `E749`). Options: `-Shape circle`, `-TextColor`. For toggles use a colour for ON and grey (`#9e9e9e`) for `iconOff`. Do not overwrite existing icon files unless asked. Without an icon a tray shows the TrayCommand logo. On Linux and macOS reuse existing images or leave the icon out.
 6. To hide a tray or entry without deleting it, set `"hidden": true`; to show it again remove the property.
 
 ## 5. Validate
@@ -82,8 +91,13 @@ For PowerShell use `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypas
 {{TRAYCOMMAND_PS}} --validate | Out-String
 ```
 
-It validates the configuration file (or `--validate=<file>`) and prints `{"ok":true|false,"file":"…","issues":[{"path":"trays[2].action","message":"…"}],"warnings":[…]}`; the exit code is 0 when valid. Fix every issue and validate again. If the file is invalid the running app keeps the previous configuration and shows an error, so never leave it invalid.
+It validates the configuration file that `--info` reports (or another one with `--validate=<file>`) and prints `{"ok":true|false,"file":"…","issues":[{"path":"trays[2].action","message":"…"}],"warnings":[…]}`; the exit code is 0 when valid. Fix every issue and validate again. Read the warnings too: missing icon files, admin actions while admin commands are off, `offAction` without `state`. If the file is invalid the running app keeps the previous configuration and shows an error, so never leave it invalid.
 
 ## 6. Report
 
-Tell the user what you added or changed (tray, entries, scripts), which icons you created, anything they must do (enable admin commands, Windows may hide new tray icons in the overflow area: **Settings → Personalization → Taskbar → Other system tray icons**), and that the change is already live. They can also review and adjust everything in the TrayCommand editor (left click on the TrayCommand icon → **Open TrayCommand**).
+Tell the user:
+
+- what you added or changed (tray, entries, scripts) and which icons you created;
+- what you tested and what you could not test;
+- anything they must do: enable admin commands; on Windows new tray icons may land in the hidden overflow area (**Settings → Personalization → Taskbar → Other system tray icons** to pin them); what the commands need (for example saving the hosts file needs Notepad started as administrator);
+- that a running TrayCommand applies the change by itself within a few seconds (if it is not running, at the next start); they can review and adjust everything in the editor (TrayCommand menu → **Open TrayCommand**) and restore the backup from **Settings → Backups**.

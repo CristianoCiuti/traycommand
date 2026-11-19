@@ -15,11 +15,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        # main only receives commits already tested on develop: macOS runs there only, because
+        # GitHub's macOS runners are scarce (jobs get cancelled without ever starting)
+        os: ${{ fromJSON(github.ref == 'refs/heads/main' && '["windows-latest","ubuntu-latest"]' || '["windows-latest","ubuntu-latest","macos-latest"]') }}
     runs-on: ${{ matrix.os }}
-    # GitHub's macOS runners are often unavailable: the job is cancelled after waiting in the
-    # queue without running a single step. It must not turn the whole run red.
-    continue-on-error: ${{ matrix.os == 'macos-latest' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

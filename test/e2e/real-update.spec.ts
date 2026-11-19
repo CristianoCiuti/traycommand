@@ -23,7 +23,7 @@ test('updates itself from GitHub, swaps the folder and relaunches', async () => 
   fs.cpSync(path.join(here, 'fixtures'), work, { recursive: true });
   const data = path.join(work, 'data');
   const before = info().version;
-  const env = { ...process.env, TRAYCOMMAND_AGENTS_HOME: path.join(work, 'home') };
+  const env: Record<string, string> = { ...(process.env as Record<string, string>), TRAYCOMMAND_AGENTS_HOME: path.join(work, 'home') };
   if (process.env.TC_UPDATE_PATH_PREFIX) env.PATH = `${process.env.TC_UPDATE_PATH_PREFIX};${process.env.PATH}`;
   const app = await electron.launch({ executablePath: exe, args: [`--data-dir=${data}`, `--config=${path.join(work, 'config.json')}`], env });
   const page = await app.firstWindow();

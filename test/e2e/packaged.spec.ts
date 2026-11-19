@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const exe = path.resolve(here, '../../packages/win-unpacked/TrayCommand.exe');
+const exe = process.env.TC_EXE ?? path.resolve(here, '../../packages/win-unpacked/TrayCommand.exe');
 
 test.skip(!fs.existsSync(exe), 'packaged app not built (npm run package)');
 

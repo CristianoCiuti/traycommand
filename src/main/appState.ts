@@ -18,7 +18,7 @@ export class AppStateStore {
   private value: AppState = {};
   constructor(private readonly file: string) {
     try {
-      this.value = JSON.parse(fs.readFileSync(file, 'utf8')) as AppState;
+      this.value = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')) as AppState;
     } catch {
       this.value = {};
     }

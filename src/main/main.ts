@@ -278,14 +278,23 @@ function setDeclined(ids: string[], declined: boolean) {
 
 function installSkills(ids: AgentSkillInfo['id'][]): SkillsInfo {
   skillsError = undefined;
+  const failed: string[] = [];
   try {
     const e = skillEnv();
     const rendered = renderSkill(e.source, e.values);
-    for (const id of ids) installSkill(e, id, rendered);
-    setDeclined(ids, false);
+    // one agent failing does not stop the others
+    for (const id of ids) {
+      try {
+        installSkill(e, id, rendered);
+        setDeclined([id], false);
+      } catch (error) {
+        failed.push(`${id}: ${(error as Error).message}`);
+      }
+    }
   } catch (error) {
-    skillsError = `Cannot install the skill: ${(error as Error).message}`;
+    failed.push((error as Error).message);
   }
+  if (failed.length) skillsError = `Cannot install the skill (${failed.join('; ')})`;
   const info = skillsInfo();
   skillsChanged();
   return info;

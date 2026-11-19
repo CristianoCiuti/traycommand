@@ -90,6 +90,32 @@ describe('install, status and plan', () => {
     expect(fs.existsSync(path.join(home, '.config', 'opencode', 'opencode.jsonc'))).toBe(true);
   });
 
+  it('installs and reinstalls while a watcher keeps the new files open (opencode, antivirus)', async () => {
+    const skills = path.join(home, '.config', 'opencode', 'skills');
+    fs.mkdirSync(path.join(skills, 'traycommand.tmp-123'), { recursive: true }); // leftover of 2.1.0
+    const open: number[] = [];
+    const watcher = fs.watch(skills, { recursive: true }, (_e, name) => {
+      try {
+        const f = path.join(skills, String(name));
+        if (fs.statSync(f).isFile()) open.push(fs.openSync(f, 'r'));
+      } catch {
+        /* gone */
+      }
+    });
+    try {
+      for (let i = 0; i < 5; i++) {
+        installSkill(env({ version: `1.0.${i}`, values: { ...env().values, TRAYCOMMAND_VERSION: `1.0.${i}` } }), 'opencode');
+        await new Promise((r) => setTimeout(r, 50)); // let the watcher open the files
+      }
+      expect(open.length).toBeGreaterThan(0);
+      expect(skillStatus(env({ version: '1.0.4', values: { ...env().values, TRAYCOMMAND_VERSION: '1.0.4' } })).find((s) => s.id === 'opencode')!.state).toBe('current');
+      expect(fs.readdirSync(skills)).toEqual(['traycommand']);
+    } finally {
+      watcher.close();
+      for (const fd of open) fs.closeSync(fd);
+    }
+  });
+
   it('plans silent updates, offers and respects declined agents', () => {
     const base = { label: '', dir: '', present: true };
     const status = [

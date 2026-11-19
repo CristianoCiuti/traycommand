@@ -153,30 +153,66 @@ export function skillStatus(e: SkillEnv, rendered = renderSkill(e.source, e.valu
   });
 }
 
-/** Writes the skill for one agent, replacing the whole skill folder. */
+const BUSY = new Set(['EPERM', 'EBUSY', 'EACCES', 'ENOTEMPTY']);
+
+/**
+ * Retries a file operation for a few seconds while the file is in use: the agents
+ * (opencode, Claude Code) watch their skills folder and read new files as soon as they
+ * appear, and antivirus software scans them.
+ */
+export function retryBusy<T>(fn: () => T, timeoutMs = 10000): T {
+  const deadline = Date.now() + timeoutMs;
+  for (let wait = 50; ; wait = Math.min(wait * 2, 500)) {
+    try {
+      return fn();
+    } catch (error) {
+      if (!BUSY.has((error as NodeJS.ErrnoException).code ?? '') || Date.now() > deadline) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait);
+    }
+  }
+}
+
+/**
+ * Writes the skill for one agent. Files are written in place (never a temporary folder
+ * renamed into the watched skills folder: Windows refuses to rename a folder while a
+ * watcher has a file of it open), files not in the skill anymore are removed, the
+ * marker is written last.
+ */
 export function installSkill(e: SkillEnv, id: AgentSpec['id'], rendered = renderSkill(e.source, e.values)): string {
   const agent = AGENTS.find((a) => a.id === id);
   if (!agent) throw new Error(`Unknown agent ${id}`);
   const dir = skillDir(agent, e.home);
-  const tmp = `${dir}.tmp-${process.pid}`;
-  fs.rmSync(tmp, { recursive: true, force: true });
+  // leftovers of the 2.1.0 installer
+  const parent = path.dirname(dir);
+  if (fs.existsSync(parent)) {
+    for (const name of fs.readdirSync(parent)) {
+      if (name.startsWith(`${SKILL_NAME}.tmp-`)) {
+        try {
+          fs.rmSync(path.join(parent, name), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+        } catch {
+          /* still in use: removed next time */
+        }
+      }
+    }
+  }
+  retryBusy(() => fs.mkdirSync(dir, { recursive: true }));
+  if (fs.existsSync(dir)) {
+    for (const rel of filesUnder(dir)) if (!rendered.has(rel)) retryBusy(() => fs.rmSync(path.join(dir, ...rel.split('/')), { force: true }));
+  }
   for (const [rel, text] of rendered) {
-    const file = path.join(tmp, ...rel.split('/'));
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, text);
+    const file = path.join(dir, ...rel.split('/'));
+    retryBusy(() => fs.mkdirSync(path.dirname(file), { recursive: true }));
+    retryBusy(() => fs.writeFileSync(file, text));
   }
   const marker: Marker = { version: e.version, hash: hashFiles(rendered), installedAt: new Date().toISOString() };
-  fs.writeFileSync(path.join(tmp, MARKER), `${JSON.stringify(marker, null, 2)}\n`);
-  fs.rmSync(dir, { recursive: true, force: true });
-  fs.mkdirSync(path.dirname(dir), { recursive: true });
-  fs.renameSync(tmp, dir);
+  retryBusy(() => fs.writeFileSync(path.join(dir, MARKER), `${JSON.stringify(marker, null, 2)}\n`));
   return dir;
 }
 
 export function uninstallSkill(e: Pick<SkillEnv, 'home'>, id: AgentSpec['id']): void {
   const agent = AGENTS.find((a) => a.id === id);
   if (!agent) throw new Error(`Unknown agent ${id}`);
-  fs.rmSync(skillDir(agent, e.home), { recursive: true, force: true });
+  fs.rmSync(skillDir(agent, e.home), { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 }
 
 export interface SkillPlan {

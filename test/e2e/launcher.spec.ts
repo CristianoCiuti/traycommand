@@ -97,16 +97,25 @@ test('launcher: search, run with a form, values in script and environment', asyn
 });
 
 test('launcher: last values are proposed, Esc goes back to the list, then closes', async () => {
+  // the pointer resting where the rows appear must not change the selection when the launcher opens
+  await launcher.mouse.move(300, 200);
   await hook('await tc.launcher.open()');
+  await launcher.mouse.move(300, 200);
   // the entry used last is in "Recent"
   await expect(launcher.locator('.lx-section').first()).toHaveText('Recent');
   await expect(launcher.getByTestId('launcher-item').first()).toContainText('Deploy app');
+  await expect(launcher.getByTestId('launcher-item').first()).toHaveAttribute('aria-selected', 'true');
   await launcher.keyboard.press('Enter');
   await expect(launcher.getByTestId('launcher-field-BRANCH')).toHaveValue('feature/x');
   await expect(launcher.getByTestId('launcher-field-ENV')).toHaveValue('prod');
   await launcher.keyboard.press('Escape');
   await expect(launcher.getByTestId('launcher-list')).toBeVisible();
   await expect(launcher.getByTestId('launcher-input')).toBeFocused();
+  // a real mouse movement over a row selects it
+  const row = launcher.getByTestId('launcher-item').nth(2);
+  const box = (await row.boundingBox())!;
+  await launcher.mouse.move(box.x + 40, box.y + box.height / 2, { steps: 3 });
+  await expect(row).toHaveAttribute('aria-selected', 'true');
   await launcher.keyboard.press('Escape');
   await expect.poll(launcherVisible).toBe(false);
 });

@@ -63,7 +63,9 @@ function List(props: {
   const [message, setMessage] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  /** Hover selects only after the mouse really moved: opening under a still pointer must not change the selection. */
   const mouseMoved = useRef(false);
+  const mouseAt = useRef<string>();
   const platform = data.platform;
 
   const scopeItem = scope ? data.items.find((i) => i.key === scope) : undefined;
@@ -92,6 +94,10 @@ function List(props: {
   }, [data, scope, query]);
 
   useEffect(() => setSelected(0), [query, scope, data]);
+  useEffect(() => {
+    mouseMoved.current = false;
+    mouseAt.current = undefined;
+  }, [data]);
   useEffect(() => {
     if (!props.hidden) input.current?.focus();
   }, [data, scope, props.hidden]);
@@ -215,7 +221,11 @@ function List(props: {
         />
         {data.hotkey && <Keys hotkey={data.hotkey} platform={platform} small />}
       </div>
-      <div class="lx-list" id="lx-list" role="listbox" ref={listRef} onMouseMove={() => (mouseMoved.current = true)}>
+      <div class="lx-list" id="lx-list" role="listbox" ref={listRef} onMouseMove={(e) => {
+          const at = `${e.screenX},${e.screenY}`;
+          if (mouseAt.current !== undefined && mouseAt.current !== at) mouseMoved.current = true;
+          mouseAt.current = at;
+        }}>
         {rows.map((row, i) => {
           const it = row.item;
           return (
@@ -229,6 +239,7 @@ function List(props: {
                 data-testid="launcher-item"
                 class={`lx-row${i === selected ? ' selected' : ''}${it.enabled || it.group ? '' : ' unavailable'}`}
                 onMouseEnter={() => mouseMoved.current && setSelected(i)}
+                onMouseMove={() => mouseMoved.current && i !== selected && setSelected(i)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => void run(it, e.shiftKey)}
               >

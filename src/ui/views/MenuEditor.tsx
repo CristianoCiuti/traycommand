@@ -7,6 +7,8 @@ function describe(e: MenuEntry): string {
   const parts: string[] = [];
   const run = typeof e.action === 'string' ? e.action : e.action?.run;
   if (e.menu?.length) parts.push(`${e.menu.length} ${e.menu.length === 1 ? 'item' : 'items'}`);
+  if (e.hotkey) parts.push(`⌨ ${e.hotkey}`);
+  if (e.schedules?.some((x) => !x.disabled)) parts.push('⏱ scheduled');
   if (run) parts.push(run.split('\n')[0]!);
   return parts.join(' · ');
 }
@@ -27,6 +29,7 @@ function Rows(props: { path: number[]; nodes: MenuNode[] }) {
       const strip = (n: MenuNode) => {
         if (isSeparator(n)) return;
         if (n.id) n.id = uniqueId(c, n.id);
+        delete n.hotkey; // a shortcut can belong to one entry only
         n.menu?.forEach(strip);
       };
       strip(copy);

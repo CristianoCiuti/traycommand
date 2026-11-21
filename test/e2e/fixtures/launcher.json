@@ -1,0 +1,58 @@
+{
+  "$schema": "https://cristianociuti.github.io/traycommand/schema/v2/config.schema.json",
+  "version": 2,
+  "settings": { "shell": "powershell", "launcherHotkey": "Ctrl+Alt+Shift+F11" },
+  "trays": [
+    {
+      "id": "deploy",
+      "label": "Deploy app",
+      "icon": "icons/server_on.png",
+      "hotkey": "Ctrl+Alt+Shift+F10",
+      "action": {
+        "run": "Set-Content -Path \"$env:TC_OUT/deploy.txt\" -Value \"${BRANCH}|${ENV}|$env:BRANCH|${FORCE}\"",
+        "inputs": [
+          { "name": "BRANCH", "label": "Branch", "default": "main", "placeholder": "e.g. feature/login" },
+          { "name": "ENV", "label": "Environment", "type": "select", "options": ["dev", "test", { "value": "prod", "label": "Production" }] },
+          { "name": "FORCE", "label": "Skip the checks", "type": "checkbox" }
+        ]
+      }
+    },
+    {
+      "id": "tools",
+      "label": "Tools",
+      "icon": "icons/code.png",
+      "hotkey": "Ctrl+Alt+Shift+F9",
+      "menu": [
+        { "id": "hello", "label": "Say hello", "action": "Set-Content -Path \"$env:TC_OUT/hello.txt\" -Value hello" },
+        {
+          "id": "pick",
+          "label": "Check out a branch",
+          "action": {
+            "run": "Set-Content -Path \"$env:TC_OUT/pick.txt\" -Value \"${B}\"",
+            "inputs": [{ "name": "B", "label": "Branch", "type": "select", "optionsCommand": "'alpha'; 'beta'; 'gamma'" }]
+          }
+        },
+        {
+          "label": "Docker",
+          "menu": [
+            { "id": "up", "label": "Compose up", "action": "Set-Content -Path \"$env:TC_OUT/up.txt\" -Value up" },
+            { "id": "down", "label": "Compose down", "action": "Set-Content -Path \"$env:TC_OUT/down.txt\" -Value down" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ticker",
+      "label": "Ticker",
+      "action": "Add-Content -Path \"$env:TC_OUT/tick.txt\" -Value x",
+      "schedules": [{ "every": "5s" }, { "cron": "0 9 * * 1-5", "disabled": true }]
+    },
+    {
+      "id": "boot",
+      "label": "At startup",
+      "hidden": true,
+      "action": { "run": "Set-Content -Path \"$env:TC_OUT/boot.txt\" -Value \"${WHO}\"", "inputs": [{ "name": "WHO" }] },
+      "schedules": [{ "startup": true, "values": { "WHO": "scheduler" } }]
+    }
+  ]
+}

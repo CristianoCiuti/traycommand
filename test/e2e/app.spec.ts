@@ -1,4 +1,5 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
+import { editorWindow } from './support/windows';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,7 +30,7 @@ test.beforeAll(async () => {
     args: [root, `--data-dir=${path.join(work, 'data')}`, `--config=${path.join(work, 'config.json')}`],
     env: { ...process.env, TRAYCOMMAND_E2E: '1', TRAYCOMMAND_AGENTS_HOME: agents },
   });
-  page = await app.firstWindow();
+  page = await editorWindow(app);
   await page.setViewportSize({ width: 1200, height: 800 });
   await page.waitForSelector('[data-testid="tray-list"]');
 });

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { cronError, parseInterval } from './cron.ts';
+import { canonicalHotkey, hotkeyError } from './hotkey.ts';
 
 /*
  * TrayCommand configuration (format v2).
@@ -32,6 +34,32 @@ const notify = z
   .union([z.boolean(), z.string()])
   .describe('Notification shown when the action succeeds: false = none, true = default text, string = custom text. Errors are always notified.');
 
+/** A value asked to the user when the action starts. */
+export const InputSchema = z
+  .object({
+    name: z
+      .string()
+      .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'Letters, numbers and "_", not starting with a number')
+      .describe('Name used in the script as ${NAME}. Also passed as an environment variable with the same name.'),
+    label: z.string().optional().describe('Text shown next to the field (default: the name).'),
+    type: z
+      .enum(['text', 'password', 'number', 'select', 'checkbox', 'file', 'folder'])
+      .optional()
+      .describe('Kind of field (default "text"). "password" is masked, never remembered and hidden in the activity log. "checkbox" gives "true" or "false".'),
+    default: z.union([z.string(), z.number(), z.boolean()]).optional().describe('Value proposed the first time (then the last value used is proposed, unless remember is false).'),
+    placeholder: z.string().optional().describe('Hint shown inside an empty field.'),
+    options: z
+      .array(z.union([z.string(), z.object({ value: z.string(), label: z.string().optional() }).strict()]))
+      .optional()
+      .describe('Choices of a "select".'),
+    optionsCommand: z.string().optional().describe('Script whose output lines are the choices of a "select" (run when the form opens, with the shell of the action).'),
+    optional: z.boolean().optional().describe('Allow an empty value.'),
+    pattern: z.string().optional().describe('Regular expression the value must match.'),
+    remember: z.boolean().optional().describe('Propose the last value used next time (default true; never for passwords).'),
+  })
+  .strict();
+export type Input = z.infer<typeof InputSchema>;
+
 /** Reference to another entry action: "id" (same kind of action), "id:on", "id:off" or "id:right". */
 export const ActionRefSchema = z
   .string()
@@ -55,6 +83,7 @@ export const ActionSchema = z
     before: z.array(ActionRefSchema).optional().describe('Actions of other entries to run, in order, before this one.'),
     parallel: z.array(ActionRefSchema).optional().describe('Actions of other entries to run together with this one.'),
     after: z.array(ActionRefSchema).optional().describe('Actions of other entries to run, in order, after this one.'),
+    inputs: z.array(InputSchema).optional().describe('Values asked when the action starts, used in the script as ${NAME}.'),
   })
   .strict();
 export type Action = z.infer<typeof ActionSchema>;
@@ -84,6 +113,22 @@ export const StateSchema = z
   .describe('Makes the entry a toggle: the check script decides whether it is ON or OFF.');
 export type State = z.infer<typeof StateSchema>;
 
+export const ScheduleSchema = z
+  .object({
+    cron: z.string().optional().describe('Cron expression (minute hour day month weekday), local time, e.g. "0 9 * * 1-5" = 09:00 on weekdays.'),
+    every: z.string().optional().describe('Interval, e.g. "30s", "15m", "2h", "1d", "1h30m". The first run is one interval after TrayCommand starts.'),
+    startup: z.boolean().optional().describe('Run once when TrayCommand starts.'),
+    run: z
+      .enum(['click', 'on', 'off', 'right'])
+      .optional()
+      .describe('What to run: "click" (default) = what a click does; "on" / "off" = turn a toggle on / off (skipped when it already is); "right" = the right click action.'),
+    values: z.record(z.string(), z.string()).optional().describe('Values for the inputs of the action (scheduled runs never ask: missing values use the default).'),
+    disabled: z.boolean().optional().describe('Keep the schedule without running it.'),
+  })
+  .strict()
+  .describe('When to run the entry automatically. Exactly one of cron, every or startup.');
+export type Schedule = z.infer<typeof ScheduleSchema>;
+
 const entryBase = {
   id: id.optional(),
   label: z.string().describe('Text shown in the menu (tooltip for a tray).'),
@@ -98,6 +143,8 @@ const entryBase = {
   action: ActionInputSchema.optional().describe('Run on click (on click while OFF, for toggles).'),
   offAction: ActionInputSchema.optional().describe('Toggles only: run on click while ON.'),
   state: StateSchema.optional(),
+  hotkey: z.string().optional().describe('Global keyboard shortcut, e.g. "Ctrl+Alt+V": works like a click from any application. On an entry with only a menu it opens the launcher on that menu.'),
+  schedules: z.array(ScheduleSchema).optional().describe('Run the entry automatically (cron, interval, at startup).'),
 };
 
 export interface MenuEntry {
@@ -110,6 +157,8 @@ export interface MenuEntry {
   action?: ActionInput;
   offAction?: ActionInput;
   state?: State;
+  hotkey?: string;
+  schedules?: Schedule[];
   menu?: MenuNode[];
 }
 export interface Separator {
@@ -151,6 +200,10 @@ export const SettingsSchema = z
     checkUpdates: z.boolean().default(true),
     autostart: z.boolean().default(false).describe('Start TrayCommand when you log in.'),
     allowAdminCommands: z.boolean().default(false).describe('Allow actions with "admin": true (UAC prompt on each run).'),
+    launcherHotkey: z
+      .string()
+      .default('Ctrl+Alt+Space')
+      .describe('Global keyboard shortcut that opens the launcher (search and run any entry). Empty = no shortcut.'),
     skillUpdates: z
       .enum(['auto', 'ask'])
       .default('auto')
@@ -228,7 +281,71 @@ export function parseConfig(raw: unknown): ParseResult {
         }
       }
     }
+    checkHotkey(entry.hotkey, `${path}.hotkey`);
+    checkInputs(entry as MenuEntry & { rightAction?: ActionInput }, path);
+    entry.schedules?.forEach((schedule, i) => checkSchedule(entry as MenuEntry & { rightAction?: ActionInput }, schedule, `${path}.schedules[${i}]`));
     entry.menu?.forEach((child, i) => visit(child, `${path}.menu[${i}]`));
+  };
+
+  const hotkeys = new Map<string, string>();
+  const checkHotkey = (value: string | undefined, path: string) => {
+    if (!value) return;
+    const error = hotkeyError(value);
+    if (error) {
+      issues.push({ path, message: error });
+      return;
+    }
+    const canonical = canonicalHotkey(value)!;
+    const other = hotkeys.get(canonical);
+    if (other) issues.push({ path, message: `Shortcut ${value} is already used by ${other === 'settings.launcherHotkey' ? 'the launcher' : other}` });
+    else hotkeys.set(canonical, path);
+  };
+  checkHotkey(config.settings.launcherHotkey, 'settings.launcherHotkey');
+
+  const checkInputs = (entry: MenuEntry & { rightAction?: ActionInput }, path: string) => {
+    for (const key of ['action', 'offAction', 'rightAction'] as const) {
+      const inputs = normalizeAction(entry[key])?.inputs;
+      if (!inputs) continue;
+      const names = new Set<string>();
+      inputs.forEach((input, i) => {
+        const at = `${path}.${key}.inputs[${i}]`;
+        if (names.has(input.name)) issues.push({ path: `${at}.name`, message: `Duplicate input "${input.name}"` });
+        names.add(input.name);
+        if (input.type === 'select' && !input.options?.length && !input.optionsCommand) issues.push({ path: at, message: 'A "select" needs options or optionsCommand' });
+        if (input.pattern !== undefined) {
+          try {
+            new RegExp(input.pattern);
+          } catch (error) {
+            issues.push({ path: `${at}.pattern`, message: `Invalid regular expression: ${(error as Error).message}` });
+          }
+        }
+      });
+    }
+  };
+
+  const checkSchedule = (entry: MenuEntry & { rightAction?: ActionInput }, schedule: Schedule, path: string) => {
+    const kinds = [schedule.cron !== undefined, schedule.every !== undefined, schedule.startup === true].filter(Boolean).length;
+    if (kinds !== 1) issues.push({ path, message: 'Set exactly one of cron, every or startup' });
+    if (schedule.cron !== undefined) {
+      const error = cronError(schedule.cron);
+      if (error) issues.push({ path: `${path}.cron`, message: error });
+    }
+    if (schedule.every !== undefined) {
+      const seconds = parseInterval(schedule.every);
+      if (seconds === undefined) issues.push({ path: `${path}.every`, message: 'Use a number and a unit: "30s", "15m", "2h", "1d"' });
+      else if (seconds < 5) issues.push({ path: `${path}.every`, message: 'The minimum interval is 5 seconds' });
+    }
+    const run = schedule.run ?? 'click';
+    const target = run === 'off' ? entry.offAction : run === 'right' ? entry.rightAction : entry.action;
+    if (!target && !(run === 'click' && entry.state && entry.offAction)) {
+      issues.push({ path: `${path}.run`, message: run === 'off' ? 'Nothing to run: the entry has no offAction' : run === 'right' ? 'Nothing to run: the entry has no rightAction' : 'Nothing to run: the entry has no action' });
+    }
+    if ((run === 'on' || run === 'off') && !entry.state) warnings.push({ path: `${path}.run`, message: `"${run}" is meant for toggles: without a state it always runs` });
+    const action = normalizeAction(target);
+    const known = new Set((action?.inputs ?? []).map((i) => i.name));
+    for (const name of Object.keys(schedule.values ?? {})) {
+      if (!known.has(name)) warnings.push({ path: `${path}.values.${name}`, message: `The action has no input "${name}"` });
+    }
   };
   config.trays.forEach((tray, i) => visit(tray, `trays[${i}]`));
 

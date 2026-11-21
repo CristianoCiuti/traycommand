@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
-import { Eye, EyeOff, GripVertical, Plus, Search, Terminal } from 'lucide-preact';
+import { CalendarClock, Eye, EyeOff, GripVertical, Keyboard, Plus, Search, Terminal } from 'lucide-preact';
+import { isSeparator, type MenuNode } from '../../shared/config';
 import type { Tray } from '../../shared/config';
 import { draft, mutate, selection, status, uniqueId } from '../store';
 import { EntryIcon } from '../components/ui';
@@ -18,6 +19,21 @@ function trayStatusPill(tray: Tray, index: number) {
       </span>
     );
   return null;
+}
+
+/** Shortcuts and schedules anywhere in the tray (itself or its menus). */
+function extras(tray: Tray) {
+  let hotkeys = 0;
+  let schedules = 0;
+  const visit = (n: MenuNode | Tray) => {
+    if (isSeparator(n as MenuNode)) return;
+    const e = n as Tray;
+    if (e.hotkey) hotkeys++;
+    if (e.schedules?.some((s) => !s.disabled)) schedules++;
+    e.menu?.forEach(visit);
+  };
+  visit(tray);
+  return { hotkeys, schedules };
 }
 
 function subtitle(tray: Tray) {
@@ -109,6 +125,16 @@ export function TraysView() {
                 <div class="sub">{subtitle(t)}</div>
               </span>
               <span class="row-actions">
+                {extras(t).hotkeys > 0 && (
+                  <span class="badge-icon" title={`${extras(t).hotkeys} keyboard shortcut${extras(t).hotkeys > 1 ? 's' : ''}`}>
+                    <Keyboard size={13} />
+                  </span>
+                )}
+                {extras(t).schedules > 0 && (
+                  <span class="badge-icon" title={`${extras(t).schedules} scheduled ${extras(t).schedules > 1 ? 'entries' : 'entry'}`}>
+                    <CalendarClock size={13} />
+                  </span>
+                )}
                 {trayStatusPill(t, i)}
                 <button class="btn ghost sm icon" onClick={(e) => toggleHidden(i, e)} title={t.hidden ? 'Show in the tray' : 'Hide from the tray'} data-testid="row-toggle-hidden">
                   {t.hidden ? <EyeOff size={14} /> : <Eye size={14} />}

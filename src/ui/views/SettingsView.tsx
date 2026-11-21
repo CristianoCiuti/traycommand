@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
-import { ExternalLink, FolderOpen, History, RefreshCw, ShieldAlert, ShieldCheck, Download, FileCog, Sparkles } from 'lucide-preact';
+import { ExternalLink, FolderOpen, History, RefreshCw, ShieldAlert, ShieldCheck, Download, FileCog, Sparkles, Search, CalendarClock } from 'lucide-preact';
+import { HotkeyInput } from '../components/HotkeyInput';
+import { Keys } from '../components/keys';
+import { hotkeyStatus, schedulesPaused } from '../store';
 import type { AgentSkillInfo } from '../../shared/api';
 import type { Settings } from '../../shared/config';
 import { api, draft, info, mutate, reload, showToast, skills, update } from '../store';
@@ -185,6 +188,32 @@ export function SettingsView() {
             </Setting>
             <Setting title="Notify when TrayCommand starts">
               <Switch checked={s.notifyOnStartup} onChange={(v) => set('notifyOnStartup', v)} />
+            </Setting>
+          </div>
+        </Card>
+
+        <Card title="Launcher and shortcuts" icon={<Search size={16} />} desc="Search and run any entry from the keyboard" testId="launcher-card">
+          <div class="settings-list">
+            <Setting title="Shortcut to open the launcher" desc="Type a few letters of an entry, then Enter. Works from any application.">
+              <HotkeyInput value={s.launcherHotkey || undefined} onChange={(v) => set('launcherHotkey', v ?? '')} placeholder="No shortcut" statusPath="settings.launcherHotkey" testId="launcher-hotkey" />
+            </Setting>
+            <Setting title="Open the launcher now">
+              <button class="btn sm" onClick={() => void api.openLauncher()} data-testid="open-launcher">
+                <Search size={14} /> Open
+              </button>
+            </Setting>
+            {hotkeyStatus.value.filter((h) => !h.ok).map((h) => (
+              <Setting title={h.label} desc={`Shortcut not working: ${h.error}`}>
+                <Keys hotkey={h.hotkey} platform={i.platform} />
+              </Setting>
+            ))}
+            <Setting title="Pause all schedules" desc="Stored on this PC only. Also in the TrayCommand tray menu." testId="setting-pause-schedules">
+              <Switch
+                checked={schedulesPaused.value}
+                onChange={async (v) => {
+                  schedulesPaused.value = await api.setSchedulesPaused(v);
+                }}
+              />
             </Setting>
           </div>
         </Card>

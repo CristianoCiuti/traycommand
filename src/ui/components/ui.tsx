@@ -1,4 +1,4 @@
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, Ref } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { X } from 'lucide-preact';
 import { api } from '../store';
@@ -90,9 +90,10 @@ export function EntryIcon(props: { path?: string; size?: number; fallback?: Comp
   return <img src={src} width={props.size ?? 20} height={props.size ?? 20} alt="" />;
 }
 
-export function TextArea(props: { value: string; onInput: (v: string) => void; rows?: number; placeholder?: string; invalid?: boolean; code?: boolean; testId?: string; autoFocus?: boolean }) {
+export function TextArea(props: { value: string; onInput: (v: string) => void; rows?: number; placeholder?: string; invalid?: boolean; code?: boolean; testId?: string; autoFocus?: boolean; inputRef?: Ref<HTMLTextAreaElement> }) {
   return (
     <textarea
+      ref={props.inputRef}
       class={`textarea${props.invalid ? ' invalid' : ''}${props.code ? ' code' : ''}`}
       rows={props.rows ?? Math.min(12, Math.max(2, props.value.split('\n').length + 1))}
       value={props.value}

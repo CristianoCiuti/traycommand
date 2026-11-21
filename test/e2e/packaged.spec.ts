@@ -1,4 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test';
+import { editorWindow } from './support/windows';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,7 +20,7 @@ test('packaged app starts, loads the config and shows the welcome page', async (
     args: [`--data-dir=${path.join(work, 'data')}`, `--config=${path.join(work, 'config.json')}`],
     env: { ...process.env, TRAYCOMMAND_AGENTS_HOME: agents },
   });
-  const page = await app.firstWindow();
+  const page = await editorWindow(app);
   await page.setViewportSize({ width: 1200, height: 800 });
   // not installed in %LOCALAPPDATA%\Programs → welcome page offering the per-user install
   await expect(page.getByTestId('install')).toBeVisible({ timeout: 20000 });

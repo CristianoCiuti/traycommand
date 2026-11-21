@@ -1,8 +1,10 @@
 import { render } from 'preact';
+import { effect } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
 import { Activity, Braces, Loader2, Settings as SettingsIcon, SquareTerminal, CircleAlert, Sparkles } from 'lucide-preact';
-import './styles.css';
-import { api, dirty, discard, draft, info, init, loadIssues, navigate, route, save, showToast, skills, skillsSnoozed, toast, validation } from './store';
+import { applyStyle, chromeColors } from './themes/apply';
+import { EDITOR_CSS } from './themes/editor';
+import { activeStyle, api, dirty, discard, draft, info, init, loadIssues, navigate, route, save, showToast, skills, skillsSnoozed, toast, validation } from './store';
 import { TraysView } from './views/TraysView';
 import { SettingsView } from './views/SettingsView';
 import { LogsView } from './views/LogsView';
@@ -121,7 +123,7 @@ function App() {
     <div class={`app platform-${info.value.platform}`}>
       <header class="titlebar">
         <div class="brand">
-          <img src="./icon.png" alt="" />
+          <img src={`./icon-${activeStyle.value}.png`} alt="" />
           TrayCommand
         </div>
         <nav class="nav">
@@ -144,6 +146,15 @@ function App() {
     </div>
   );
 }
+
+// the look: the one being chosen in the settings is shown at once; the window buttons follow it, light or dark
+applyStyle('aurora', EDITOR_CSS);
+const sendChrome = () => api.setChrome(chromeColors(), activeStyle.peek());
+effect(() => {
+  applyStyle(activeStyle.value, EDITOR_CSS);
+  sendChrome();
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sendChrome);
 
 render(<App />, document.getElementById('app')!);
 void init();

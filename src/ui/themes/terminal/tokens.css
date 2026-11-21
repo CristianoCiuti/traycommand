@@ -1,0 +1,100 @@
+/* Colours, fonts and radii shared by the editor and the launcher.
+   Theme: PHOSPHOR TERMINAL. Dark = green phosphor CRT, light = thermal paper printout. */
+:root {
+  --mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'Lucida Console', 'SF Mono', Menlo, monospace;
+  --font: var(--mono);
+  --radius: 0;
+  --radius-sm: 0;
+
+  /* light: warm paper, dark green ink, amber stamps */
+  --bg: #f2ecdc;
+  --panel: #faf6ea;
+  --panel-2: #ebe3cd;
+  --border: #d9cfb3;
+  --border-strong: #ac9f7d;
+  --text: #11241a;
+  --text-2: #34493c;
+  --text-3: #56634f;
+  --accent: #0b6e3f;
+  --accent-soft: #dae8d3;
+  --accent-text: #faf6ea;
+  --ok: #0b6e3f;
+  --ok-soft: #dae8d3;
+  --off: #5f6758;
+  --off-soft: #e4dcc6;
+  --warn: #8a4b00;
+  --warn-soft: #f5e1b8;
+  --amber: #8a4b00;
+  --danger: #cf222e;
+  --danger-soft: #fbebe5;
+  --sel-bg: #11241a;
+  --sel-text: #f2ecdc;
+  --sel-dim: #c7cdb7;
+  --glow: none;
+  --glow-soft: none;
+  --halo: 0 0 0 transparent;
+  --scan: transparent;
+  --vignette: transparent;
+  --band: rgb(11 110 63 / 0.035);
+  --shadow: none;
+  --shadow-lg: 6px 6px 0 rgb(17 36 26 / 0.14);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* dark: near-black phosphor screen, P1 green, amber secondary */
+    --bg: #060d09;
+    --panel: #0a140f;
+    --panel-2: #0f1e16;
+    --border: #183424;
+    --border-strong: #275a3e;
+    --text: #c6f7dc;
+    --text-2: #8dcfab;
+    --text-3: #62a07e;
+    --accent: #38f29a;
+    --accent-soft: #0e2e1e;
+    --accent-text: #03130a;
+    --ok: #38f29a;
+    --ok-soft: #0e2e1e;
+    --off: #6f927f;
+    --off-soft: #121f18;
+    --warn: #ffb547;
+    --warn-soft: #2c1f08;
+    --amber: #ffb547;
+    --danger: #f85149;
+    --danger-soft: #331210;
+    --sel-bg: #38f29a;
+    --sel-text: #03130a;
+    --sel-dim: #0b3a22;
+    --glow: 0 0 6px rgb(56 242 154 / 0.55);
+    --glow-soft: 0 0 4px rgb(56 242 154 / 0.3);
+    --halo: 0 0 18px rgb(56 242 154 / 0.28);
+    --scan: rgb(0 0 0 / 0.22);
+    --vignette: rgb(0 0 0 / 0.38);
+    --band: transparent;
+    --shadow: none;
+    --shadow-lg: 0 0 0 1px rgb(56 242 154 / 0.08), 6px 6px 0 rgb(0 0 0 / 0.65);
+    color-scheme: dark;
+  }
+}
+
+/* ASCII-ish corner ticks drawn on the border of framed boxes */
+:root {
+  --tick: 9px;
+  --ticks:
+    linear-gradient(var(--accent), var(--accent)) left top / var(--tick) 1px no-repeat border-box,
+    linear-gradient(var(--accent), var(--accent)) left top / 1px var(--tick) no-repeat border-box,
+    linear-gradient(var(--accent), var(--accent)) right top / var(--tick) 1px no-repeat border-box,
+    linear-gradient(var(--accent), var(--accent)) right top / 1px var(--tick) no-repeat border-box,
+    linear-gradient(var(--accent), var(--accent)) left bottom / var(--tick) 1px no-repeat border-box,
+    linear-gradient(var(--accent), var(--accent)) left bottom / 1px var(--tick) no-repeat border-box,
+    linear-gradient(var(--accent), var(--accent)) right bottom / var(--tick) 1px no-repeat border-box,
+    linear-gradient(var(--accent), var(--accent)) right bottom / 1px var(--tick) no-repeat border-box;
+}
+
+/* Title bar: the window buttons drawn by the system take these colours (sent to the main process). */
+:root { --chrome-bg: #f2ecdc; --chrome-fg: #11241a; }
+@media (prefers-color-scheme: dark) {
+  :root { --chrome-bg: #060d09; --chrome-fg: #38f29a; }
+}

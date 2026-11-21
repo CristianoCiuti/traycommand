@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { CalendarClock, Eye, EyeOff, GripVertical, Keyboard, Plus, Search, Terminal } from 'lucide-preact';
 import { isSeparator, type MenuNode } from '../../shared/config';
 import type { Tray } from '../../shared/config';
-import { draft, mutate, selection, status, uniqueId } from '../store';
+import { activeStyle, draft, mutate, selection, status, uniqueId } from '../store';
 import { EntryIcon } from '../components/ui';
 import { EntryEditor } from './EntryEditor';
 
@@ -95,6 +95,18 @@ export function TraysView() {
             <Plus size={16} />
           </button>
         </div>
+        {/* a heading over the list, in the words of the look */}
+        {activeStyle.value === 'terminal' && (
+          <div class="sidebar-title" aria-hidden="true">
+            <span class="t">trays</span>
+            <span class="n">{config.trays.length}</span>
+          </div>
+        )}
+        {activeStyle.value === 'neon' && (
+          <div class="hud-label" aria-hidden="true">
+            SYS // TRAYS <b>{String(config.trays.length).padStart(2, '0')}</b>
+          </div>
+        )}
         <div class="list" data-testid="tray-list">
           {visible.map(({ t, i }) => (
             <div

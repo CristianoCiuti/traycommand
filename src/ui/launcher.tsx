@@ -1,7 +1,10 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { BellRing, ChevronRight, CircleAlert, CornerDownLeft, EyeOff, FolderOpen, Loader2, RectangleEllipsis, Search, Terminal, X } from 'lucide-preact';
-import './launcher.css';
+import { signal } from '@preact/signals';
+import type { Style } from '../shared/config';
+import { applyStyle } from './themes/apply';
+import { LAUNCHER_CSS } from './themes/launcher';
 import type { LauncherItem, LauncherShow, PromptField, PromptRequest } from '../shared/api';
 import { fuzzyMatch } from '../shared/fuzzy';
 import { alertKey, ALERT_ARM_MS, formatCountdown } from '../shared/scheduleForm';
@@ -199,7 +202,14 @@ function List(props: {
   return (
     <div class="lx" data-testid="launcher-list" style={props.hidden ? { display: 'none' } : undefined}>
       <div class="lx-search">
-        <Search size={18} class="lx-search-icon" />
+        {/* Phosphor shows a shell prompt with a block caret; the other looks a search icon */}
+        {lookStyle.value === 'terminal' ? (
+          <span class="lx-ps1" aria-hidden="true">
+            tc<span class="lx-ps1-sep">:~$</span>
+          </span>
+        ) : (
+          <Search size={18} class="lx-search-icon" />
+        )}
         {scopeLabel && (
           <span class="lx-scope" title="Backspace to search everywhere">
             {scopeLabel}
@@ -208,18 +218,26 @@ function List(props: {
             </button>
           </span>
         )}
-        <input
-          ref={input}
-          value={query}
-          placeholder={scopeLabel ? `Search in ${scopeLabel}` : 'Search commands'}
-          spellcheck={false}
-          autoComplete="off"
-          onInput={(e) => props.setQuery((e.currentTarget as HTMLInputElement).value)}
-          onKeyDown={onKey}
-          data-testid="launcher-input"
-          aria-activedescendant={current ? `lx-${selected}` : undefined}
-          aria-controls="lx-list"
-        />
+        <span class="lx-line">
+          <input
+            ref={input}
+            value={query}
+            placeholder={scopeLabel ? `Search in ${scopeLabel}` : 'Search commands'}
+            spellcheck={false}
+            autoComplete="off"
+            onInput={(e) => props.setQuery((e.currentTarget as HTMLInputElement).value)}
+            onKeyDown={onKey}
+            data-testid="launcher-input"
+            aria-activedescendant={current ? `lx-${selected}` : undefined}
+            aria-controls="lx-list"
+          />
+          {lookStyle.value === 'terminal' && (
+            <span class="lx-mirror" aria-hidden="true">
+              {query}
+              <i class="lx-caret" />
+            </span>
+          )}
+        </span>
         {data.hotkey && <Keys hotkey={data.hotkey} platform={platform} small />}
       </div>
       <div class="lx-list" id="lx-list" role="listbox" ref={listRef} onMouseMove={(e) => {
@@ -704,5 +722,15 @@ function Launcher() {
     </div>
   );
 }
+
+/** The look in use (sent by the main process when it changes). */
+const lookStyle = signal<Style>('aurora');
+const setLook = (s: Style) => {
+  lookStyle.value = s;
+  applyStyle(s, LAUNCHER_CSS);
+};
+setLook('aurora');
+void api.style().then(setLook);
+api.onStyle(setLook);
 
 render(<Launcher />, document.getElementById('launcher')!);

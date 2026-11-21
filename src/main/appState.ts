@@ -16,6 +16,8 @@ export interface AppState {
   skills?: { declined?: string[]; notifiedVersion?: string };
   /** Scheduled runs paused from the tray menu. */
   schedulesPaused?: boolean;
+  /** Title bar colours last shown by the editor (so that it opens with them). */
+  chrome?: { bg: string; fg: string };
 }
 
 export class AppStateStore {

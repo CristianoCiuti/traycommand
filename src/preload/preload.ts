@@ -58,6 +58,7 @@ const api: TrayCommandApi = {
   openImport: invoke('transfer:open') as TrayCommandApi['openImport'],
   importIcons: invoke('transfer:icons') as TrayCommandApi['importIcons'],
   pathForFile: (file) => webUtils.getPathForFile(file),
+  setChrome: (colors, style) => ipcRenderer.send('chrome', colors, style),
   launcher: {
     onShow: subscribe('launcher:show'),
     onPrompt: subscribe('launcher:prompt'),
@@ -71,6 +72,8 @@ const api: TrayCommandApi = {
     edit: (key) => ipcRenderer.send('launcher:edit', key),
     close: () => ipcRenderer.send('launcher:close'),
     resize: (height) => ipcRenderer.send('launcher:resize', height),
+    style: invoke('style') as LauncherApi['style'],
+    onStyle: subscribe('style'),
   },
 };
 

@@ -39,7 +39,8 @@ The schema is also available here: [config.schema.json](/traycommand/schema/v2/c
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | `shell` | [shell](#shell) | `powershell` on Windows, `$SHELL` (or bash / zsh) elsewhere | Default shell for actions and state checks. |
-| `theme` | `"system"` \| `"light"` \| `"dark"` | `"system"` | Theme of the editor window. |
+| `theme` | `"system"` \| `"light"` \| `"dark"` | `"system"` | Light or dark, for the editor and the launcher. |
+| `style` | `"aurora"` \| `"terminal"` \| `"brutal"` \| `"neon"` | `"aurora"` | [Look](../guide/editor#looks) of the editor, the launcher and the app icon: Aurora, Phosphor, Brutal, Neon HUD. |
 | `appMenu` | string | `"own"` | `"own"`: TrayCommand has its own tray icon. Otherwise the `id` of a tray whose menu gets a **TrayCommand** sub menu (open, settings, quit…). If that tray is hidden, the TrayCommand icon comes back. |
 | `notifyOnStartup` | boolean | `false` | Show a notification when TrayCommand starts hidden. |
 | `checkUpdates` | boolean | `true` | Check GitHub releases every 6 hours. See [updates](../guide/startup-and-updates#updates). |
@@ -282,6 +283,7 @@ Besides the types above, TrayCommand checks that:
   "settings": {
     "shell": "powershell",
     "theme": "system",
+    "style": "aurora",
     "appMenu": "own",
     "autostart": true
   },

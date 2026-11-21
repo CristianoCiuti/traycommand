@@ -33,6 +33,10 @@ features:
     details: Installs into your user profile and updates itself from GitHub releases, verified with SHA-256.
   - title: Export and import
     details: Pick trays, schedules, variables or settings to share as a zip with their icons. On import, see what is new, what is already there and choose what to do.
+  - title: Four looks
+    details: Aurora, Phosphor, Brutal or Neon HUD, light or dark. Each restyles the editor, the launcher and the app icon.
   - title: Windows, Linux, macOS
     details: PowerShell, cmd, bash, zsh, sh or any custom shell. One configuration file you can share between PCs.
 ---
+
+<HomeShowcase />

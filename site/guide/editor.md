@@ -58,13 +58,29 @@ Clicking an error notification opens this page.
 
 | Section | Contains |
 | --- | --- |
-| **General** | Start at login, theme, default shell, where the TrayCommand menu appears, notification at startup. |
+| **Look** | Aurora, Phosphor, Brutal or Neon HUD (see [looks](#looks)). |
+| **General** | Start at login, theme (light, dark or as the system), default shell, where the TrayCommand menu appears, notification at startup. |
 | **Configuration file** | Path of the file in use, **Open folder**, **Use another file…**, **Export…** and **Import…** (see [export and import](./sharing)). |
 | **Backups** | The latest backups with **Restore**. |
 | **Updates** | Current version, **Check now** / **Install**, automatic checks on/off, link to this documentation. |
 | **Advanced** | **Allow commands as administrator**, **Start as administrator without prompt** (Windows), data folder. |
 
 Settings are saved in the configuration file, except the choice of file and the administrator start mode, which are stored on this PC only. See [Administrator](./administrator).
+
+## Looks
+
+![The four looks](/screens/home/look-aurora.png)
+
+TrayCommand has four looks, chosen in **Settings → Look** (`"style"` in the [settings](../reference/#settings)):
+
+| Look | Style |
+| --- | --- |
+| **Aurora** (default) | Frosted glass over an aurora of violet, indigo and teal. |
+| **Phosphor** | A terminal: monospace, square corners, cream paper and phosphor green. |
+| **Brutal** | Flat colours, thick black outlines, hard shadows. |
+| **Neon HUD** | Cyan and magenta lines on night blue, cut corners. |
+
+Each look restyles the whole editor and the launcher, in light and dark (the **Theme** setting), and has its own icon: the window, the taskbar, the TrayCommand tray icon and the Start menu shortcut change with it. The window buttons (minimize, maximize, close) take the colours of the look. A look chosen in the settings is shown at once; save to keep it.
 
 ## JSON
 

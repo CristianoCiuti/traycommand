@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { isSeparator, normalizeAction, parseConfig, SCHEMA_URL, type Action, type Config, type MenuEntry, type MenuNode, type Tray } from '../shared/config';
+import { isSeparator, normalizeAction, parseConfig, SCHEMA_URL, STYLES, type Action, type Config, type MenuEntry, type MenuNode, type Style, type Tray } from '../shared/config';
 import { expand } from '../shared/variables';
 import type { AgentSkillInfo, AppInfo, ExecutionLog, ExportRequest, ExportResult, LauncherItem, LauncherShow, LoadedConfig, OpenImportResult, SaveResult, SkillsInfo, TestResult } from '../shared/api';
 import { canonicalHotkey, formatHotkey } from '../shared/hotkey';
@@ -18,7 +18,7 @@ import { HotkeyManager, type HotkeyBinding } from './hotkeys';
 import { Alerts } from './alerts';
 import { Launcher } from './launcher';
 import { LauncherStore } from './launcherStore';
-import { iconDataUrl } from './icons';
+import { assetPath, iconDataUrl, setIconStyle } from './icons';
 import { readImport, saveIcons, writeExport } from './transfer';
 import { exportKind } from '../shared/transfer';
 import { installForUser, isInstalled, startMenuShortcut } from './install';
@@ -27,7 +27,7 @@ import { APP_ID, APP_NAME, currentInstallRoot, DOCS_URL, machineInstallDir, same
 import { onRunningChange, runningProcesses, runScript } from './runner';
 import { TrayManager } from './trays';
 import { Updater } from './updater';
-import { applyTheme, currentWindow, sendToWindow, showWindow } from './window';
+import { applyTheme, currentWindow, sendToWindow, setChrome, setWindowIcon, showWindow } from './window';
 
 /* ---------------- arguments & paths ---------------- */
 
@@ -293,6 +293,7 @@ function applyLoaded(loaded: LoadedConfig) {
   engine.start();
   if (app.isReady()) applyHotkeys(loaded.config);
   applyTheme(loaded.config.settings.theme);
+  applyStyle(loaded.config.settings.style);
   applySettings(loaded.config);
   if (skillsStarted && skillsAutomatic && loaded.config.settings.skillUpdates === 'auto') {
     // switched to automatic updates: bring outdated skills up to date now
@@ -329,6 +330,32 @@ function launchTarget(): LaunchTarget {
   if (process.platform === 'linux' && process.env.APPIMAGE) return { command: process.env.APPIMAGE, args: relaunchArgs(), cwd: os.homedir() };
   return { command: process.execPath, args: relaunchArgs(), cwd: path.dirname(process.execPath) };
 }
+
+/** The look: icons of the app and of the TrayCommand tray, the launcher, the editor window. */
+function applyStyle(style: Style) {
+  savedStyle = style;
+  setIconStyle(style);
+  launcher.setStyle(style);
+  setWindowIcon(style);
+  trays?.scheduleSync();
+  updateShortcutIcon(style);
+}
+
+/** The Start menu shortcut of an installed TrayCommand shows the icon of the look in use. */
+function updateShortcutIcon(style: Style) {
+  if (process.platform !== 'win32' || !app.isPackaged || option('data-dir')) return;
+  const lnk = startMenuShortcut();
+  const icon = assetPath(`icon-${style}.ico`);
+  try {
+    if (!fs.existsSync(lnk) || !fs.existsSync(icon)) return;
+    const current = shell.readShortcutLink(lnk);
+    if (current.icon === icon) return;
+    shell.writeShortcutLink(lnk, 'update', { ...current, icon, iconIndex: 0 });
+  } catch {
+    /* a shortcut that cannot be read or written keeps its icon */
+  }
+}
+let savedStyle: Style = 'aurora';
 
 function applySettings(config: Config) {
   // Autostart points to the running executable; only for packaged builds (never to the dev electron.exe)
@@ -543,6 +570,7 @@ function appInfo(): AppInfo {
     elevated: false,
     startElevated: state.get().startElevated === true,
     docsUrl: DOCS_URL,
+    style: savedStyle,
   };
 }
 
@@ -600,6 +628,13 @@ async function openImport(given?: string): Promise<OpenImportResult> {
 }
 
 function registerIpc() {
+  // the editor shows a look (also one being chosen, not saved yet): title bar colours and window icon follow it
+  ipcMain.on('chrome', (e, colors: { bg: string; fg: string }, style: string) => {
+    const w = currentWindow();
+    if (!w || e.sender !== w.webContents || !colors || typeof colors.bg !== 'string' || typeof colors.fg !== 'string') return;
+    setChrome(colors);
+    if ((STYLES as readonly string[]).includes(style)) setWindowIcon(style);
+  });
   handle('transfer:export', (req: ExportRequest) => exportPack(req));
   handle('transfer:open', (file?: string) => openImport(file));
   handle('transfer:icons', (token: number, raws: string[]) => {

@@ -33,6 +33,8 @@ export class Launcher {
   private height = 120;
   /** The launcher closes when it loses focus, except right after showing (Windows may blur it once). */
   private shownAt = 0;
+  /** The look in use. */
+  private style = 'aurora';
 
   constructor(
     private readonly hooks: LauncherHooks,
@@ -68,11 +70,19 @@ export class Launcher {
       if (this.current) this.finish(undefined, false);
       else this.hide();
     });
+    ipcMain.handle('style', (e) => (own(e) ? this.style : 'aurora'));
     ipcMain.on('launcher:resize', (e, height: number) => {
       if (!own(e) || !this.win) return;
       this.height = Math.max(60, Math.min(Math.ceil(height), MAX_HEIGHT + 40));
       this.place();
     });
+  }
+
+  /** Shows another look (sent to the window if it is already loaded; asked by it otherwise). */
+  setStyle(style: string) {
+    if (style === this.style) return;
+    this.style = style;
+    if (this.win && !this.win.isDestroyed()) this.win.webContents.send('style', style);
   }
 
   /** Creates the window in the background; call once the app is ready. */

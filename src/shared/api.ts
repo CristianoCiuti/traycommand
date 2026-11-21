@@ -1,4 +1,4 @@
-import type { Action, Config, ConfigIssue } from './config';
+import type { Action, Config, ConfigIssue, Style } from './config';
 import type { ExportIcon, Pack } from './transfer';
 
 export interface EntryStatus {
@@ -162,6 +162,9 @@ export interface LauncherApi {
   edit(key: string): void;
   close(): void;
   resize(height: number): void;
+  /** Look in use, and its changes. */
+  style(): Promise<Style>;
+  onStyle(handler: (style: Style) => void): () => void;
 }
 
 export interface RunningInfo {
@@ -183,6 +186,14 @@ export interface AppInfo {
   elevated: boolean;
   startElevated: boolean;
   docsUrl: string;
+  /** Look in use (the saved one). */
+  style: Style;
+}
+
+/** Colours of the window title bar, read from the look in use. */
+export interface ChromeColors {
+  bg: string;
+  fg: string;
 }
 
 export type LoadedConfig =
@@ -304,6 +315,8 @@ export interface TrayCommandApi {
   openImport(file?: string): Promise<OpenImportResult>;
   /** Copies the icons of the file opened into the configuration folder: icon as written → new path. */
   importIcons(token: number, icons: string[]): Promise<Record<string, string>>;
+  /** The editor shows another look or light/dark: the window buttons drawn by the system follow it. */
+  setChrome(colors: ChromeColors, style: Style): void;
   /** Path of a file dropped on the window. */
   pathForFile(file: File): string;
   setSchedulesPaused(paused: boolean): Promise<boolean>;

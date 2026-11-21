@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Neon HUD: night blue plate with chamfered corners, HUD brackets, glowing cyan prompt and magenta cursor -->
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1a3f"/>
+      <stop offset="1" stop-color="#041127"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+    <pattern id="grid" width="16" height="16" patternUnits="userSpaceOnUse">
+      <path d="M16 0 H0 V16" fill="none" stroke="#00c6e4" stroke-opacity="0.12" stroke-width="1.5"/>
+    </pattern>
+  </defs>
+  <path d="M40 8 H216 L248 40 V216 L216 248 H40 L8 216 V40 Z" fill="url(#plate)"/>
+  <path d="M40 8 H216 L248 40 V216 L216 248 H40 L8 216 V40 Z" fill="url(#grid)"/>
+  <path d="M40 8 H216 L248 40 V216 L216 248 H40 L8 216 V40 Z" fill="none" stroke="#00c6e4" stroke-opacity="0.55" stroke-width="4"/>
+  <path d="M34 74 V34 H74 M182 34 H222 V74 M222 182 V222 H182 M74 222 H34 V182" fill="none" stroke="#00c6e4" stroke-width="8"/>
+  <g filter="url(#glow)">
+    <path d="M70 92 L116 128 L70 164" fill="none" stroke="#00e5ff" stroke-width="22" stroke-linecap="square"/>
+    <rect x="128" y="150" width="64" height="20" fill="#ff2fb4"/>
+  </g>
+  <path d="M70 92 L116 128 L70 164" fill="none" stroke="#a8f7ff" stroke-width="16" stroke-linecap="square"/>
+  <rect x="128" y="152" width="64" height="16" fill="#ff7fd0"/>
+</svg>

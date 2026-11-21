@@ -39,6 +39,7 @@ import { Keys } from '../components/keys';
 const SETTING_LABELS: Record<keyof Settings, string> = {
   shell: 'Default shell',
   theme: 'Theme',
+  style: 'Look',
   appMenu: 'TrayCommand menu',
   notifyOnStartup: 'Notify on startup',
   checkUpdates: 'Check for updates',

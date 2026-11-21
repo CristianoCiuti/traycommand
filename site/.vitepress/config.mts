@@ -4,7 +4,7 @@ const releases = 'https://github.com/CristianoCiuti/traycommand/releases/latest'
 
 export default defineConfig({
   title: 'TrayCommand',
-  description: 'Run shell commands from system tray icons: toggles with live state, menus, start at login, self update.',
+  description: 'Run shell commands from system tray icons: toggles with live state, menus, a keyboard launcher, global shortcuts, forms and schedules.',
   base: '/traycommand/',
   cleanUrls: true,
   lastUpdated: false,
@@ -27,6 +27,9 @@ export default defineConfig({
             { text: 'Getting started', link: '/guide/getting-started' },
             { text: 'Concepts', link: '/guide/concepts' },
             { text: 'The editor', link: '/guide/editor' },
+            { text: 'Launcher and shortcuts', link: '/guide/launcher' },
+            { text: 'Asking for values', link: '/guide/inputs' },
+            { text: 'Schedules', link: '/guide/schedules' },
             { text: 'Start at login and updates', link: '/guide/startup-and-updates' },
             { text: 'Administrator', link: '/guide/administrator' },
             { text: 'AI assistants', link: '/guide/ai-assistants' },

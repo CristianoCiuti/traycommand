@@ -177,6 +177,17 @@ Built in:
 
 Variables can use other variables. Unknown names are left as they are, so shell syntax like `${HOME}` in a bash script still works.
 
+## Values asked before running
+
+An action can ask for values in a small form before it runs (`inputs`): text, choices (also produced by a script), yes/no, files, folders, passwords. They are used as `${NAME}` and as environment variables. See [asking for values](./inputs).
+
+## Shortcuts, launcher and schedules
+
+- Any entry can have a global keyboard **shortcut** (`hotkey`), and the **launcher** (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>) runs any entry by typing part of its name. See [launcher and shortcuts](./launcher).
+- **Schedules** run an entry at set times, at an interval or when TrayCommand starts. See [schedules](./schedules).
+
+Hidden entries can still be run from the launcher, their shortcut and their schedules; disabled entries cannot.
+
 ## Relative paths
 
 `icon`, `state.iconOff` and `cwd` can be relative: they are resolved from the **folder of the configuration file**. Scripts run in that folder too, unless `cwd` says otherwise. Keep icons next to the configuration file and the whole folder can move or sync between PCs.

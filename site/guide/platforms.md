@@ -48,6 +48,7 @@ followed by a separator and the normal menu.
 :::
 
 - GNOME needs the *AppIndicator and KStatusNotifierItem Support* extension to show tray icons.
+- Global shortcuts work on X11. Wayland does not allow them: bind a key of your desktop to `traycommand --launcher` or `traycommand --run=<id>` (see [launcher](./launcher)).
 - The AppImage may need FUSE (`libfuse2`) on recent distributions.
 - Admin actions use `pkexec`.
 - Data folder: `~/.config/TrayCommand`.

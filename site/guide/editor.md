@@ -22,10 +22,12 @@ Select a tray to edit it on the right. The header has the icon picker, the label
 | **On / Off state** | The switch turns the entry into a toggle: check script, ON/OFF patterns, interval, shell, icon when OFF, notifications. |
 | **Turn off** | Only for toggles: the `offAction` run on click while ON. |
 | **Right click** | Only for trays: the `rightAction`. Without it, right click opens the menu. |
+| **Keyboard shortcut** | A global [shortcut](./launcher#shortcuts-for-entries): click it and press the keys. |
+| **Schedule** | [Runs at set times](./schedules), at an interval or at startup, with the next run in the card header. |
 | **Menu** / **Sub menu** | The entries of the menu: add **Item**, **Sub menu** or **Separator**; move up/down, hide, duplicate, delete. Click an entry to edit it; breadcrumbs bring you back. |
 | **Enabled when** | Follow another toggle: enabled only while it is ON or OFF. |
 
-Each action editor has the **Script** box and, under the advanced options, shell, working folder, timeout, notification, confirmation text, **Run in a visible terminal**, **Run as administrator**, environment variables, and the composed actions **Run before**, **Run together** and **Run after**.
+Each action editor has the **Script** box, the values to [ask before running](./inputs) (**Ask for a value**) and, under the advanced options, shell, working folder, timeout, notification, confirmation text, **Run in a visible terminal**, **Run as administrator**, environment variables, and the composed actions **Run before**, **Run together** and **Run after**.
 
 ### Test buttons
 
@@ -34,7 +36,7 @@ Every action and every state check has a **Test** button. It runs the script now
 - exit code, duration, standard output and errors,
 - for state checks, the resulting **State: ON / OFF** computed with your patterns.
 
-Tests do not ask for confirmation, do not run composed actions and do not change the configuration. A state check test stops after 60 seconds. Tests are listed on the Activity page.
+Tests do not ask for confirmation, do not run composed actions and do not change the configuration. If the action asks for values, the form opens first. A state check test stops after 60 seconds. Tests are listed on the Activity page.
 
 ### Saving
 
@@ -44,7 +46,7 @@ A backup of the previous file is kept at every save. See [backups](./startup-and
 
 ## Activity
 
-Every action run from a tray, a menu or a Test button, with result, duration and time. Click a row to see the script, the output and the errors. State checks are not listed.
+Every action run from a tray, a menu, the launcher, a shortcut, a schedule or a Test button, with result, duration and time (runs not started by a click are marked *shortcut*, *launcher*, *scheduled* or *command line*). Click a row to see the script, the values typed in the form (passwords hidden), the output and the errors. State checks are not listed.
 
 - **Running now** lists scripts still running, with a **Stop** button (also in the tray menu under **Running**).
 - **Errors only** filters the list.

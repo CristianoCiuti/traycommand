@@ -1,4 +1,5 @@
 /* "Only if" checks and alerts of schedules: configuration, engine, presentation, editor logic. */
+import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Engine, type EngineDeps } from '../../src/main/engine';
 import { Alerts, type AlertDeps } from '../../src/main/alerts';
@@ -204,7 +205,7 @@ describe('engine: alerts', () => {
     const { calls, fire, alerts, answerWith, logs } = setup(trays);
     answerWith(async () => 0);
     await fire('a', alert(), { TC_FILE: 'x.pdf' });
-    expect(alerts[0]).toMatchObject({ style: 'window', title: 'New x.pdf', text: 'x.pdf arrived', choices: ['Process', 'Other x.pdf', 'Off', 'Archive'], icon: 'C:\\cfg\\scan.png' });
+    expect(alerts[0]).toMatchObject({ style: 'window', title: 'New x.pdf', text: 'x.pdf arrived', choices: ['Process', 'Other x.pdf', 'Off', 'Archive'], icon: path.resolve('C:\\cfg', 'scan.png') });
     expect(alerts[0]!.deadline).toBeUndefined();
     expect(calls.map((c) => c.script)).toEqual(['self x.pdf']);
     expect(logs[0]!.source).toBe('alert');

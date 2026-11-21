@@ -1,4 +1,5 @@
 /* Adversarial checks of schedule checks and alerts. */
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Engine, type EngineDeps } from '../../src/main/engine';
 import { ConfigSchema, type ConfigInput, type Schedule } from '../../src/shared/config';
@@ -102,9 +103,9 @@ describe('challenge: alerts', () => {
     const entry = engine.get('a')!;
     const schedule: Schedule = { watch: { path: 'C:\\in' }, alert: { style: 'notification', text: '${TC_FILE_NAME}', choices: [{ label: 'Go', run: 'self' }] } };
     const onFileChanges = (engine as unknown as { onFileChanges: (...a: unknown[]) => void }).onFileChanges.bind(engine);
-    onFileChanges(entry, schedule, undefined, [{ file: 'C:\\in\\1.txt', event: 'add' }]);
+    onFileChanges(entry, schedule, undefined, [{ file: path.resolve('in', '1.txt'), event: 'add' }]);
     await tick();
-    onFileChanges(entry, schedule, undefined, [{ file: 'C:\\in\\2.txt', event: 'add' }]);
+    onFileChanges(entry, schedule, undefined, [{ file: path.resolve('in', '2.txt'), event: 'add' }]);
     await tick();
     await tick();
     // the toast of 1.txt was swiped away (no answer ever comes): 2.txt must still be announced

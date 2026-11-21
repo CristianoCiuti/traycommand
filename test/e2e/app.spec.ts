@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { editorWindow } from './support/windows';
+import { closeApp, editorWindow } from './support/windows';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -36,7 +36,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await app?.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  await closeApp(app);
   await new Promise((r) => setTimeout(r, 1500));
   try {
     fs.rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });

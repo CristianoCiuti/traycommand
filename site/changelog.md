@@ -2,6 +2,10 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.6.2 — readable Save shortcut
+
+- The **Ctrl+S** shortcut inside the Save button was unreadable in the Brutal look (dark keycap on yellow); every look now draws it in its own way, readable in light and dark. A test measures its contrast in all four looks.
+
 ## 2.6.1 — Start menu icon
 
 - The Start menu shortcut now really takes the icon of the look chosen (the icon files were missing from the package).

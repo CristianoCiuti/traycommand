@@ -10,3 +10,14 @@ export async function editorWindow(app: ElectronApplication, timeout = 30000): P
     await new Promise((r) => setTimeout(r, 100));
   }
 }
+
+/**
+ * Closes the app: asks it to exit, and ends the process if it has not gone within a few seconds
+ * (a reply that never comes would otherwise keep the test worker waiting until its teardown times out).
+ */
+export async function closeApp(app: ElectronApplication | undefined) {
+  if (!app) return;
+  const proc = app.process();
+  await Promise.race([app.evaluate(({ app }) => app.exit(0)).catch(() => undefined), new Promise((r) => setTimeout(r, 5000))]);
+  if (proc.exitCode === null && !proc.killed) proc.kill();
+}

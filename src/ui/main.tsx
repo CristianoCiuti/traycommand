@@ -33,7 +33,7 @@ function SaveBar() {
         Discard
       </button>
       <button class="btn primary" disabled={invalid} onClick={() => void save()} data-testid="save">
-        Save <span class="kbd" style={{ color: 'inherit', borderColor: 'currentColor', opacity: 0.7 }}>Ctrl+S</span>
+        Save <span class="kbd">Ctrl+S</span>
       </button>
     </div>
   );

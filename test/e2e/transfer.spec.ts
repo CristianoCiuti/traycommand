@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { editorWindow } from './support/windows';
+import { closeApp, editorWindow } from './support/windows';
 import { readZip } from '../../src/main/zip';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -36,7 +36,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await app?.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  await closeApp(app);
   await new Promise((r) => setTimeout(r, 1500));
   try {
     fs.rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });

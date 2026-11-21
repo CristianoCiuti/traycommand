@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { closeApp } from './support/windows';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
@@ -14,7 +15,13 @@ let launcher: Page;
 let work: string;
 let out: string;
 
-const read = (name: string) => (fs.existsSync(path.join(out, name)) ? fs.readFileSync(path.join(out, name), 'utf8').replace(/^﻿/, '').trim() : undefined);
+const read = (name: string) => {
+  try {
+    return fs.readFileSync(path.join(out, name), 'utf8').replace(/^﻿/, '').trim();
+  } catch {
+    return undefined; // not written yet, or being written by the scheduled command (EBUSY): the poll retries
+  }
+};
 const shot = async (page: Page, name: string) => {
   fs.mkdirSync(shots, { recursive: true });
   await page.screenshot({ path: path.join(shots, `${name}.png`) });
@@ -49,7 +56,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await app?.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  await closeApp(app);
   await new Promise((r) => setTimeout(r, 1500));
   try {
     fs.rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });

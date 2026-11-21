@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { editorWindow } from './support/windows';
+import { closeApp, editorWindow } from './support/windows';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
@@ -100,7 +100,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await app?.evaluate(({ app }) => app.exit(0)).catch(() => undefined);
+  await closeApp(app);
   await new Promise((r) => setTimeout(r, 1500));
   try {
     fs.rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
@@ -214,8 +214,57 @@ for (const look of LOOKS) {
     await shot(launcher, look, '12-alert-dark');
     await launcher.getByTestId('launcher-alert-choice-2').click();
     await expect.poll(launcherVisible).toBe(false);
-    await setDark(false);
+
+    // unsaved changes: the shortcut inside the Save button is readable, dark and light
+    await page.getByTestId('tab-settings').click();
+    await page.locator('.page select').first().selectOption('light');
+    await expect(page.getByTestId('savebar')).toBeVisible();
+    const contrast: Record<string, number> = {};
+    for (const dark of [true, false]) {
+      await setDark(dark);
+      await page.waitForTimeout(300);
+      await page.getByTestId('savebar').screenshot({ path: path.join(shotsRoot, look, `14-savebar-${dark ? 'dark' : 'light'}.png`) });
+      contrast[dark ? 'dark' : 'light'] = await saveShortcutContrast();
+    }
+    for (const [mode, ratio] of Object.entries(contrast)) expect(ratio, `Ctrl+S in the Save button, ${look} ${mode}`).toBeGreaterThanOrEqual(3);
+    await page.getByRole('button', { name: 'Discard' }).click();
+    await expect(page.getByTestId('savebar')).toBeHidden();
   });
+}
+
+/**
+ * Contrast (WCAG) of the "Ctrl+S" shortcut in the Save button, measured on the pixels as drawn: the lightest and the
+ * darkest point of the keycap are its text and what is behind it (each look paints buttons its own way, with layers,
+ * gradients or cut corners, so the CSS colours alone do not tell).
+ */
+async function saveShortcutContrast(): Promise<number> {
+  // inside the keycap only: its border and rounded corners would let the button colour in
+  const box = (await page.getByTestId('save').locator('.kbd').boundingBox())!;
+  const inset = 3;
+  const png = await page.screenshot({ clip: { x: box.x + inset, y: box.y + inset, width: box.width - inset * 2, height: box.height - inset * 2 } });
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, img.width, img.height).data;
+    const channel = (v: number) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    let lo = 1;
+    let hi = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const l = 0.2126 * channel(data[i]!) + 0.7152 * channel(data[i + 1]!) + 0.0722 * channel(data[i + 2]!);
+      lo = Math.min(lo, l);
+      hi = Math.max(hi, l);
+    }
+    return (hi + 0.05) / (lo + 0.05);
+  }, png.toString('base64'));
 }
 
 test('back to Aurora', async () => {

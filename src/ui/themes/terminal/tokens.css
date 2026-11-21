@@ -74,7 +74,7 @@
     --vignette: rgb(0 0 0 / 0.38);
     --band: transparent;
     --shadow: none;
-    --shadow-lg: 0 0 0 1px rgb(56 242 154 / 0.08), 0 18px 48px rgb(0 0 0 / 0.7);
+    --shadow-lg: 0 0 0 1px rgb(56 242 154 / 0.08), 6px 6px 0 rgb(0 0 0 / 0.65);
     color-scheme: dark;
   }
 }

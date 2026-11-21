@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import type { LauncherApi, TrayCommandApi } from '../shared/api';
 
 const invoke = (channel: string) => (...args: unknown[]) => ipcRenderer.invoke(channel, ...args);
@@ -54,6 +54,10 @@ const api: TrayCommandApi = {
   recordingHotkey: (on) => ipcRenderer.send('hotkeys:recording', on),
   schedulesPaused: invoke('schedules:paused') as TrayCommandApi['schedulesPaused'],
   setSchedulesPaused: invoke('schedules:setPaused') as TrayCommandApi['setSchedulesPaused'],
+  exportPack: invoke('transfer:export') as TrayCommandApi['exportPack'],
+  openImport: invoke('transfer:open') as TrayCommandApi['openImport'],
+  importIcons: invoke('transfer:icons') as TrayCommandApi['importIcons'],
+  pathForFile: (file) => webUtils.getPathForFile(file),
   launcher: {
     onShow: subscribe('launcher:show'),
     onPrompt: subscribe('launcher:prompt'),

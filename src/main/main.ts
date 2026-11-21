@@ -1,11 +1,11 @@
-import { app, dialog, ipcMain, Notification, powerMonitor, shell, type IpcMainInvokeEvent } from 'electron';
+import { app, dialog, ipcMain, nativeImage, Notification, powerMonitor, shell, type IpcMainInvokeEvent } from 'electron';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { isSeparator, normalizeAction, parseConfig, SCHEMA_URL, type Action, type Config, type MenuEntry, type MenuNode, type Tray } from '../shared/config';
 import { expand } from '../shared/variables';
-import type { AgentSkillInfo, AppInfo, ExecutionLog, LauncherItem, LauncherShow, LoadedConfig, SaveResult, SkillsInfo, TestResult } from '../shared/api';
+import type { AgentSkillInfo, AppInfo, ExecutionLog, ExportRequest, ExportResult, LauncherItem, LauncherShow, LoadedConfig, OpenImportResult, SaveResult, SkillsInfo, TestResult } from '../shared/api';
 import { canonicalHotkey, formatHotkey } from '../shared/hotkey';
 import { defaultShell } from './shell';
 import { installSkill, planSkills, renderSkill, skillStatus, uninstallSkill, type SkillEnv } from './skills';
@@ -19,6 +19,8 @@ import { Alerts } from './alerts';
 import { Launcher } from './launcher';
 import { LauncherStore } from './launcherStore';
 import { iconDataUrl } from './icons';
+import { readImport, saveIcons, writeExport } from './transfer';
+import { exportKind } from '../shared/transfer';
 import { installForUser, isInstalled, startMenuShortcut } from './install';
 import { LogStore } from './logStore';
 import { APP_ID, APP_NAME, currentInstallRoot, DOCS_URL, machineInstallDir, samePath, userInstallDir } from './paths';
@@ -544,7 +546,68 @@ function appInfo(): AppInfo {
   };
 }
 
+/* ---------------- export & import ---------------- */
+
+/** The file opened for import (its icons are copied only when the import is confirmed). */
+let pendingImport: { token: number; icons: Map<string, Buffer> } | undefined;
+let importTokens = 0;
+
+function imagePreview(file: string, data: Buffer): string | undefined {
+  if (file.toLowerCase().endsWith('.svg')) return `data:image/svg+xml;base64,${data.toString('base64')}`;
+  const image = nativeImage.createFromBuffer(data);
+  return image.isEmpty() ? undefined : image.resize({ width: 64, height: 64, quality: 'best' }).toDataURL();
+}
+
+async function exportPack(req: ExportRequest): Promise<ExportResult> {
+  const kind = exportKind(req.pack, req.icons.length);
+  const safe = req.name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'TrayCommand';
+  const options = {
+    title: 'Export',
+    defaultPath: path.join(app.getPath('documents'), `${safe}.${kind}`),
+    filters: [kind === 'zip' ? { name: 'TrayCommand export (zip)', extensions: ['zip'] } : { name: 'TrayCommand export (JSON)', extensions: ['json'] }],
+  };
+  const w = currentWindow();
+  const r = w ? await dialog.showSaveDialog(w, options) : await dialog.showSaveDialog(options);
+  if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+  try {
+    const ctx = { variables: req.variables, env: process.env, configDir: store.dir };
+    const resolve = (raw: string) => {
+      const expanded = expand(raw, ctx);
+      return path.isAbsolute(expanded) ? expanded : path.resolve(store.dir, expanded);
+    };
+    const { missing } = writeExport(r.filePath, kind, req.pack, req.icons, resolve);
+    return { ok: true, file: r.filePath, kind, missing };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+async function openImport(given?: string): Promise<OpenImportResult> {
+  let file = given;
+  if (!file) {
+    const options = { title: 'Import', defaultPath: app.getPath('documents'), filters: [{ name: 'TrayCommand export or configuration', extensions: ['zip', 'json'] }], properties: ['openFile' as const] };
+    const w = currentWindow();
+    const r = w ? await dialog.showOpenDialog(w, options) : await dialog.showOpenDialog(options);
+    if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
+    file = r.filePaths[0];
+  }
+  const r = readImport(file);
+  if (!r.ok) return r;
+  const token = ++importTokens;
+  pendingImport = { token, icons: r.icons };
+  const icons = Object.fromEntries([...r.icons].map(([raw, data]) => [raw, imagePreview(raw, data)]));
+  return { ok: true, token, file, name: path.basename(file), kind: r.kind, pack: r.pack, icons, missing: r.missing };
+}
+
 function registerIpc() {
+  handle('transfer:export', (req: ExportRequest) => exportPack(req));
+  handle('transfer:open', (file?: string) => openImport(file));
+  handle('transfer:icons', (token: number, raws: string[]) => {
+    if (pendingImport?.token !== token) return {};
+    const out = saveIcons(store.dir, pendingImport.icons, raws);
+    iconUrls.clear();
+    return out;
+  });
   handle('info', async () => {
     const info = appInfo();
     if (process.platform === 'win32') info.elevated = (await runScript('net session', { shell: 'cmd', timeout: 10 })).code === 0;

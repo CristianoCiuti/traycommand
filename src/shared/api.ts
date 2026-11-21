@@ -1,4 +1,5 @@
 import type { Action, Config, ConfigIssue } from './config';
+import type { ExportIcon, Pack } from './transfer';
 
 export interface EntryStatus {
   key: string;
@@ -215,6 +216,40 @@ export interface SkillsInfo {
   error?: string;
 }
 
+export interface ExportRequest {
+  pack: Pack;
+  icons: ExportIcon[];
+  /** Variables of the configuration, to find icons written with ${NAME}. */
+  variables: Record<string, string>;
+  /** File name proposed, without extension. */
+  name: string;
+}
+
+export interface ExportResult {
+  ok: boolean;
+  canceled?: boolean;
+  file?: string;
+  kind?: 'zip' | 'json';
+  /** Icons that could not be read (left out). */
+  missing?: string[];
+  error?: string;
+}
+
+export type OpenImportResult =
+  | {
+      ok: true;
+      token: number;
+      file: string;
+      name: string;
+      kind: 'export' | 'config';
+      pack: Pack;
+      /** Previews of the icons in the file (data URLs), by icon as written. */
+      icons: Record<string, string | undefined>;
+      /** Icons the file uses but does not contain. */
+      missing: string[];
+    }
+  | { ok: false; canceled?: boolean; error?: string };
+
 export interface SaveResult {
   ok: boolean;
   issues?: ConfigIssue[];
@@ -263,6 +298,14 @@ export interface TrayCommandApi {
   /** Pauses global shortcuts while the editor records a new one. */
   recordingHotkey(on: boolean): void;
   schedulesPaused(): Promise<boolean>;
+  /** Asks where to save, then writes the export (zip or JSON). */
+  exportPack(request: ExportRequest): Promise<ExportResult>;
+  /** Asks for a file (or reads the one given) and recognises what is inside. */
+  openImport(file?: string): Promise<OpenImportResult>;
+  /** Copies the icons of the file opened into the configuration folder: icon as written → new path. */
+  importIcons(token: number, icons: string[]): Promise<Record<string, string>>;
+  /** Path of a file dropped on the window. */
+  pathForFile(file: File): string;
   setSchedulesPaused(paused: boolean): Promise<boolean>;
   launcher: LauncherApi;
 }

@@ -31,6 +31,8 @@ features:
     details: A plain shortcut in your Startup folder. No Task Scheduler, no registry, no administrator rights.
   - title: Per-user install, self update
     details: Installs into your user profile and updates itself from GitHub releases, verified with SHA-256.
+  - title: Export and import
+    details: Pick trays, schedules, variables or settings to share as a zip with their icons. On import, see what is new, what is already there and choose what to do.
   - title: Windows, Linux, macOS
     details: PowerShell, cmd, bash, zsh, sh or any custom shell. One configuration file you can share between PCs.
 ---

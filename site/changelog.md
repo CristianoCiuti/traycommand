@@ -2,6 +2,11 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.5.0 — export and import
+
+- **Export** (**Settings → Configuration file → Export…**): choose what to share by section (trays and menus, schedules, variables, settings) and, inside each section, item by item. Entries the export needs (run before, *enabled when*, alert buttons, `${VARIABLES}`) are pointed out and added with one click. Icons go with it by default. A single item is a `.json` file, anything more a `.zip` with the icons.
+- **Import** (**Import…**, or drop the file on the editor window): opens an export, a whole configuration file or a zip containing one of them, and shows what it contains before changing anything. For entries already here: *add to it*, *replace it* or *keep both* (with a new id that the other imported entries follow). Shortcuts used twice, schedules, variables and settings are shown with their current value; administrator commands and the default shell are never changed for you, and entries that run as administrator are marked. The result is checked before it is saved, and a backup is kept. See [export and import](./guide/sharing).
+
 ## 2.4.0 — checks and alerts
 
 - **Only if a check passes** (`if` on a schedule): a command runs first and the schedule goes on only if it succeeds (exit code, and optionally patterns on its output, like a toggle). It gets the values of the event, e.g. the file of a folder watch. See [only if](./guide/schedules#only-if-a-check-passes).

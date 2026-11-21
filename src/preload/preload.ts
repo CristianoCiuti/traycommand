@@ -59,6 +59,7 @@ const api: TrayCommandApi = {
   importIcons: invoke('transfer:icons') as TrayCommandApi['importIcons'],
   pathForFile: (file) => webUtils.getPathForFile(file),
   setChrome: (colors, style) => ipcRenderer.send('chrome', colors, style),
+  onChromeRequest: (handler) => subscribe<void>('chrome:request')(() => handler()),
   launcher: {
     onShow: subscribe('launcher:show'),
     onPrompt: subscribe('launcher:prompt'),

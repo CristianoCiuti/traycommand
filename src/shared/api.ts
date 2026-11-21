@@ -317,6 +317,8 @@ export interface TrayCommandApi {
   importIcons(token: number, icons: string[]): Promise<Record<string, string>>;
   /** The editor shows another look or light/dark: the window buttons drawn by the system follow it. */
   setChrome(colors: ChromeColors, style: Style): void;
+  /** The main process asks for the title bar colours again (the system theme changed). */
+  onChromeRequest(handler: () => void): () => void;
   /** Path of a file dropped on the window. */
   pathForFile(file: File): string;
   setSchedulesPaused(paused: boolean): Promise<boolean>;

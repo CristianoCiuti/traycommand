@@ -2,6 +2,10 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.6.4 — window buttons always in step
+
+- When light and dark changed several times in a row (for example saving with "same as system"), the window buttons could stay in the previous colours; they now always end up with the colours of the page.
+
 ## 2.6.3 — update status in the look
 
 - The update status in **Settings → Updates** ("Downloading… 100%", a new version, an error) is now drawn as a state in each look's own face instead of a plain description: a yellow label in Brutal, cyan monospace in Neon HUD, amber in Phosphor, the accent colour in Aurora.

@@ -20,6 +20,11 @@ export function applyTheme(theme: ThemeSetting) {
   nativeTheme.themeSource = theme;
 }
 
+// light/dark changed (setting or system): the editor sends the colours of its title bar again, as now drawn
+nativeTheme.on('updated', () => {
+  if (win && !win.isDestroyed()) win.webContents.send('chrome:request');
+});
+
 const COLOR = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%/]+\))$/i;
 
 /**

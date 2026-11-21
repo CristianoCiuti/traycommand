@@ -226,6 +226,8 @@ Run an entry automatically. See [schedules](../guide/schedules).
 | `watch` | object | — | When files appear, change or disappear in a folder: `path`, `files` (patterns), `events` (`"add"` `"change"` `"remove"`, default `["add"]`), `subfolders`, `existing`, `batch`, `settle` (default `"2s"`). The run gets `TC_FILE`, `TC_FILE_NAME`, `TC_FILE_DIR`, `TC_EVENT`, `TC_FILES`, `TC_WATCH_DIR`. See [when files change](../guide/schedules#when-files-change). |
 | `between` | string | — | Only in this time range, local time: `"08:00-18:00"`, `"22:00-06:00"` (crosses midnight). |
 | `days` | string | — | Only on these days: `"mon-fri"`, `"sat,sun"`. See [time window](../guide/schedules#time-window). |
+| `if` | string \| object | — | Run only if this check passes (exit code 0; with an object also `on` / `off` patterns, `shell`, `timeout`). Gets the values of the run. See [only if](../guide/schedules#only-if-a-check-passes). |
+| `alert` | object | — | Show an alert instead of running directly: `style` (`"window"` \| `"notification"`), `title`, `text`, `choices` (up to 4: `{ "label", "run": "self" \| "<id>[:on\|off\|right]" }` or `{ "label", "action" }`), `timeout`, `default`. See [alerts](../guide/schedules#alerts-and-choices). |
 | `run` | `"click"` \| `"on"` \| `"off"` \| `"right"` | `"click"` | What runs. `"on"` / `"off"` are skipped when the toggle already is in that state. |
 | `values` | object | — | Values for the inputs of the action. Scheduled runs never ask: missing values use the default. |
 | `disabled` | boolean | `false` | Keep the schedule without running it. |

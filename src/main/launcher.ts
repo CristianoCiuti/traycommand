@@ -46,10 +46,10 @@ export class Launcher {
       return { ok: r.ok, message: r.message };
     });
     ipcMain.on('launcher:submit', (e, id: number, values: Record<string, string>) => {
-      if (own(e) && this.current?.request.id === id) this.finish(values, false);
+      if (own(e) && this.current?.request.id === id) this.finish(values, !!this.current.request.alert);
     });
     ipcMain.on('launcher:cancel', (e, id: number, back: boolean) => {
-      if (own(e) && this.current?.request.id === id) this.finish(undefined, back);
+      if (own(e) && this.current?.request.id === id) this.finish(undefined, back || !!this.current.request.alert);
     });
     ipcMain.handle('launcher:options', (e, id: number, name: string) => (own(e) ? this.hooks.options(id, name) : { error: 'denied' }));
     ipcMain.handle('launcher:pick', async (e, type: 'file' | 'folder', current: string) => {
@@ -183,8 +183,8 @@ export class Launcher {
     });
   }
 
-  private async startPrompt(pending: PendingPrompt) {
-    pending.fromList = this.mode === 'list';
+  private async startPrompt(pending: PendingPrompt, fromList = this.mode === 'list') {
+    pending.fromList = fromList;
     this.current = pending;
     this.create();
     await this.loaded;
@@ -199,16 +199,26 @@ export class Launcher {
     this.current = undefined;
     done.resolve(values);
     const next = this.queue.shift();
+    // back to the list only when a person asked for it (Esc on a form) or answered an alert that interrupted it;
+    // a form submitted from the list runs and closes, an alert closed by itself does not bring the list back
+    const toList = back && done.fromList;
     if (next) {
-      void this.startPrompt(next);
+      void this.startPrompt(next, toList);
       return;
     }
-    if (back && done.fromList) {
+    if (toList) {
       this.mode = 'list';
       this.win?.webContents.send('launcher:back');
       return;
     }
     this.hide();
+  }
+
+  /** Closes a form or alert shown or waiting (answered as cancelled). */
+  dismiss(id: number) {
+    if (this.current?.request.id === id) return this.finish(undefined, false);
+    const i = this.queue.findIndex((p) => p.request.id === id);
+    if (i >= 0) this.queue.splice(i, 1)[0]!.resolve(undefined);
   }
 
   destroy() {

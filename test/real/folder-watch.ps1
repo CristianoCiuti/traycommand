@@ -7,7 +7,7 @@ function Read-Log { for ($i = 0; $i -lt 40; $i++) { try { if (Test-Path $log) { 
 $W = Join-Path $env:TEMP ("tc-real-" + (Get-Date -Format 'HHmmss'))
 New-Item -ItemType Directory $W | Out-Null
 $out = Join-Path $W 'out'; New-Item -ItemType Directory $out | Out-Null
-foreach ($d in 'in', 'sub', 'batch', 'pre', 'win', 'big', 'q', 'rel') { New-Item -ItemType Directory (Join-Path $W $d) | Out-Null }
+foreach ($d in 'in', 'sub', 'batch', 'pre', 'win', 'big', 'q', 'rel', 'chk') { New-Item -ItemType Directory (Join-Path $W $d) | Out-Null }
 Set-Content (Join-Path $W 'pre\waiting.txt') 'x'
 Set-Content (Join-Path $W 'win\early.txt') 'x'
 Set-Content (Join-Path $W 'rel\r.txt') 'x'
@@ -20,7 +20,9 @@ $now = Get-Date
 $open = $now.Date.AddHours($now.Hour).AddMinutes($now.Minute + 2)   # 1 to 2 minutes from now
 $close = $open.AddMinutes(2)
 $between = '{0:HH:mm}-{1:HH:mm}' -f $open, $close
+# a window that still lasts at least 40 s (the first run comes 5 s after the start)
 $everyEnd = $now.Date.AddHours($now.Hour).AddMinutes($now.Minute + 1)
+if (($everyEnd - $now).TotalSeconds -lt 40) { $everyEnd = $everyEnd.AddMinutes(1) }
 $everyBetween = '{0:HH:mm}-{1:HH:mm}' -f $now.Date.AddHours($now.Hour).AddMinutes($now.Minute), $everyEnd
 $days = @('sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat')
 $today = $days[[int]$now.DayOfWeek]
@@ -38,7 +40,8 @@ $trays = @(
   (Tray 'queue' ('Add-Content -LiteralPath "$env:TC_OUT\log.txt" -Value ("q-start|" + $env:TC_FILE_NAME + "|" + (Get-Date -Format HH:mm:ss.fff)); Start-Sleep -Seconds 2; Add-Content -LiteralPath "$env:TC_OUT\log.txt" -Value ("q-end|" + $env:TC_FILE_NAME + "|" + (Get-Date -Format HH:mm:ss.fff))') @{ watch = [ordered]@{ path = 'q'; settle = '1s' } }),
   (Tray 'everywin' (Act 'everywin') @{ every = '5s'; between = $everyBetween }),
   (Tray 'startupIn' (Act 'startupIn') @{ startup = $true; days = $today }),
-  (Tray 'startupOut' (Act 'startupOut') @{ startup = $true; days = $otherDay })
+  (Tray 'startupOut' (Act 'startupOut') @{ startup = $true; days = $otherDay }),
+  (Tray 'checked' (Act 'checked') @{ watch = [ordered]@{ path = 'chk'; settle = '1s' }; if = [ordered]@{ check = 'Get-Content -LiteralPath $env:TC_FILE'; on = '^ok' } })
 )
 function Save-Config($t) {
   $json = [ordered]@{ version = 2; settings = [ordered]@{ shell = 'powershell'; launcherHotkey = ''; checkUpdates = $false; skillUpdates = 'ask' }; trays = @($t) } | ConvertTo-Json -Depth 10
@@ -109,6 +112,13 @@ $q = Lines 'q-'
 $overlap = $false; $depth = 0
 foreach ($line in @(Read-Log | Where-Object { $_ -like 'q-*' })) { if ($line -like 'q-start*') { $depth++ } else { $depth-- }; if ($depth -gt 1) { $overlap = $true } }
 Check 'queue: three runs, never two at once' (@(Read-Log | Where-Object { $_ -like 'q-end|*' }).Count -eq 3 -and -not $overlap) (@(Read-Log | Where-Object { $_ -like 'q-*' }) -join ' ; ')
+
+# only if a check passes: the check reads the file of the event
+Set-Content (Join-Path $W 'chk\good.txt') 'ok, go'
+Set-Content (Join-Path $W 'chk\bad.txt') 'no thanks'
+[void](Wait-Log { param($l) ($l -like 'checked|*').Count -ge 1 })
+Start-Sleep -Seconds 3
+Check 'only if: the file that passes the check runs, the other does not' ((@(Lines 'checked')).Count -eq 1 -and (@(Lines 'checked'))[0] -like 'checked|add|good.txt|*') ((Lines 'checked') -join ' ; ')
 
 # a folder that appears later
 Start-Sleep -Seconds 2

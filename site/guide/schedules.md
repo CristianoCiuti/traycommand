@@ -1,6 +1,6 @@
 # Schedules
 
-Any entry can run by itself: at set times, at an interval, when TrayCommand starts, or when files appear in a folder, optionally only in a time window. Schedules live inside TrayCommand: no Task Scheduler, no cron daemon, nothing to clean up.
+Any entry can run by itself: at set times, at an interval, when TrayCommand starts, or when files appear in a folder, optionally only in a time window, only if a check passes, and after asking you with an alert. Schedules live inside TrayCommand: no Task Scheduler, no cron daemon, nothing to clean up.
 
 In the editor, open the entry and click **Add schedule** in the **Schedule** card. The card shows when the next runs are; the tray tooltip shows the next one too.
 
@@ -110,6 +110,98 @@ With only `days`, the schedule is active the whole day. For `every` and `cron`, 
 
 In the editor, switch on **Only in a time window** under the schedule.
 
+## Only if a check passes
+
+`if` runs a command first; the schedule goes on only if it succeeds. It follows the rules of the [state of a toggle](./concepts#toggles-state): exit code 0 means yes; with `on` the output must also match, with `off` it must not.
+
+```json
+"schedules": [
+  { "every": "5m", "if": "Test-Connection build-server -Count 1 -Quiet | Where-Object { $_ }", "run": "on" },
+  { "watch": { "path": "C:\\Scans", "files": "*.pdf" }, "if": { "check": "pdfinfo \"$env:TC_FILE\"", "off": "Encrypted:\\s+yes" } }
+]
+```
+
+| Property | Meaning |
+| --- | --- |
+| `if` | The check command, or an object: |
+| `if.check` | The command. |
+| `if.on` / `if.off` | Optional regular expressions on its output: must match / must not match. |
+| `if.shell`, `if.timeout` | Shell of the check, and seconds before it is stopped (default 60; a check stopped fails). |
+
+The check gets the same values as the run: for a folder watch `TC_FILE`, `TC_FILE_NAME`… as environment variables and `${...}`. A check that says no is not an error and leaves no trace; a check that cannot even start (or is stopped) is logged and notified.
+
+In the editor: **Only if a check passes** under the schedule.
+
+## Alerts and choices
+
+Instead of running directly, a schedule can show an **alert**: a message, and buttons to choose what runs. It appears in a small window over all the other windows, in the middle of the screen, or as a system notification.
+
+![An alert](/screens/alert.png)
+
+```json
+{
+  "id": "scans",
+  "label": "Scans",
+  "hidden": true,
+  "action": "ocrmypdf \"$env:TC_FILE\" \"$env:TC_FILE\"",
+  "schedules": [
+    {
+      "watch": { "path": "C:\\Scans", "files": "*.pdf" },
+      "alert": {
+        "title": "New scan",
+        "text": "${TC_FILE_NAME} has arrived. What should I do?",
+        "choices": [
+          { "label": "OCR", "run": "self" },
+          { "label": "Archive", "action": "Move-Item -LiteralPath $env:TC_FILE -Destination D:\\Archive" },
+          { "label": "Send by mail", "run": "mail-scan" }
+        ],
+        "timeout": "10m",
+        "default": "Archive"
+      }
+    }
+  ]
+}
+```
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `style` | `"window"` | `"window"`: over all the other windows, ready for the keyboard. `"notification"`: a system notification; clicking it shows the same window with the buttons. |
+| `title` | the label of the entry | `${VALUES}` allowed. |
+| `text` | — | The message. `${TC_FILE_NAME}` and the other values allowed. |
+| `choices` | — | Up to 4 buttons. Without buttons the alert only informs (an **OK** button). |
+| `choices[].label` | — | Text of the button. |
+| `choices[].run` | — | `"self"`: what the schedule would run (its `run`: click, on, off, right). Or another entry: `"<id>"`, `"<id>:on"`, `"<id>:off"`, `"<id>:right"`. |
+| `choices[].action` | — | A command of its own, like any [action](../reference/#actions) (a string or an object with `run`, `inputs`, `confirm`…). |
+| `timeout` | — | Close the alert if nobody answers within this time: `"30s"`, `"10m"`, `"1h"` (5 seconds to 1 day). |
+| `default` | — | The label of the choice run when the time is up. Without it nothing runs. |
+
+How it behaves:
+
+- **Keyboard**: <kbd>←</kbd> <kbd>→</kbd> move between the buttons, <kbd>1</kbd>–<kbd>4</kbd> choose directly, <kbd>Enter</kbd> runs the highlighted one (the default, if any), <kbd>Esc</kbd> closes it without running anything. For half a second after it appears keys and clicks are ignored, so that typing in another application does not answer it by mistake.
+- The chosen action gets the values of the event (`TC_FILE`…). Since a person chose it, it can ask for [values](./inputs) and confirmations like a click. The default run at the timeout is unattended instead: it never asks.
+- If the entry is still running (a click meanwhile, the previous file), the chosen action starts as soon as it finishes.
+- `"self"` is decided when you answer: for a toggle with `"run": "on"`, turned on in the meantime, the button only tells you there is nothing to do. A `"self"` button is not even shown when, at that moment, there is nothing to run.
+- The window shows the time left and what will happen (*Archive in 9:41*).
+- **Repeated schedules** (cron, every): while the window is open, the next runs do not open another one. A newer **notification** replaces the older one, unless you have clicked it and are answering.
+- **Folder watches**: every file gets its own alert; they wait in line on screen and the files that follow are not held back.
+- Opened over the launcher, after the alert you are back in the list, with your search.
+- `if` runs before the alert: the alert appears only if the check passes.
+- Saving the configuration closes the alerts on screen; nothing runs.
+
+In the editor: **Show an alert first** under the schedule. The buttons can run the entry itself, another entry (chosen from a list) or a command.
+
+![An alert in the editor](/screens/editor-alert.png)
+
+### Just a notification or a message
+
+An alert without buttons only informs:
+
+```json
+"schedules": [{ "cron": "0 13 * * 1-5", "alert": { "text": "Lunch break!", "timeout": "15m" } }]
+```
+
+With `"style": "notification"` it is a system notification; with the default style a message over the other windows, closed with <kbd>Enter</kbd> or <kbd>Esc</kbd>. To be told when an action has run, use `notify` on the action instead.
+
 ## What runs
 
 | `run` | Does |
@@ -123,7 +215,7 @@ For toggles, `"on"` and `"off"` are usually what you want: a schedule that conne
 
 ## Values and confirmations
 
-Scheduled runs are unattended: they **never ask**.
+Scheduled runs are unattended: they **never ask** (unless you add an [alert](#alerts-and-choices): then you choose, and the action you choose can ask).
 
 - [Values](./inputs) come from the schedule's `values`, then from each input's `default`. A required value without either makes the run fail with a clear message in the activity log.
 - `confirm` is skipped.

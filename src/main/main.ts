@@ -15,6 +15,7 @@ import { ConfigStore } from './configStore';
 import { createAdminRunner, disableElevatedScript, enableElevatedScript, runElevatedOnce, runElevatedTask } from './elevation';
 import { evaluateState, Engine, type ActionKind, type RuntimeEntry } from './engine';
 import { HotkeyManager, type HotkeyBinding } from './hotkeys';
+import { Alerts } from './alerts';
 import { Launcher } from './launcher';
 import { LauncherStore } from './launcherStore';
 import { iconDataUrl } from './icons';
@@ -137,6 +138,22 @@ const engine: Engine = new Engine({
   log: (entry) => logs.add(entry),
   prompt: (request): Promise<Record<string, string> | undefined> => launcher.prompt(request),
   memory: launcherStore,
+  alert: (request) => alerts.show(request),
+  closeAlert: (id) => alerts.close(id),
+  answeringAlert: (id) => alerts.isAnswering(id),
+});
+// alerts of schedules: a window over the others (in the launcher), or a notification whose click shows it
+const alerts: Alerts = new Alerts({
+  window: (request) => launcher.prompt(request),
+  dismissWindow: (id) => launcher.dismiss(id),
+  notification: ({ title, body, onClick }) => {
+    if (!Notification.isSupported()) return undefined;
+    const n = new Notification({ title, body, urgency: 'normal' });
+    n.on('click', onClick);
+    n.show();
+    return n; // kept by Alerts until answered, so that the click is not lost
+  },
+  icon: (file) => iconUrl(file),
 });
 engine.setSchedulesPaused(state.get().schedulesPaused === true);
 
@@ -714,7 +731,7 @@ void app.whenReady().then(() => {
   });
 
   // test hook: lets the end-to-end tests inspect tray menus and drive the engine
-  if (process.env.TRAYCOMMAND_E2E === '1') (globalThis as Record<string, unknown>).__traycommand = { engine, trays, store, launcher, hotkeys, hotkeyFired };
+  if (process.env.TRAYCOMMAND_E2E === '1') (globalThis as Record<string, unknown>).__traycommand = { engine, trays, store, launcher, hotkeys, hotkeyFired, alerts };
 
   const loaded = store.load();
   applyLoaded(loaded);

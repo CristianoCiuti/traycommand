@@ -135,6 +135,45 @@ export const WatchSchema = z
   .describe('Runs the entry when files appear, change or disappear in a folder. The run gets TC_FILE, TC_FILE_NAME, TC_FILE_DIR, TC_EVENT, TC_FILES as ${...} and environment variables.');
 export type Watch = z.infer<typeof WatchSchema>;
 
+export const ConditionSchema = z
+  .union([
+    z.string(),
+    z
+      .object({
+        check: z.string().describe('Script of the check.'),
+        on: z.string().optional().describe('Regular expression: the check passes only if its output matches.'),
+        off: z.string().optional().describe('Regular expression: the check fails if its output matches (tested first).'),
+        shell: ShellSchema.optional(),
+        timeout: z.number().int().positive().optional().describe('Seconds before the check is stopped (default 60): a check stopped fails.'),
+      })
+      .strict(),
+  ])
+  .describe('Run only if this check passes: exit code 0 (and, when given, output matching "on" and not "off"), like the state of a toggle. The check gets the same values as the run (TC_FILE…).');
+export type Condition = z.infer<typeof ConditionSchema>;
+
+export const ChoiceSchema = z
+  .object({
+    label: z.string().describe('Text of the button.'),
+    run: z.string().optional().describe('"self" = what the schedule runs; or another entry: "<id>", "<id>:on", "<id>:off", "<id>:right".'),
+    action: ActionInputSchema.optional().describe('A command of its own for this choice.'),
+  })
+  .strict()
+  .describe('A button of an alert: exactly one of run or action. It gets the values of the event (TC_FILE…).');
+export type Choice = z.infer<typeof ChoiceSchema>;
+
+export const AlertSchema = z
+  .object({
+    style: z.enum(['window', 'notification']).optional().describe('"window" (default) = a small window over all the others; "notification" = a system notification: clicking it shows the choices.'),
+    title: z.string().optional().describe('Default: the label of the entry. ${VALUES} allowed.'),
+    text: z.string().optional().describe('The message. ${VALUES} allowed, e.g. "${TC_FILE_NAME} has arrived".'),
+    choices: z.array(ChoiceSchema).optional().describe('Up to 4 buttons. Without choices the alert only informs.'),
+    timeout: z.string().optional().describe('Close the alert if nobody answers within this time, e.g. "2m".'),
+    default: z.string().optional().describe('Label of the choice run when the timeout expires (otherwise nothing runs).'),
+  })
+  .strict()
+  .describe('Show an alert instead of running directly: a message, and buttons to choose what to run.');
+export type Alert = z.infer<typeof AlertSchema>;
+
 export const ScheduleSchema = z
   .object({
     cron: z.string().optional().describe('Cron expression (minute hour day month weekday), local time, e.g. "0 9 * * 1-5" = 09:00 on weekdays.'),
@@ -149,6 +188,8 @@ export const ScheduleSchema = z
       .describe('What to run: "click" (default) = what a click does; "on" / "off" = turn a toggle on / off (skipped when it already is); "right" = the right click action.'),
     values: z.record(z.string(), z.string()).optional().describe('Values for the inputs of the action (scheduled runs never ask: missing values use the default).'),
     disabled: z.boolean().optional().describe('Keep the schedule without running it.'),
+    if: ConditionSchema.optional(),
+    alert: AlertSchema.optional(),
   })
   .strict()
   .describe('When to run the entry automatically. Exactly one of cron, every, startup or watch, optionally limited to a time window (between, days).');
@@ -296,7 +337,10 @@ export function parseConfig(raw: unknown): ParseResult {
     const entry = node as MenuEntry;
     if (entry.id) {
       if (ids.has(entry.id)) issues.push({ path: `${path}.id`, message: `Duplicate id "${entry.id}" (also at ${ids.get(entry.id)})` });
-      else ids.set(entry.id, path);
+      else {
+        ids.set(entry.id, path);
+        entriesById.set(entry.id, entry as MenuEntry & { rightAction?: ActionInput });
+      }
     }
     if (entry.offAction && !entry.state) warnings.push({ path: `${path}.offAction`, message: 'offAction is used only together with state' });
     if (!config.settings.allowAdminCommands) {
@@ -348,6 +392,51 @@ export function parseConfig(raw: unknown): ParseResult {
     }
   };
 
+  const checkRegex = (source: string | undefined, path: string) => {
+    if (source === undefined) return;
+    try {
+      new RegExp(source);
+    } catch (error) {
+      issues.push({ path, message: `Invalid regular expression: ${(error as Error).message}` });
+    }
+  };
+  const checkCondition = (condition: Condition, path: string) => {
+    const c = typeof condition === 'string' ? { check: condition } : condition;
+    if (!c.check.trim()) issues.push({ path: typeof condition === 'string' ? path : `${path}.check`, message: 'Write the check command' });
+    if (typeof condition !== 'string') {
+      checkRegex(condition.on, `${path}.on`);
+      checkRegex(condition.off, `${path}.off`);
+    }
+  };
+  /** Choices that run other entries: checked once every id is known. */
+  const choiceRefs: { ref: string; path: string }[] = [];
+  const entriesById = new Map<string, MenuEntry & { rightAction?: ActionInput }>();
+  const checkAlert = (alert: Alert, path: string) => {
+    const choices = alert.choices ?? [];
+    if (!choices.length && !alert.text?.trim()) issues.push({ path, message: 'Write a message or add choices' });
+    if (choices.length > 4) issues.push({ path: `${path}.choices`, message: 'At most 4 choices' });
+    const labels = new Set<string>();
+    choices.forEach((choice, i) => {
+      const at = `${path}.choices[${i}]`;
+      if (!choice.label.trim()) issues.push({ path: `${at}.label`, message: 'Write the text of the button' });
+      else if (labels.has(choice.label)) issues.push({ path: `${at}.label`, message: `Two choices are called "${choice.label}"` });
+      labels.add(choice.label);
+      if ((choice.run === undefined) === (choice.action === undefined)) issues.push({ path: at, message: 'Set exactly one of run or action' });
+      if (choice.run !== undefined && choice.run !== 'self') {
+        if (!/^[A-Za-z0-9_.-]+(:(on|off|right))?$/.test(choice.run)) issues.push({ path: `${at}.run`, message: 'Use "self" or an entry id, optionally with :on, :off or :right' });
+        else choiceRefs.push({ ref: choice.run, path: `${at}.run` });
+      }
+    });
+    if (alert.timeout !== undefined) {
+      const seconds = parseInterval(alert.timeout);
+      if (seconds === undefined) issues.push({ path: `${path}.timeout`, message: 'Use a number and a unit: "30s", "5m", "1h"' });
+      else if (seconds < 5 || seconds > 86400) issues.push({ path: `${path}.timeout`, message: 'Between 5 seconds and 1 day' });
+    }
+    if (alert.default !== undefined) {
+      if (!choices.some((c) => c.label === alert.default)) issues.push({ path: `${path}.default`, message: `No choice is called "${alert.default}"` });
+      else if (alert.timeout === undefined) warnings.push({ path: `${path}.default`, message: 'The default choice is used only with a timeout' });
+    }
+  };
   const checkSchedule = (entry: MenuEntry & { rightAction?: ActionInput }, schedule: Schedule, path: string) => {
     const kinds = [schedule.cron !== undefined, schedule.every !== undefined, schedule.startup === true, schedule.watch !== undefined].filter(Boolean).length;
     if (kinds !== 1) issues.push({ path, message: 'Set exactly one of cron, every, startup or watch' });
@@ -379,7 +468,11 @@ export function parseConfig(raw: unknown): ParseResult {
     }
     const run = schedule.run ?? 'click';
     const target = run === 'off' ? entry.offAction : run === 'right' ? entry.rightAction : entry.action;
-    if (!target && !(run === 'click' && entry.state && entry.offAction)) {
+    if (schedule.if !== undefined) checkCondition(schedule.if, `${path}.if`);
+    if (schedule.alert) checkAlert(schedule.alert, `${path}.alert`);
+    // with an alert the entry itself runs only through a "self" choice
+    const runsSelf = !schedule.alert || (schedule.alert.choices ?? []).some((c) => c.run === 'self');
+    if (runsSelf && !target && !(run === 'click' && entry.state && entry.offAction)) {
       issues.push({ path: `${path}.run`, message: run === 'off' ? 'Nothing to run: the entry has no offAction' : run === 'right' ? 'Nothing to run: the entry has no rightAction' : 'Nothing to run: the entry has no action' });
     }
     if ((run === 'on' || run === 'off') && !entry.state) warnings.push({ path: `${path}.run`, message: `"${run}" is meant for toggles: without a state it always runs` });
@@ -418,6 +511,14 @@ export function parseConfig(raw: unknown): ParseResult {
     entry.menu?.forEach((child, i) => visitRefs(child, `${path}.menu[${i}]`));
   };
   config.trays.forEach((tray, i) => visitRefs(tray, `trays[${i}]`));
+  for (const c of choiceRefs) {
+    checkRef(c.ref, c.path);
+    const [id, how] = c.ref.split(':') as [string, 'on' | 'off' | 'right' | undefined];
+    const target = entriesById.get(id);
+    if (!target) continue;
+    const action = how === 'off' ? target.offAction : how === 'right' ? target.rightAction : target.action;
+    if (!action) warnings.push({ path: c.path, message: `"${id}" has no ${how === 'off' ? 'offAction' : how === 'right' ? 'rightAction' : 'action'}: this button does nothing` });
+  }
 
   if (config.settings.appMenu !== 'own' && !config.trays.some((t) => t.id === config.settings.appMenu)) {
     issues.push({ path: 'settings.appMenu', message: `No tray with id "${config.settings.appMenu}"` });

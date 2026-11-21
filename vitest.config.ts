@@ -8,7 +8,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       // the logic of the app: configuration, schedules, shortcuts, search, the engine and folder watches
-      include: ['src/shared/**/*.ts', 'src/main/engine.ts', 'src/main/watcher.ts'],
+      include: ['src/shared/**/*.ts', 'src/main/engine.ts', 'src/main/watcher.ts', 'src/main/alerts.ts'],
       reporter: ['text-summary', 'text'],
       skipFull: true,
       thresholds: { lines: 100, statements: 100, branches: 100, functions: 100 },

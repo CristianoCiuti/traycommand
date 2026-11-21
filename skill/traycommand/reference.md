@@ -125,11 +125,25 @@ Timers and folder watches inside TrayCommand (no Task Scheduler / cron / file wa
 | `watch` | object | — | Folder watch, see below. |
 | `between` | string | — | Time window `"HH:MM-HH:MM"` local (`"22:00-06:00"` crosses midnight; `24:00` = end of day). Outside it runs and file events are skipped. Works with every kind. |
 | `days` | string | — | Days of the window, cron weekday syntax: `"mon-fri"`, `"sat,sun"`. Alone = whole days. |
+| `if` | string \| `{check, on?, off?, shell?, timeout?}` | — | Check run first; the schedule goes on only if it passes (exit 0, output matches `on`, not `off`). Gets the run values (TC_FILE…) as env and `${}`. Negative = silent; a check that cannot start is logged. |
+| `alert` | object | — | Ask before running, see below. |
 | `run` | `"click"` \| `"on"` \| `"off"` \| `"right"` | `"click"` | `"on"`/`"off"` turn a toggle on/off only when needed (`"off"` needs `offAction`, `"right"` needs `rightAction`). |
 | `values` | object | — | Values for the action inputs. Scheduled runs never ask and skip `confirm`: required inputs need a value here or a `default`. |
 | `disabled` | boolean | `false` | Keep without running. |
 
 Schedules do not run while the entry (or a parent) is `disabled`; `hidden` entries still run. A run is skipped while the previous one is going (file watch runs queue instead). Missed runs (PC off/asleep) are not recovered.
+
+`alert` object (instead of running directly, show a message with buttons):
+
+| Property | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `style` | `"window"` \| `"notification"` | `"window"` | Window over all others (keyboard: ←→, 1-4, Enter, Esc) or OS notification whose click shows the window. |
+| `title` / `text` | string | entry label / — | `${VALUES}` allowed (`${TC_FILE_NAME}`). |
+| `choices` | array (max 4) | — | `{ "label": "...", "run": "self" }` (what the schedule runs), `{ "label", "run": "<id>[:on|off|right]" }` or `{ "label", "action": <action> }`. Exactly one of run/action; unique labels. No choices = information only (OK). |
+| `timeout` | string | — | `"30s"`…`"1d"`: close if unanswered. |
+| `default` | string | — | Label of the choice run at timeout (unattended: never asks). |
+
+A chosen action gets the event values and, being chosen by a person, can ask its `inputs` and `confirm`; it waits for a run of the entry still going. `"self"` is decided at answer time (hidden when there is nothing to run). Timed schedules: while a window alert is open, new runs are skipped; a newer notification replaces the older one. Folder watches: one alert per file, queued, never blocking the next files. With alert, the entry's own action is needed only if a choice uses `"self"`. Buttons pointing to an action the target lacks get a warning.
 
 `watch` object:
 

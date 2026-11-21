@@ -322,3 +322,143 @@ test('editor: run an entry when files appear in a folder, in a time window', asy
   await editor.waitForTimeout(3500);
   expect(ticks()).toBe(now);
 });
+
+test('alert of a schedule: a window over the others, chosen with the keyboard', async () => {
+  for (const f of ['alert.txt', 'hello.txt']) fs.rmSync(path.join(out, f), { force: true });
+  const fire = (alert: object) =>
+    hook(`
+      const e = tc.engine.get('tools');
+      tc.lastAlert = tc.engine.fireSchedule(e, { every: '1h', alert: ${JSON.stringify(alert)} }, { TC_FILE: 'scan.pdf' });
+    `);
+  const choices = [
+    { label: 'Say hello', run: 'hello' },
+    { label: 'Save', action: 'Set-Content -Path "$env:TC_OUT/alert.txt" -Value "$env:TC_FILE"' },
+  ];
+  await fire({ title: 'New ${TC_FILE}', text: '${TC_FILE} has arrived.\nWhat should I do?', choices });
+  await expect.poll(launcherVisible).toBe(true);
+  const box = launcher.getByTestId('launcher-alert');
+  await expect(box).toBeVisible();
+  await expect(launcher.getByTestId('launcher-alert-title')).toHaveText('New scan.pdf');
+  await expect(launcher.getByTestId('launcher-alert-text')).toHaveText('scan.pdf has arrived.\nWhat should I do?');
+  // keys right after it appears are ignored (typing in another window must not answer it)
+  await launcher.keyboard.press('Enter');
+  await expect(box).toBeVisible();
+  await expect(box).toHaveAttribute('data-armed', 'true');
+  await shot(launcher, '30-alert');
+  await launcher.keyboard.press('ArrowRight');
+  await expect(launcher.getByTestId('launcher-alert-choice-1')).toBeFocused();
+  await launcher.keyboard.press('2');
+  await expect.poll(() => read('alert.txt')).toBe('scan.pdf');
+  await expect.poll(launcherVisible).toBe(false);
+  expect(read('hello.txt')).toBeUndefined();
+
+  // Esc dismisses: nothing runs
+  await fire({ text: 'Again', choices });
+  await expect(box).toHaveAttribute('data-armed', 'true');
+  await launcher.keyboard.press('Escape');
+  await expect.poll(launcherVisible).toBe(false);
+  expect(read('hello.txt')).toBeUndefined();
+
+  // nobody answers: the default runs when the time is up, the window closes
+  await fire({ text: 'Timer', choices, timeout: '5s', default: 'Say hello' });
+  await expect(launcher.getByTestId('launcher-alert-timer')).toContainText('Say hello in 0:0');
+  await expect.poll(() => read('hello.txt'), { timeout: 10_000 }).toBe('hello');
+  await expect.poll(launcherVisible).toBe(false);
+
+  // an alert without choices only informs: OK closes it
+  await fire({ text: 'Just so you know' });
+  await expect(launcher.getByTestId('launcher-alert-choice-0')).toHaveText('OK');
+  await expect(box).toHaveAttribute('data-armed', 'true');
+  await launcher.keyboard.press('Enter');
+  await expect.poll(launcherVisible).toBe(false);
+});
+
+test('alert as a notification: its click shows the choices', async () => {
+  fs.rmSync(path.join(out, 'alert.txt'), { force: true });
+  await hook(`
+    tc.lastAlert = tc.engine.fireSchedule(tc.engine.get('tools'), { every: '1h', alert: { style: 'notification', text: 'Click me', choices: [
+      { label: 'Save', action: 'Set-Content -Path "$env:TC_OUT/alert.txt" -Value note' }, { label: 'Hello', run: 'hello' } ] } }, {});
+  `);
+  // the notification is waiting; nothing on screen yet
+  await expect.poll(async () => hook<number>('return tc.alerts.notifications.size')).toBe(1);
+  expect(await launcherVisible()).toBe(false);
+  await hook('for (const n of tc.alerts.notifications.values()) n.emit("click")');
+  await expect.poll(launcherVisible).toBe(true);
+  await expect(launcher.getByTestId('launcher-alert')).toHaveAttribute('data-armed', 'true');
+  await launcher.keyboard.press('Enter');
+  await expect.poll(() => read('alert.txt')).toBe('note');
+});
+
+test('alert over the open launcher: back to the list after it; Space runs a button once', async () => {
+  fs.rmSync(path.join(out, 'space.txt'), { force: true });
+  await hook('await tc.launcher.open()');
+  await launcher.keyboard.type('hel');
+  await expect(launcher.getByTestId('launcher-input')).toHaveValue('hel');
+  await hook(`
+    tc.lastAlert = tc.engine.fireSchedule(tc.engine.get('tools'), { every: '1h', alert: { text: 'Count', choices: [
+      { label: 'Add a line', action: 'Add-Content -Path "$env:TC_OUT/space.txt" -Value x' } ] } }, {});
+  `);
+  const box = launcher.getByTestId('launcher-alert');
+  await expect(box).toHaveAttribute('data-armed', 'true');
+  await launcher.keyboard.press('Space');
+  await expect.poll(() => read('space.txt')).toBe('x');
+  // back to the list, with the search as it was
+  await expect(launcher.getByTestId('launcher-input')).toBeVisible();
+  await expect(launcher.getByTestId('launcher-input')).toHaveValue('hel');
+  await launcher.waitForTimeout(1500);
+  expect(read('space.txt')).toBe('x'); // one line: the button ran once
+  await launcher.keyboard.press('Escape');
+  await launcher.keyboard.press('Escape');
+  await expect.poll(launcherVisible).toBe(false);
+});
+
+test('editor: only if a check passes, and an alert with buttons', async () => {
+  await editor.bringToFront();
+  await editor.getByTestId('tab-trays').click();
+  await editor.getByTestId('tray-row').nth(2).click();
+  await editor.getByTestId('card-schedule').scrollIntoViewIfNeeded();
+  const before = await editor.getByTestId('schedule').count();
+  await editor.getByTestId('add-schedule').click();
+  const i = before;
+  await editor.getByTestId(`schedule-mode-${i}`).selectOption('watch');
+  await editor.getByTestId(`watch-path-${i}`).fill('C:\\Scans');
+  await editor.getByTestId(`schedule-if-toggle-${i}`).click();
+  await editor.getByTestId(`schedule-if-check-${i}`).fill('(Get-Item $env:TC_FILE).Length -gt 0');
+  await editor.getByTestId(`schedule-alert-toggle-${i}`).click();
+  await editor.getByTestId(`alert-text-${i}`).fill('${TC_FILE_NAME} has arrived');
+  await editor.getByTestId(`alert-add-choice-${i}`).click();
+  const second = editor.getByTestId(`alert-choice-${i}-1`);
+  await second.getByLabel('Text of the button').fill('Archive');
+  await second.getByLabel('What the button does').selectOption('command');
+  await second.getByLabel('Command').fill('Move-Item $env:TC_FILE D:\\Archive');
+  await editor.getByTestId(`alert-timeout-${i}`).fill('2');
+  await editor.getByTestId(`alert-default-${i}`).selectOption('Archive');
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  await editor.getByTestId(`schedule-alert-${i}`).scrollIntoViewIfNeeded();
+  await editor.getByTestId(`schedule-alert-${i}`).screenshot({ path: path.join(shots, '31-editor-alert.png') });
+  const saved = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8')).trays[2].schedules[i];
+  expect(saved).toEqual({
+    watch: { path: 'C:\\Scans', files: '*.txt' },
+    if: '(Get-Item $env:TC_FILE).Length -gt 0',
+    alert: {
+      text: '${TC_FILE_NAME} has arrived',
+      choices: [
+        { label: 'Run', run: 'self' },
+        { label: 'Archive', action: 'Move-Item $env:TC_FILE D:\\Archive' },
+      ],
+      timeout: '2m',
+      default: 'Archive',
+    },
+  });
+  // the timeout typed in seconds keeps the digits typed (no unit change while typing)
+  await editor.getByTestId(`schedule-alert-${i}`).getByLabel('Unit').selectOption('s');
+  await editor.getByTestId(`alert-timeout-${i}`).fill('');
+  await editor.getByTestId(`alert-timeout-${i}`).pressSequentially('605');
+  await expect(editor.getByTestId(`alert-timeout-${i}`)).toHaveValue('605');
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  const again = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8')).trays[2].schedules[i];
+  expect(again.alert.timeout).toBe('605s');
+  expect(again.alert.default).toBe('Archive');
+});

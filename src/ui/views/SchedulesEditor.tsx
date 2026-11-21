@@ -1,11 +1,26 @@
+import { useState } from 'preact/hooks';
 import { CalendarClock, FolderOpen, Plus, Trash2 } from 'lucide-preact';
-import type { Action, Schedule, Watch } from '../../shared/config';
+import type { Action, Alert, Choice, Schedule, Watch } from '../../shared/config';
 import type { WatchStatus } from '../../shared/api';
 import { cronError, describeCron, describeInterval, nextCronRuns, parseInterval } from '../../shared/cron';
 import { describeWindow, parseDays, windowError } from '../../shared/window';
 import { globError, patternList } from '../../shared/glob';
 import {
   FILE_EVENTS,
+  choiceKind,
+  conditionFields,
+  choiceRun,
+  choiceTarget,
+  newChoice,
+  patchAlert,
+  removeChoice,
+  renameChoice,
+  timeoutOf,
+  timeoutParts,
+  withAlert,
+  withChoiceKind,
+  withCondition,
+  type ChoiceKind,
   cleanSchedule,
   cronOf,
   filesText,
@@ -26,7 +41,7 @@ import {
   type ScheduleMode,
 } from '../../shared/scheduleForm';
 import { api } from '../store';
-import { Field, Switch } from '../components/ui';
+import { Field, Switch, TextArea } from '../components/ui';
 
 const DAYS = [
   { n: 1, s: 'Mon' },
@@ -229,6 +244,190 @@ function WatchEditor(props: { w: Watch; onChange: (w: Watch) => void; i: number 
   );
 }
 
+
+/** "Only if a check passes": a command run before, like the check of a toggle. */
+function ConditionEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: number }) {
+  const { s } = props;
+  const on = s.if !== undefined;
+  const f = conditionFields(s.if);
+  const set = (patch: Partial<typeof f>) => props.onChange(withCondition(s, { ...f, ...patch }));
+  return (
+    <div class="schedule-extra" data-testid={`schedule-if-${props.i}`}>
+      <Switch
+        checked={on}
+        onChange={(v) => props.onChange(withCondition(s, v ? { check: '', on: '', off: '' } : undefined))}
+        label="Only if a check passes"
+        hint={on ? undefined : 'Run a command first: the schedule goes on only if it succeeds'}
+        testId={`schedule-if-toggle-${props.i}`}
+      />
+      {on && (
+        <div class="schedule-extra-body">
+          <Field label="Check" hint="Passes when the command ends with exit code 0. It gets the same values as the run (TC_FILE…).">
+            <TextArea value={f.check} onInput={(v) => set({ check: v })} rows={2} code placeholder={'Test-Path "$env:TC_FILE"'} invalid={!f.check.trim()} testId={`schedule-if-check-${props.i}`} />
+          </Field>
+          <div class="grid2">
+            <Field label="…and its output contains" hint="Optional regular expression">
+              <input class="input mono" value={f.on} placeholder="e.g. ready" onInput={(e) => set({ on: (e.currentTarget as HTMLInputElement).value })} />
+            </Field>
+            <Field label="…and its output does not contain" hint="Optional regular expression">
+              <input class="input mono" value={f.off} placeholder="e.g. error|busy" onInput={(e) => set({ off: (e.currentTarget as HTMLInputElement).value })} />
+            </Field>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** "Show an alert first": a message over the other windows (or a notification) with buttons to choose what runs. */
+function AlertEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: number; entries: { id: string; label: string }[]; entryLabel: string }) {
+  const { s } = props;
+  const a = s.alert;
+  const setAlert = (next: Alert) => props.onChange({ ...s, alert: next });
+  const patch = (p: Partial<Alert>) => a && setAlert(patchAlert(a, p));
+  const choices = a?.choices ?? [];
+  const setChoice = (i: number, c: Choice) => patch({ choices: choices.map((x, j) => (j === i ? c : x)) });
+  // the timeout fields keep what is typed (and the unit chosen); they follow the file only when it changes elsewhere
+  const [time, setTime] = useState(() => {
+    const t = timeoutParts(a?.timeout);
+    return { n: t ? String(t.n) : '', unit: t?.unit ?? ('m' as 's' | 'm' | 'h') };
+  });
+  const written = timeoutOf(time.n, time.unit);
+  if (written !== a?.timeout) {
+    const t = timeoutParts(a?.timeout);
+    const synced = { n: t ? String(t.n) : '', unit: t?.unit ?? time.unit };
+    if (synced.n !== time.n || synced.unit !== time.unit) setTime(synced);
+  }
+  const setTimeout_ = (next: { n: string; unit: 's' | 'm' | 'h' }) => {
+    setTime(next);
+    patch({ timeout: timeoutOf(next.n, next.unit) });
+  };
+  const hasTimeout = written !== undefined;
+  return (
+    <div class="schedule-extra" data-testid={`schedule-alert-${props.i}`}>
+      <Switch
+        checked={!!a}
+        onChange={(v) => props.onChange(withAlert(s, v))}
+        label="Show an alert first"
+        hint={a ? undefined : 'A message over the other windows, or a notification, with buttons to choose what runs'}
+        testId={`schedule-alert-toggle-${props.i}`}
+      />
+      {a && (
+        <div class="schedule-extra-body">
+          <div class="grid2">
+            <Field label="Show as">
+              <select class="select" value={a.style ?? 'window'} onChange={(e) => patch({ style: (e.currentTarget as HTMLSelectElement).value as Alert['style'] })} data-testid={`alert-style-${props.i}`}>
+                <option value="window">A window over the other windows</option>
+                <option value="notification">A notification (click it to choose)</option>
+              </select>
+            </Field>
+            <Field label="Title">
+              <input class="input" value={a.title ?? ''} placeholder={props.entryLabel} onInput={(e) => patch({ title: (e.currentTarget as HTMLInputElement).value })} data-testid={`alert-title-${props.i}`} />
+            </Field>
+          </div>
+          <Field label="Message" hint="${TC_FILE_NAME} and the other values can be used in the title, the message and the buttons.">
+            <TextArea value={a.text ?? ''} onInput={(v) => patch({ text: v })} rows={2} placeholder="${TC_FILE_NAME} has arrived: what should I do?" testId={`alert-text-${props.i}`} />
+          </Field>
+          <div class="field">
+            <label>Buttons</label>
+            <div class="choices" data-testid={`alert-choices-${props.i}`}>
+              {choices.map((c, j) => {
+                const kind = choiceKind(c);
+                const action = typeof c.action === 'string' ? c.action : (c.action?.run ?? '');
+                return (
+                  <div class="choice" data-testid={`alert-choice-${props.i}-${j}`}>
+                    <span class="choice-num">{j + 1}</span>
+                    <input class={`input${!c.label.trim() ? " invalid" : ""}`} style={{ width: 150 }} value={c.label} onInput={(e) => setAlert(renameChoice(a, j, (e.currentTarget as HTMLInputElement).value))} aria-label="Text of the button" />
+                    <select class="select" style={{ width: 150 }} value={kind} onChange={(e) => setChoice(j, withChoiceKind(c, (e.currentTarget as HTMLSelectElement).value as ChoiceKind, props.entries[0]?.id))} aria-label="What the button does">
+                      <option value="self">Runs this entry</option>
+                      <option value="entry">Runs another entry</option>
+                      <option value="command">Runs a command</option>
+                    </select>
+                    {kind === 'entry' &&
+                      (() => {
+                        const t = choiceTarget(c.run);
+                        return (
+                          <>
+                            <select class="select" style={{ flex: 1, minWidth: 0 }} value={t.id} onChange={(e) => setChoice(j, { label: c.label, run: choiceRun((e.currentTarget as HTMLSelectElement).value, t.how) })} aria-label="Entry">
+                              {!props.entries.some((x) => x.id === t.id) && <option value={t.id}>{t.id ? `${t.id} (unknown)` : '(choose)'}</option>}
+                              {props.entries.map((x) => (
+                                <option value={x.id}>
+                                  {x.label} ({x.id})
+                                </option>
+                              ))}
+                            </select>
+                            <select class="select" style={{ width: 120 }} value={t.how} onChange={(e) => setChoice(j, { label: c.label, run: choiceRun(t.id, (e.currentTarget as HTMLSelectElement).value as typeof t.how) })} aria-label="How">
+                              <option value="">like a click</option>
+                              <option value="on">turn on</option>
+                              <option value="off">turn off</option>
+                              <option value="right">right click</option>
+                            </select>
+                          </>
+                        );
+                      })()}
+                    {kind === 'command' && (
+                      <input
+                        class={`input mono${!action.trim() ? ' invalid' : ''}`}
+                        style={{ flex: 1 }}
+                        value={action}
+                        placeholder={'Move-Item $env:TC_FILE D:\\Archive'}
+                        onInput={(e) => {
+                          const run = (e.currentTarget as HTMLInputElement).value;
+                          setChoice(j, { label: c.label, action: typeof c.action === 'object' ? { ...c.action, run } : run });
+                        }}
+                        aria-label="Command"
+                      />
+                    )}
+                    {kind === 'self' && <span style={{ flex: 1 }} />}
+                    <button class="btn ghost sm icon danger" onClick={() => setAlert(removeChoice(a, j))} aria-label="Remove button">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+              <div class="row" style={{ alignItems: 'center' }}>
+                {choices.length < 4 && (
+                  <button class="btn sm" onClick={() => patch({ choices: [...choices, newChoice(choices)] })} data-testid={`alert-add-choice-${props.i}`}>
+                    <Plus size={14} /> Add button
+                  </button>
+                )}
+                <span class="hint">{choices.length ? 'Esc or × closes the alert without running anything.' : 'Without buttons the alert only informs (OK).'}</span>
+              </div>
+            </div>
+          </div>
+          <div class="watch-options">
+            <span class="inline">
+              <span class="hint">If nobody answers within</span>
+              <input
+                class="input"
+                type="number"
+                min={1}
+                style={{ width: 70 }}
+                value={time.n}
+                placeholder="—"
+                onInput={(e) => setTimeout_({ n: (e.currentTarget as HTMLInputElement).value, unit: time.unit })}
+                aria-label="Time to answer"
+                data-testid={`alert-timeout-${props.i}`}
+              />
+              <select class="select" style={{ width: 110 }} value={time.unit} onChange={(e) => setTimeout_({ n: time.n, unit: (e.currentTarget as HTMLSelectElement).value as 's' | 'm' | 'h' })} aria-label="Unit">
+                <option value="s">seconds</option>
+                <option value="m">minutes</option>
+                <option value="h">hours</option>
+              </select>
+              <select class="select" style={{ width: 190 }} value={a.default ?? ''} onChange={(e) => patch({ default: (e.currentTarget as HTMLSelectElement).value || undefined })} aria-label="Then" disabled={!hasTimeout || !choices.length} data-testid={`alert-default-${props.i}`}>
+                <option value="">close it, nothing runs</option>
+                {choices.map((c) => (
+                  <option value={c.label}>run “{c.label}”</option>
+                ))}
+              </select>
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SchedulesEditor(props: {
   value: Schedule[] | undefined;
   watches?: WatchStatus[];
@@ -237,6 +436,9 @@ export function SchedulesEditor(props: {
   hasOff: boolean;
   hasRight: boolean;
   action: Action | undefined;
+  /** Entries with an id, for the buttons of alerts. */
+  entries: { id: string; label: string }[];
+  entryLabel: string;
 }) {
   const list = props.value ?? [];
   const set = (next: Schedule[]) => props.onChange(next.length ? next : undefined);
@@ -324,6 +526,8 @@ export function SchedulesEditor(props: {
             {mode === 'watch' && s.watch && <WatchEditor w={s.watch} i={i} onChange={(w) => update(i, { ...s, watch: w })} />}
             <Summary schedule={s} watch={props.watches?.find((w) => w.index === i)} />
             {mode !== 'times' && <WindowEditor s={s} i={i} onChange={(next) => update(i, next)} />}
+            <ConditionEditor s={s} i={i} onChange={(next) => update(i, next)} />
+            <AlertEditor s={s} i={i} onChange={(next) => update(i, next)} entries={props.entries} entryLabel={props.entryLabel} />
             {(props.isToggle || props.hasRight || inputs.length > 0) && (
               <div class="grid3">
                 {(props.isToggle || props.hasRight) && (
@@ -380,7 +584,7 @@ export function SchedulesEditor(props: {
         <span class="hint">
           {list.length ? (
             <>
-              <CalendarClock size={12} style={{ verticalAlign: -2 }} /> Scheduled runs never ask for confirmation or values; runs missed while the PC was off are skipped.
+              <CalendarClock size={12} style={{ verticalAlign: -2 }} /> Scheduled runs never ask for confirmation or values (an alert asks you first); runs missed while the PC was off are skipped.
             </>
           ) : (
             'Run this entry automatically: at set times, at an interval, when TrayCommand starts, or when files appear in a folder.'

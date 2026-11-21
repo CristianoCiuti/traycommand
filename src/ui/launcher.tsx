@@ -1,9 +1,10 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { ChevronRight, CircleAlert, CornerDownLeft, EyeOff, FolderOpen, Loader2, RectangleEllipsis, Search, Terminal, X } from 'lucide-preact';
+import { BellRing, ChevronRight, CircleAlert, CornerDownLeft, EyeOff, FolderOpen, Loader2, RectangleEllipsis, Search, Terminal, X } from 'lucide-preact';
 import './launcher.css';
 import type { LauncherItem, LauncherShow, PromptField, PromptRequest } from '../shared/api';
 import { fuzzyMatch } from '../shared/fuzzy';
+import { alertKey, ALERT_ARM_MS, formatCountdown } from '../shared/scheduleForm';
 import { Keys } from './components/keys';
 
 const api = window.traycommand.launcher;
@@ -536,6 +537,105 @@ function Form(props: { request: PromptRequest & { fromList: boolean }; platform:
   );
 }
 
+/* ---------------- alert ---------------- */
+
+/**
+ * An alert of a schedule: a message and up to 4 buttons, over all the other windows. Keys and
+ * clicks are ignored for a moment after it appears, so that typing in another application does
+ * not answer it by mistake.
+ */
+function AlertView(props: { request: PromptRequest & { fromList: boolean } }) {
+  const r = props.request;
+  const a = r.alert!;
+  const labels = a.choices.length ? a.choices : ['OK'];
+  const initial = a.defaultChoice ?? 0;
+  const [armed, setArmed] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useLayoutEffect(() => {
+    buttons.current[initial]?.focus();
+    const t = setTimeout(() => setArmed(true), ALERT_ARM_MS);
+    return () => clearTimeout(t);
+  }, [r.id]);
+  useEffect(() => {
+    if (!a.deadline) return;
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, [r.id]);
+
+  const choose = (i: number) => {
+    if (!armed) return;
+    if (a.choices.length) api.submit(r.id, { choice: String(i) });
+    else api.cancel(r.id, false);
+  };
+  const onKey = (e: KeyboardEvent) => {
+    const focused = buttons.current.findIndex((b) => b === document.activeElement);
+    const k = alertKey(e.key, labels.length, focused, initial, armed);
+    if (k.type !== 'none') e.preventDefault();
+    if (k.type === 'focus') buttons.current[k.index]?.focus();
+    else if (k.type === 'choose') choose(k.index);
+    else if (k.type === 'dismiss') api.cancel(r.id, false);
+  };
+  const remaining = a.deadline ? formatCountdown(a.deadline - now) : undefined;
+
+  return (
+    <div class={`lx lx-form lx-alert${armed ? '' : ' arming'}`} onKeyDown={onKey} data-testid="launcher-alert" data-armed={armed}>
+      <div class="lx-head">
+        <span class="lx-icon">{r.icon ? <img src={r.icon} alt="" /> : <BellRing size={16} />}</span>
+        <span class="lx-text">
+          <span class="lx-title" data-testid="launcher-alert-title">{r.title}</span>
+          {r.subtitle && <span class="lx-path">{r.subtitle}</span>}
+        </span>
+        <button class="lx-close" tabIndex={-1} onClick={() => armed && api.cancel(r.id, false)} aria-label="Dismiss">
+          <X size={16} />
+        </button>
+      </div>
+      {a.text && (
+        <div class="lx-alert-text" data-testid="launcher-alert-text">
+          {a.text}
+        </div>
+      )}
+      <div class="lx-alert-actions" role="group" aria-label="Choices">
+        {labels.map((label, i) => (
+          <button
+            ref={(el) => {
+              buttons.current[i] = el;
+            }}
+            class={`lx-btn${i === initial ? ' primary' : ''}`}
+            onClick={() => choose(i)}
+            aria-disabled={!armed}
+            data-testid={`launcher-alert-choice-${i}`}
+          >
+            {labels.length > 1 && <span class="lx-num">{i + 1}</span>}
+            {label}
+          </button>
+        ))}
+      </div>
+      <div class="lx-foot">
+        {labels.length > 1 && (
+          <span>
+            <kbd>←</kbd>
+            <kbd>→</kbd> or <kbd>1</kbd>–<kbd>{labels.length}</kbd> choose
+          </span>
+        )}
+        <span>
+          <kbd>Enter</kbd> {labels.length > 1 ? 'run' : 'OK'}
+        </span>
+        <span>
+          <kbd>Esc</kbd> {a.choices.length ? 'dismiss' : 'close'}
+        </span>
+        <span class="lx-spacer" />
+        {remaining && (
+          <span class="lx-alert-timer" data-testid="launcher-alert-timer">
+            {a.defaultChoice !== undefined ? `${labels[a.defaultChoice]} in ${remaining}` : `Closes in ${remaining}`}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- root ---------------- */
 
 function Launcher() {
@@ -598,7 +698,7 @@ function Launcher() {
   return (
     <div class="lx-root" ref={root}>
       <div class="lx-anim" ref={anim}>
-        {prompt && <Form request={prompt} platform={data.platform} key={prompt.id} />}
+        {prompt && (prompt.alert ? <AlertView request={prompt} key={prompt.id} /> : <Form request={prompt} platform={data.platform} key={prompt.id} />)}
         <List data={data} scope={scope} setScope={setScope} query={query} setQuery={setQuery} hidden={!!prompt} />
       </div>
     </div>

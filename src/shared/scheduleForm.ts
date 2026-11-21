@@ -2,7 +2,7 @@
  * The logic of the schedule editor (and of the tray tooltip), kept apart from the components so
  * that it is unit tested: modes, the "At set times" form, the time window fields, the watch fields.
  */
-import type { Schedule, Watch } from './config.ts';
+import type { Alert, Choice, Condition, Schedule, Watch } from './config.ts';
 import type { WatchStatus } from './api.ts';
 import { parseCron, parseInterval } from './cron.ts';
 import { patternList } from './glob.ts';
@@ -164,6 +164,148 @@ export function watchTooltip(watches: WatchStatus[]): string | undefined {
   const watching = watches.filter((w) => w.state === 'watching');
   if (watching.length) return `watching ${watching.map((w) => w.path.split(/[\\/]/).filter(Boolean).pop()).join(', ')}`;
   return undefined;
+}
+
+/* ---------- "only if" ---------- */
+
+export function conditionFields(c: Condition | undefined): { check: string; on: string; off: string } {
+  if (c === undefined) return { check: '', on: '', off: '' };
+  if (typeof c === 'string') return { check: c, on: '', off: '' };
+  return { check: c.check, on: c.on ?? '', off: c.off ?? '' };
+}
+
+/** The schedule with its check changed (undefined = no check). A check without patterns is written as a string. */
+export function withCondition(s: Schedule, fields: { check: string; on: string; off: string } | undefined): Schedule {
+  if (!fields) return { ...s, if: undefined };
+  const old = typeof s.if === 'object' ? s.if : undefined;
+  const extra = { shell: old?.shell, timeout: old?.timeout };
+  const plain = !fields.on && !fields.off && extra.shell === undefined && extra.timeout === undefined;
+  if (plain) return { ...s, if: fields.check };
+  const c: Exclude<Condition, string> = { check: fields.check };
+  if (fields.on) c.on = fields.on;
+  if (fields.off) c.off = fields.off;
+  if (extra.shell !== undefined) c.shell = extra.shell;
+  if (extra.timeout !== undefined) c.timeout = extra.timeout;
+  return { ...s, if: c };
+}
+
+/* ---------- alert ---------- */
+
+export type ChoiceKind = 'self' | 'entry' | 'command';
+
+/** The schedule with its alert switched on (a message and a button that runs the entry) or off. */
+export function withAlert(s: Schedule, on: boolean): Schedule {
+  return on ? { ...s, alert: { text: '', choices: [{ label: 'Run', run: 'self' }] } } : { ...s, alert: undefined };
+}
+
+/** The alert after a change in the editor: empty texts and defaults are not written. */
+export function patchAlert(a: Alert, patch: Partial<Alert>): Alert {
+  const next: Alert = { ...a, ...patch };
+  if (next.style === 'window') delete next.style;
+  for (const k of ['title', 'timeout'] as const) if (!next[k]) delete next[k];
+  if (next.choices && !next.choices.length) delete next.choices;
+  // the default must stay one of the choices (an empty label while it is being retyped is still that button)
+  if (next.default === undefined || !(next.choices ?? []).some((c) => c.label === next.default)) delete next.default;
+  return next;
+}
+
+export function choiceKind(c: Choice): ChoiceKind {
+  if (c.action !== undefined) return 'command';
+  return c.run === 'self' || c.run === undefined ? 'self' : 'entry';
+}
+
+/** The choice after changing what it does; `firstId` is proposed for "another entry". */
+export function withChoiceKind(c: Choice, kind: ChoiceKind, firstId: string | undefined): Choice {
+  if (kind === 'self') return { label: c.label, run: 'self' };
+  if (kind === 'entry') return { label: c.label, run: firstId ?? '' };
+  return { label: c.label, action: '' };
+}
+
+/** A new choice for the editor: a label not used yet. */
+export function newChoice(choices: Choice[]): Choice {
+  let n = choices.length + 1;
+  while (choices.some((c) => c.label === `Choice ${n}`)) n++;
+  return { label: `Choice ${n}`, run: 'self' };
+}
+
+/** Index of the default button (the first with that label, as when it runs), -1 = none. */
+export function defaultIndex(a: Alert): number {
+  return a.default === undefined ? -1 : (a.choices ?? []).findIndex((c) => c.label === a.default);
+}
+
+/**
+ * The alert after renaming a button: the default stays on the same button, whatever the labels pass through.
+ * While two buttons have the default's label (one is being retyped), the default is the one not being renamed.
+ */
+export function renameChoice(a: Alert, index: number, label: string): Alert {
+  const old = a.choices ?? [];
+  const matches = a.default === undefined ? [] : old.map((c, i) => (c.label === a.default ? i : -1)).filter((i) => i >= 0);
+  const d = matches.find((i) => i !== index) ?? matches[0] ?? -1;
+  const choices = old.map((c, i) => (i === index ? { ...c, label } : c));
+  return patchAlert(a, { choices, default: d >= 0 ? choices[d]!.label : undefined });
+}
+
+/** The alert without one of its buttons (the default goes with it, or stays on its button). */
+export function removeChoice(a: Alert, index: number): Alert {
+  const d = defaultIndex(a);
+  const choices = (a.choices ?? []).filter((_, i) => i !== index);
+  return patchAlert(a, { choices, default: d >= 0 && d !== index ? a.choices![d]!.label : undefined });
+}
+
+/** The timeout in the largest whole unit: "2m" → 2 minutes, "1h30m" → 90 minutes, "1d" → 24 hours; invalid → undefined. */
+export function timeoutParts(timeout: string | undefined): { n: number; unit: 's' | 'm' | 'h' } | undefined {
+  const seconds = timeout === undefined ? undefined : parseInterval(timeout);
+  if (!seconds) return undefined;
+  if (seconds % 3600 === 0) return { n: seconds / 3600, unit: 'h' };
+  if (seconds % 60 === 0) return { n: seconds / 60, unit: 'm' };
+  return { n: seconds, unit: 's' };
+}
+
+/** The timeout written from the editor fields: the number as typed and the unit chosen (no normalisation while typing). */
+export function timeoutOf(n: string, unit: 's' | 'm' | 'h'): string | undefined {
+  const value = Math.round(Number(n));
+  return n.trim() && value > 0 ? `${value}${unit}` : undefined;
+}
+
+/** "b:off" → { id: 'b', how: 'off' }; how '' = like a click. */
+export function choiceTarget(run: string | undefined): { id: string; how: '' | 'on' | 'off' | 'right' } {
+  const [id = '', how = ''] = (run ?? '').split(':');
+  return { id, how: how as '' | 'on' | 'off' | 'right' };
+}
+
+export function choiceRun(id: string, how: '' | 'on' | 'off' | 'right'): string {
+  return how ? `${id}:${how}` : id;
+}
+
+/* ---------- alert window ---------- */
+
+/** Keys and clicks are ignored this long after an alert appears (typing elsewhere must not answer it). */
+export const ALERT_ARM_MS = 500;
+
+/** "0:42", "12:05", "1:00:00": time left before an alert closes. */
+export function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const ss = String(s).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+
+export type AlertKey = { type: 'none' } | { type: 'block' } | { type: 'dismiss' } | { type: 'focus'; index: number } | { type: 'choose'; index: number };
+
+/** What a key does in an alert with `count` buttons, the `focused` one (-1 = none) and the `initial` one. */
+export function alertKey(key: string, count: number, focused: number, initial: number, armed: boolean): AlertKey {
+  if (!armed) return key === 'Tab' ? { type: 'none' } : { type: 'block' };
+  if (key === 'Escape') return { type: 'dismiss' };
+  const from = focused >= 0 ? focused : initial;
+  if (key === 'ArrowRight' || key === 'ArrowDown') return { type: 'focus', index: (from + 1) % count };
+  if (key === 'ArrowLeft' || key === 'ArrowUp') return { type: 'focus', index: (from - 1 + count) % count };
+  if (key === 'Home') return { type: 'focus', index: 0 };
+  if (key === 'End') return { type: 'focus', index: count - 1 };
+  if (key === 'Enter' || key === ' ') return { type: 'choose', index: from };
+  if (/^[1-9]$/.test(key) && Number(key) <= count) return { type: 'choose', index: Number(key) - 1 };
+  return { type: 'none' };
 }
 
 /** Description of the Schedule card of an entry. */

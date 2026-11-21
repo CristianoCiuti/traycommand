@@ -179,6 +179,8 @@ export function EntryEditor(props: { path: number[] }) {
           value={entry.schedules}
           onChange={(v) => setKey('schedules', v as never)}
           watches={st?.watches}
+          entries={otherIds}
+          entryLabel={entry.label}
           isToggle={!!entry.state}
           hasOff={entry.offAction !== undefined}
           hasRight={isTray && tray.rightAction !== undefined}

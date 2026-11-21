@@ -323,6 +323,35 @@ Convert every new `.docx` dropped in a folder to PDF, during office hours only. 
 
 `[!~]*.docx` skips the `~$` lock files Word creates while a document is open. With `"existing": true` the files left in the folder overnight are converted when the window opens at 08:00. See [when files change](../guide/schedules#when-files-change).
 
+## Ask before acting
+
+A backup that asks first, at 18:00 on weekdays, only if the external disk is connected; if nobody answers within 10 minutes it starts anyway.
+
+```json
+{
+  "id": "backup",
+  "label": "Backup",
+  "action": "robocopy C:\\Work E:\\Backup /MIR",
+  "schedules": [
+    {
+      "cron": "0 18 * * 1-5",
+      "if": "Test-Path E:\\",
+      "alert": {
+        "text": "Start the backup to E: now?",
+        "choices": [
+          { "label": "Start", "run": "self" },
+          { "label": "Tomorrow", "action": "exit 0" }
+        ],
+        "timeout": "10m",
+        "default": "Start"
+      }
+    }
+  ]
+}
+```
+
+See [alerts and choices](../guide/schedules#alerts-and-choices).
+
 ## Timeout
 
 Stop a script that hangs. After `timeout` seconds the process and its children are killed and an error is notified.

@@ -1,6 +1,8 @@
 import {
   type Action,
   type ActionInput,
+  type Choice,
+  type Condition,
   type Config,
   type Input,
   type MenuEntry,
@@ -15,7 +17,7 @@ import { expand, type VariableContext } from '../shared/variables';
 import { nextCron, parseCron, parseInterval } from '../shared/cron';
 import { inWindow, nextWindowChange, parseWindow, windowed, type TimeWindow } from '../shared/window';
 import { fileMatcher, patternList } from '../shared/glob';
-import type { EntryStatus, ExecutionLog, PromptField, PromptRequest, RunSource, WatchStatus } from '../shared/api';
+import type { AlertRequest, EntryStatus, ExecutionLog, PromptField, PromptRequest, RunSource, WatchStatus } from '../shared/api';
 import { FolderWatch, type FileChange, type FolderWatchOptions } from './watcher';
 import { isSuccess, type RunOptions, type RunResult, type Runner } from './runner';
 import { defaultShell } from './shell';
@@ -48,6 +50,12 @@ export interface EngineDeps {
   watchRetry?: number;
   /** fs.watch (replaced in tests). */
   watchFn?: FolderWatchOptions['watchFn'];
+  /** Shows an alert; resolves with the index of the choice, or undefined when dismissed. */
+  alert?: (request: AlertRequest) => Promise<number | undefined>;
+  /** Closes an alert still open (its time is up, or the configuration changed). */
+  closeAlert?: (id: number) => void;
+  /** True while the window of a notification alert is on screen (its notification was clicked): it is not replaced. */
+  answeringAlert?: (id: number) => boolean;
 }
 
 export interface TriggerOptions {
@@ -74,6 +82,10 @@ export interface RuntimeEntry {
   watches: Map<number, { watch: FolderWatch; path: string; window?: TimeWindow }>;
   /** Runs started by file events, one after the other. */
   watchQueue?: Promise<void>;
+  /** Alerts open per schedule (id): a window is not shown twice, a newer notification replaces the older one. */
+  alerting?: Map<Schedule, number>;
+  /** Choices made in alerts, run one after the other. */
+  choiceQueue?: Promise<void>;
 }
 
 interface ExecContext {
@@ -138,6 +150,8 @@ export class Engine {
   /** Folder watches of the last start, to tell new ones (they report the files already there, with "existing"). */
   private watchKeys = new Set<string>();
   private promptId = 0;
+  /** Alerts on screen: closing them resolves them as dismissed. */
+  private openAlerts = new Map<number, () => void>();
   private optionLoaders = new Map<string, () => Promise<{ options?: string[]; error?: string }>>();
 
   constructor(private readonly deps: EngineDeps) {}
@@ -176,6 +190,8 @@ export class Engine {
     }
     for (const t of this.scheduleTimers) clearTimeout(t);
     this.scheduleTimers.clear();
+    // alerts of the old configuration: close them, their choices may not exist any more
+    for (const id of [...this.openAlerts.keys()]) this.dismissAlert(id);
   }
 
   onChange(listener: (key?: string) => void): () => void {
@@ -348,7 +364,7 @@ export class Engine {
       return;
     }
     const source = options.source ?? 'click';
-    const interactive = source !== 'schedule' && source !== 'watch';
+    const interactive = isInteractive(source);
     const resolved = await this.resolveInputs(this.collectInputs(entry, kind), {
       title: this.label(entry),
       subtitle: this.pathLabel(entry) || undefined,
@@ -475,10 +491,14 @@ export class Engine {
 
     const action = this.actionOf(entry, kind);
     if (!action) return undefined;
+    return this.executeAction(entry, kind, action, visited, ctx);
+  }
 
+  /** Runs an action with its chain; `label` names it in the activity log (default: the entry). */
+  private async executeAction(entry: RuntimeEntry, kind: ActionKind, action: Action, visited: Set<string>, ctx: ExecContext, label?: string): Promise<RunResult | undefined> {
     // scheduled runs never ask: the user chose to run them unattended
     if (action.confirm && ctx.interactive) {
-      const ok = await this.deps.confirm(this.label(entry), this.expandText(action.confirm, ctx.values));
+      const ok = await this.deps.confirm(label ?? this.label(entry), this.expandText(action.confirm, ctx.values));
       if (!ok) return undefined;
     }
 
@@ -489,13 +509,13 @@ export class Engine {
     };
 
     await runRefs(action.before, false);
-    const [result] = await Promise.all([this.runOwn(entry, kind, action, ctx), runRefs(action.parallel, true)]);
+    const [result] = await Promise.all([this.runOwn(entry, kind, action, ctx, label), runRefs(action.parallel, true)]);
     await runRefs(action.after, false);
     return result;
   }
 
-  private async runOwn(entry: RuntimeEntry, kind: ActionKind, action: Action, ctx: ExecContext): Promise<RunResult> {
-    const label = this.label(entry);
+  private async runOwn(entry: RuntimeEntry, kind: ActionKind, action: Action, ctx: ExecContext, name?: string): Promise<RunResult> {
+    const label = name ?? this.label(entry);
     entry.busy = true;
     this.emit(entry.key);
     let result: RunResult;
@@ -697,7 +717,7 @@ export class Engine {
     for (const values of runs) {
       entry.watchQueue = (entry.watchQueue ?? Promise.resolve()).then(async () => {
         // one after the other: wait for the previous run (or a click) to finish
-        for (let waited = 0; entry.busy && waited < 30 * 60 * 1000; waited += 250) await new Promise((r) => setTimeout(r, 250));
+        await this.waitIdle(entry);
         if (generation !== this.generation) return;
         await this.fireSchedule(entry, schedule, values, 'watch').catch(() => undefined);
       });
@@ -745,23 +765,196 @@ export class Engine {
     this.emit();
   }
 
-  async fireSchedule(entry: RuntimeEntry, schedule: Schedule, extra?: Record<string, string>, source: RunSource = 'schedule') {
-    if (this.paused || this.stopped || this.isDisabled(entry)) return;
-    if (!inWindow(parseWindow(schedule.between, schedule.days), new Date())) return;
-    const label = this.label(entry);
-    if (entry.busy) {
-      this.deps.log({ time: Date.now(), key: entry.key, label, kind: 'on', script: '', code: null, ok: false, durationMs: 0, stdout: '', stderr: '', error: 'Skipped: the previous run is still going', source });
-      return;
-    }
+  /** What the schedule runs on this entry now: undefined when the toggle already is in that state, or there is no action. */
+  private scheduledKind(entry: RuntimeEntry, schedule: Schedule): ActionKind | undefined {
     const run = schedule.run ?? 'click';
-    if (run !== 'right' && entry.entry.state && entry.on === undefined) await this.checkNow(entry.key);
     let kind: ActionKind | undefined;
     if (run === 'click') kind = this.clickKind(entry);
     else if (run === 'on') kind = entry.entry.state && entry.on === true ? undefined : 'on';
     else if (run === 'off') kind = entry.entry.state && entry.on === false ? undefined : 'off';
     else kind = 'right';
-    if (!kind || !this.actionOf(entry, kind)) return;
-    await this.trigger(entry, kind, { source, values: extra ? { ...schedule.values, ...extra } : schedule.values });
+    return kind && this.actionOf(entry, kind) ? kind : undefined;
+  }
+
+  async fireSchedule(entry: RuntimeEntry, schedule: Schedule, extra?: Record<string, string>, source: RunSource = 'schedule') {
+    if (this.paused || this.stopped || this.isDisabled(entry)) return;
+    if (!inWindow(parseWindow(schedule.between, schedule.days), new Date())) return;
+    if (entry.busy) {
+      this.deps.log({ time: Date.now(), key: entry.key, label: this.label(entry), kind: 'on', script: '', code: null, ok: false, durationMs: 0, stdout: '', stderr: '', error: 'Skipped: the previous run is still going', source });
+      return;
+    }
+    const generation = this.generation;
+    if ((schedule.run ?? 'click') !== 'right' && entry.entry.state && entry.on === undefined) {
+      await this.checkNow(entry.key);
+      if (generation !== this.generation) return; // the configuration changed meanwhile
+    }
+    const self = this.scheduledKind(entry, schedule);
+    const alert = schedule.alert;
+    // a "self" button is offered only while there is something to run
+    const choices = (alert?.choices ?? []).filter((c) => c.run !== 'self' || self);
+    if (!alert ? !self : (alert.choices ?? []).length > 0 && !choices.length) return;
+
+    // a timed schedule repeats the same question: one window at a time, a newer notification replaces the older one;
+    // every file of a folder watch is a question of its own
+    const repeats = source !== 'watch';
+    const style = alert?.style ?? 'window';
+    const id = ++this.promptId;
+    if (alert && repeats) {
+      const open = entry.alerting?.get(schedule);
+      if (open !== undefined && (style === 'window' || this.deps.answeringAlert?.(open))) return; // still open, or being answered
+      // reserved now, so that a run of the schedule during the check does not show a second window
+      if (style === 'window') (entry.alerting ??= new Map()).set(schedule, id);
+    }
+    const release = () => {
+      if (entry.alerting?.get(schedule) === id) entry.alerting.delete(schedule);
+    };
+    const values = extra ? { ...schedule.values, ...extra } : (schedule.values ?? {});
+    if (schedule.if !== undefined) {
+      const pass = await this.passes(entry, schedule.if, values, source);
+      if (!pass || generation !== this.generation) return release();
+    }
+    if (!alert) return this.trigger(entry, self!, { source, values });
+    if (repeats && style === 'notification') {
+      const old = entry.alerting?.get(schedule);
+      if (old !== undefined) this.dismissAlert(old);
+      (entry.alerting ??= new Map()).set(schedule, id);
+    }
+    // the slot is free as soon as the alert is answered or closed (not when the chosen run ends)
+    const shown = this.showAlert(entry, schedule, id, choices, values, source, generation, release).finally(release);
+    // a folder watch does not wait for the answer: the next file gets its own alert
+    if (source !== 'watch') await shown;
+    else void shown.catch(() => undefined);
+  }
+
+  /* ---------- conditions and alerts ---------- */
+
+  /** Runs the check of a schedule; a check that cannot run is logged as a failure. */
+  private async passes(entry: RuntimeEntry, condition: Condition, values: Record<string, string>, source: RunSource): Promise<boolean> {
+    const c = typeof condition === 'string' ? { check: condition } : condition;
+    const script = this.expandText(c.check, values);
+    const result = await this.deps
+      .run(script, this.runOptions(entry, { shell: c.shell, timeout: c.timeout ?? 60 }, values))
+      .catch((error: unknown): RunResult => ({ code: null, stdout: '', stderr: '', durationMs: 0, timedOut: false, killed: false, error: error instanceof Error ? error.message : String(error) }));
+    let pass: boolean;
+    try {
+      pass = evaluateState(result, c.on, c.off);
+    } catch {
+      pass = false; // an invalid pattern (the configuration check reports it)
+    }
+    if (!pass && (result.error !== undefined || result.timedOut)) {
+      const error = `Check not run: ${result.error ?? `timed out after ${c.timeout ?? 60}s`}`;
+      this.deps.log({ time: Date.now(), key: entry.key, label: this.label(entry), kind: 'on', script: c.check, code: result.code, ok: false, durationMs: result.durationMs, stdout: result.stdout, stderr: result.stderr, error, source });
+      this.deps.notify(this.label(entry), `${DEFAULT_TEXT.failed}: ${error}`, 'error');
+    }
+    return pass;
+  }
+
+  /** Shows an alert and runs the choice; when the time is up the default choice runs, unattended. */
+  private async showAlert(entry: RuntimeEntry, schedule: Schedule, id: number, choices: Choice[], values: Record<string, string>, source: RunSource, generation: number, answered: () => void) {
+    const alert = schedule.alert!;
+    const seconds = alert.timeout !== undefined ? parseInterval(alert.timeout) : undefined;
+    const defaultIndex = alert.default !== undefined ? choices.findIndex((c) => c.label === alert.default) : -1;
+    const request: AlertRequest = {
+      id,
+      style: alert.style ?? 'window',
+      title: this.expandText(alert.title ?? this.label(entry), values),
+      subtitle: this.pathLabel(entry) || undefined,
+      icon: this.iconFor(entry),
+      text: alert.text !== undefined ? this.expandText(alert.text, values) : undefined,
+      choices: choices.map((c) => this.expandText(c.label, values)),
+      defaultChoice: defaultIndex >= 0 ? defaultIndex : undefined,
+      deadline: seconds ? Date.now() + seconds * 1000 : undefined,
+    };
+    let timer: NodeJS.Timeout | undefined;
+    let answer: number | 'timeout' | undefined;
+    try {
+      answer = await new Promise<number | 'timeout' | undefined>((resolve) => {
+        this.openAlerts.set(id, () => resolve(undefined));
+        if (seconds) timer = setTimeout(() => resolve('timeout'), seconds * 1000);
+        if (!this.deps.alert) return resolve(seconds ? 'timeout' : undefined); // no screen: as if nobody answered
+        this.deps.alert(request).then(resolve, (error: unknown) => {
+          this.deps.notify(this.label(entry), `${DEFAULT_TEXT.failed}: the alert could not be shown: ${error instanceof Error ? error.message : String(error)}`, 'error');
+          resolve(undefined);
+        });
+      });
+    } finally {
+      clearTimeout(timer);
+      this.openAlerts.delete(id);
+      answered();
+    }
+    let chosenBy: RunSource = 'alert';
+    if (answer === 'timeout') {
+      this.deps.closeAlert?.(id);
+      answer = defaultIndex >= 0 ? defaultIndex : undefined;
+      chosenBy = source; // nobody answered: an unattended run
+    }
+    if (answer === undefined || generation !== this.generation) return;
+    const choice = choices[answer];
+    if (choice) await this.runChoice(entry, schedule, choice, values, chosenBy, generation);
+  }
+
+  /** Closes an alert on screen; it counts as dismissed. */
+  private dismissAlert(id: number) {
+    this.deps.closeAlert?.(id);
+    this.openAlerts.get(id)?.();
+  }
+
+  /** Waits (up to 30 minutes) for a run of the entry to finish. */
+  private async waitIdle(entry: RuntimeEntry) {
+    for (let waited = 0; entry.busy && waited < 30 * 60 * 1000; waited += 250) await new Promise((r) => setTimeout(r, 250));
+  }
+
+  /** Choices of an entry run one after the other (several alerts answered, defaults of queued files). */
+  private runChoice(entry: RuntimeEntry, schedule: Schedule, choice: Choice, values: Record<string, string>, source: RunSource, generation: number): Promise<void> {
+    const run = (entry.choiceQueue ?? Promise.resolve()).then(() => this.runChoiceNow(entry, schedule, choice, values, source, generation));
+    entry.choiceQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async runChoiceNow(entry: RuntimeEntry, schedule: Schedule, choice: Choice, values: Record<string, string>, source: RunSource, generation: number) {
+    let target = entry;
+    let kind: ActionKind | undefined;
+    if (choice.run !== undefined && choice.run !== 'self') {
+      const [id] = choice.run.split(':') as [string];
+      const other = this.byId.get(id);
+      if (!other) return;
+      target = other;
+    }
+    // a run of the entry still going (a click meanwhile, the previous file): the choice runs after it
+    if (target.busy && isInteractive(source)) this.deps.notify(this.label(target), 'Will run when the current run finishes', 'info');
+    await this.waitIdle(target);
+    if (generation !== this.generation || this.isDisabled(entry)) return;
+    if (choice.action !== undefined) {
+      const action = normalizeAction(choice.action)!;
+      const label = `${this.label(entry)} › ${this.expandText(choice.label, values)}`;
+      const interactive = isInteractive(source);
+      const resolved = await this.resolveInputs(
+        (action.inputs ?? []).map((input) => ({ input, owner: entry, action })),
+        { title: label, icon: this.iconFor(entry), memoryKey: `${entry.entry.id ?? entry.key}:choice:${choice.label}`, given: values, interactive, submitLabel: 'Run' },
+      );
+      if (!resolved) return;
+      if ('error' in resolved) {
+        this.deps.notify(label, `${DEFAULT_TEXT.failed}: ${resolved.error}`, 'error');
+        this.deps.log({ time: Date.now(), key: entry.key, label, kind: 'on', script: action.run, code: null, ok: false, durationMs: 0, stdout: '', stderr: '', error: resolved.error, source });
+        return;
+      }
+      await this.executeAction(entry, 'on', action, new Set(), { ...resolved, interactive, source }, label);
+      return;
+    }
+    if (choice.run === 'self') {
+      // decided now, not when the alert appeared: the toggle may have changed meanwhile
+      kind = this.scheduledKind(entry, schedule);
+      if (!kind) {
+        const state = entry.entry.state && entry.on !== undefined ? ` (it is ${entry.on ? 'ON' : 'OFF'})` : '';
+        this.deps.notify(this.label(entry), `Nothing to run now${state}`, 'info');
+        return;
+      }
+    } else {
+      const forced = choice.run!.split(':')[1] as ActionKind | undefined;
+      kind = forced ?? this.clickKind(target);
+      if (!kind || !this.actionOf(target, kind)) return;
+    }
+    await this.trigger(target, kind, { source, values });
   }
 
   /* ---------- state checks ---------- */
@@ -817,6 +1010,11 @@ export class Engine {
     }
     if (!this.stopped) this.scheduleCheck(entry, state.interval * 1000, generation);
   }
+}
+
+/** Runs started by a person (they can be asked for values and confirmations). */
+function isInteractive(source: RunSource): boolean {
+  return source !== 'schedule' && source !== 'watch';
 }
 
 /**

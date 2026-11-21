@@ -213,7 +213,7 @@
   backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%);
 }
 .hs-taskbar::before { content: ''; position: absolute; left: 0; right: 0; top: -1px; height: 1px; background: linear-gradient(90deg, transparent, #a78bfa 20%, #7dd3fc 50%, #5eead4 80%, transparent); opacity: 0.8; }
-.hs-tleft { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; }
+.hs-tleft { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; container-type: inline-size; } /* sizes its content to the room it has, see @container below */
 .hs-tray { position: relative; display: flex; align-items: center; gap: 4px; }
 .hs-ti { position: relative; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 10px; border: 0; background: none; cursor: pointer; padding: 0; }
 .hs-ti .hs-tile { width: 30px; height: 30px; border-radius: 8px; font-size: 13px; }
@@ -237,13 +237,24 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 @keyframes hs-breathe { 0% { box-shadow: 0 0 0 0 var(--hs-glow); } 70%, 100% { box-shadow: 0 0 0 10px transparent; } }
 
 /* progress of the story, in the taskbar: one bar per scene, each fills as it plays */
-.hs-progress { display: flex; gap: 8px; max-width: 560px; flex: 1; }
-.hs-progress button { flex: 1; display: flex; flex-direction: column; gap: 7px; padding: 8px 4px; border: 0; background: none; cursor: pointer; text-align: left; border-radius: 6px; color: var(--hs-text-2); font: 600 13px/1 var(--hs-font); white-space: nowrap; }
+.hs-progress { display: flex; gap: 8px; max-width: 560px; flex: 1; min-width: 0; }
+.hs-progress button { flex: 1; display: flex; flex-direction: column; gap: 7px; padding: 8px 4px; border: 0; background: none; cursor: pointer; text-align: left; border-radius: 6px; color: var(--hs-text-2); font: 600 13px/1 var(--hs-font); white-space: nowrap; min-width: 18px; }
+.hs-progress .lbl { overflow: hidden; text-overflow: ellipsis; }
 .hs-progress button:hover { color: var(--hs-text); }
 .hs-progress button.now { color: var(--hs-text); }
 .hs-progress .bar { display: block; height: 4px; border-radius: 4px; background: var(--hs-border); overflow: hidden; }
 .hs-progress .bar i { display: block; height: 100%; background: var(--hs-grad); transform-origin: left; }
 .hs-progress button.now .bar { box-shadow: 0 0 12px var(--hs-glow); }
+/* little room on the left of the taskbar (a narrow window, the tray label on the right):
+   first the scene names go, the bars stay; then the switch takes its short name */
+@container (max-width: 560px) {
+  .hs-progress .lbl { display: none; }
+  .hs-progress button { padding: 12px 2px; }
+}
+@container (max-width: 300px) {
+  .hs-tleft .hs-stillbtn .long { display: none; }
+  .hs-tleft .hs-stillbtn .short { display: inline; }
+}
 
 /* ---------- reduced motion: the scenes as still pictures ---------- */
 /* the switch between the story and the still pictures, in the taskbar on the left */

@@ -164,13 +164,29 @@ let lookByScroll = -1;
 function pickLook(i: number) { look.value = i; }
 
 /* ---------- scroll ---------- */
+/*
+ * The story does not jump to the scroll position: it follows it with a short exponential
+ * ease (TAU), so a mouse wheel notch (often ~100px at once, with no smooth scrolling when
+ * the system has animations off) becomes a short continuous movement. Dragging the
+ * scrollbar, already continuous, looks the same as before.
+ */
+const TAU = 0.11; // seconds to cover ~63% of the gap
 let raf = 0;
-function measure() {
+let shown: number | null = null; // story position on screen, in viewport heights
+let lastFrame = 0;
+function measure(now = performance.now()) {
   raf = 0;
   const vh = window.innerHeight;
   if (!reduced.value && story.value) {
     const top = story.value.getBoundingClientRect().top;
-    const y = clamp(-top / vh, 0, TOTAL - 1e-4);
+    const target = clamp(-top / vh, 0, TOTAL - 1e-4);
+    const dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 0;
+    lastFrame = now;
+    shown = shown === null || dt === 0 ? target : shown + (target - shown) * (1 - Math.exp(-dt / TAU));
+    if (Math.abs(target - shown) < 0.0005) shown = target;
+    else raf = requestAnimationFrame(measure); // keep easing until it arrives
+    if (shown === target) lastFrame = 0;
+    const y = shown;
     let i = SEG.length - 1;
     while (i > 0 && y < STARTS[i]) i--;
     if (i !== seg.value) { manual.proxy = manual.web = manual.menu = null; manual.toast = false; }
@@ -186,7 +202,11 @@ function measure() {
     if (byScroll !== lookByScroll) { lookByScroll = byScroll; look.value = byScroll; }
   }
 }
-function onScroll() { if (!raf) raf = requestAnimationFrame(measure); }
+function onScroll() {
+  if (raf) return;
+  if (!lastFrame) lastFrame = performance.now(); // the first eased frame starts from here
+  raf = requestAnimationFrame(measure);
+}
 
 onMounted(() => {
   mq = window.matchMedia('(prefers-reduced-motion: reduce)');

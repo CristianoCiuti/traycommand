@@ -4,7 +4,7 @@ Run any entry without touching the mouse: press a shortcut, type a few letters, 
 
 ## The launcher
 
-Press <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> (change it in **Settings → Launcher and shortcuts**). A search box opens in the middle of the main screen, over any application.
+Press <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd> (change it in **Settings → Launcher and shortcuts**, or turn it off with the **×** next to it: `"launcherHotkey": ""` in the file). A search box opens in the middle of the main screen, over any application.
 
 ![The launcher](/screens/launcher.png)
 
@@ -28,7 +28,7 @@ The launcher stays loaded in the background, so it opens instantly; it closes as
 
 ## Shortcuts for entries
 
-Any tray or menu entry can have its own global shortcut: open it in the editor, click **Keyboard shortcut** and press the keys. While the recorder is listening, the existing shortcuts are paused, so you can also record one that is already in use to move it. <kbd>Backspace</kbd> removes it, <kbd>Esc</kbd> stops recording.
+Any tray or menu entry can have its own global shortcut: open it in the editor, click **Keyboard shortcut** and press the keys. While the recorder is listening, the existing shortcuts are paused, so you can also record one that is already in use to move it. <kbd>Esc</kbd> stops recording. To remove a shortcut, click the **×** at the end of the field, or press <kbd>Backspace</kbd> or <kbd>Delete</kbd> on it (in the file: delete the `hotkey` key).
 
 - On an entry with an action, the shortcut works like a click (a toggle switches).
 - On a tray or sub menu without an action, it opens the launcher on that menu: a shortcut for a whole group of commands.

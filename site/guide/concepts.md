@@ -184,7 +184,7 @@ An action can ask for values in a small form before it runs (`inputs`): text, ch
 ## Shortcuts, launcher and schedules
 
 - Any entry can have a global keyboard **shortcut** (`hotkey`), and the **launcher** (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>) runs any entry by typing part of its name. See [launcher and shortcuts](./launcher).
-- **Schedules** run an entry at set times, at an interval or when TrayCommand starts. See [schedules](./schedules).
+- **Schedules** run an entry at set times, at an interval, when TrayCommand starts or when files appear in a folder, optionally only in a time window. See [schedules](./schedules).
 
 Hidden entries can still be run from the launcher, their shortcut and their schedules; disabled entries cannot.
 

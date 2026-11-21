@@ -213,7 +213,8 @@ Run an entry automatically. See [schedules](../guide/schedules).
 "schedules": [
   { "cron": "0 9 * * 1-5", "run": "on" },
   { "every": "30m" },
-  { "startup": true, "values": { "ENV": "dev" } }
+  { "startup": true, "values": { "ENV": "dev" } },
+  { "watch": { "path": "C:\\Scans", "files": "*.pdf" }, "between": "08:00-19:00", "days": "mon-fri" }
 ]
 ```
 
@@ -222,11 +223,14 @@ Run an entry automatically. See [schedules](../guide/schedules).
 | `cron` | string | — | Cron expression, 5 fields, local time. |
 | `every` | string | — | Interval: a number and `s`, `m`, `h` or `d` (`"90s"`, `"15m"`, `"1h30m"`). Minimum 5 seconds. Counted from when TrayCommand starts. |
 | `startup` | `true` | — | Once, when TrayCommand starts. |
+| `watch` | object | — | When files appear, change or disappear in a folder: `path`, `files` (patterns), `events` (`"add"` `"change"` `"remove"`, default `["add"]`), `subfolders`, `existing`, `batch`, `settle` (default `"2s"`). The run gets `TC_FILE`, `TC_FILE_NAME`, `TC_FILE_DIR`, `TC_EVENT`, `TC_FILES`, `TC_WATCH_DIR`. See [when files change](../guide/schedules#when-files-change). |
+| `between` | string | — | Only in this time range, local time: `"08:00-18:00"`, `"22:00-06:00"` (crosses midnight). |
+| `days` | string | — | Only on these days: `"mon-fri"`, `"sat,sun"`. See [time window](../guide/schedules#time-window). |
 | `run` | `"click"` \| `"on"` \| `"off"` \| `"right"` | `"click"` | What runs. `"on"` / `"off"` are skipped when the toggle already is in that state. |
 | `values` | object | — | Values for the inputs of the action. Scheduled runs never ask: missing values use the default. |
 | `disabled` | boolean | `false` | Keep the schedule without running it. |
 
-Exactly one of `cron`, `every` and `startup` is required. Scheduled runs skip `confirm`, do not run while the entry is disabled, and are skipped while the previous run is still going.
+Exactly one of `cron`, `every`, `startup` and `watch` is required. Scheduled runs skip `confirm`, do not run while the entry is disabled, and are skipped while the previous run is still going.
 
 ## Shortcuts
 
@@ -263,7 +267,7 @@ Besides the types above, TrayCommand checks that:
 - `settings.appMenu` is `"own"` or the id of a tray;
 - shortcuts are valid and not used twice;
 - input names are unique within an action, a `select` has `options` or `optionsCommand`, `pattern` is a valid regular expression;
-- each schedule has exactly one of `cron` / `every` / `startup`, a valid expression or interval, and something to run (`"off"` needs an `offAction`, `"right"` a `rightAction`).
+- each schedule has exactly one of `cron` / `every` / `startup` / `watch`, a valid expression, interval, folder and file patterns, a valid time window, and something to run (`"off"` needs an `offAction`, `"right"` a `rightAction`).
 
 `offAction` without `state` is accepted with a warning (it is never used), and so are schedule `values` for inputs the action does not have.
 

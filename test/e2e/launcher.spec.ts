@@ -227,3 +227,98 @@ test('tray menus show shortcuts, the launcher entry and the schedules pause', as
   expect(await hook<number>(`return tc.engine.status(tc.engine.get('ticker')).nextRun`)).toBeGreaterThan(Date.now());
   expect(menus.tools.map((i) => i.label)).toEqual(['Say hello', 'Check out a branch', 'Docker']);
 });
+
+test('shortcuts can be removed: an entry and the launcher', async () => {
+  const status = () => hook<{ path: string }[]>('return tc.hotkeys.status()').then((s) => s.map((x) => x.path).sort());
+  const saved = () => JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8'));
+  await editor.bringToFront();
+  await editor.getByTestId('tab-trays').click();
+  await editor.getByTestId('tray-row').nth(0).click();
+  // the × button removes the shortcut of the entry
+  await editor.getByTestId('entry-hotkey').locator('.hotkey-clear').click();
+  await expect(editor.getByTestId('entry-hotkey')).not.toContainText('F8');
+  // Delete on the focused field removes the shortcut of the menu tray
+  await editor.getByTestId('tray-row').nth(1).click();
+  await editor.getByTestId('entry-hotkey').focus();
+  await editor.keyboard.press('Delete');
+  await expect(editor.getByTestId('entry-hotkey')).not.toContainText('F9');
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  expect(saved().trays[0]).not.toHaveProperty('hotkey');
+  expect(saved().trays[1]).not.toHaveProperty('hotkey');
+  await expect.poll(status).toEqual(['settings.launcherHotkey']);
+
+  // the launcher shortcut: turned off, the launcher still opens from the tray menu
+  await editor.getByTestId('tab-settings').click();
+  await editor.getByTestId('launcher-hotkey').locator('.hotkey-clear').click();
+  await expect(editor.getByTestId('launcher-hotkey')).toContainText('No shortcut');
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  expect(saved().settings.launcherHotkey).toBe('');
+  await expect.poll(status).toEqual([]);
+  const item = await hook<{ label: string; accelerator?: string }>(
+    `const i = tc.trays.menuFor('__traycommand__').items.find((i) => i.label === 'Search and run…'); return { label: i.label, accelerator: i.accelerator };`,
+  );
+  expect(item.accelerator ?? undefined).toBeUndefined();
+  await hook('await tc.launcher.open()');
+  await expect.poll(launcherVisible).toBe(true);
+  await launcher.keyboard.press('Escape');
+  await expect.poll(launcherVisible).toBe(false);
+});
+
+test('editor: run an entry when files appear in a folder, in a time window', async () => {
+  const inbox = path.join(out, 'inbox');
+  fs.mkdirSync(inbox, { recursive: true });
+  const ticks = () => (read('tick.txt') ?? '').split(/\r?\n/).filter(Boolean).length;
+  const watches = () => hook<{ state: string; path: string }[] | undefined>(`return tc.engine.status(tc.engine.get('ticker')).watches`);
+  await editor.bringToFront();
+  await editor.getByTestId('tab-trays').click();
+  await editor.getByTestId('tray-row').nth(2).click();
+  await editor.getByTestId('card-schedule').scrollIntoViewIfNeeded();
+  await editor.getByTestId('schedule-mode-0').selectOption('watch');
+  await editor.getByTestId('watch-path-0').fill('${env:TC_OUT}/inbox');
+  await expect(editor.getByTestId('watch-files-0')).toHaveValue('*.txt');
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  const saved = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8'));
+  expect(saved.trays[2].schedules[0]).toEqual({ watch: { path: '${env:TC_OUT}/inbox', files: '*.txt' } });
+  await expect.poll(async () => (await watches())?.[0]?.state).toBe('watching');
+  await expect(editor.getByTestId('watch-state')).toHaveText('watching now');
+  // for the documentation image: a neutral folder instead of this machine's temp path
+  await editor.evaluate(() => {
+    (document.querySelector('[data-testid="watch-path-0"]') as HTMLInputElement).value = 'C:\\Scans\\Inbox';
+    const first = document.querySelector('[data-testid="watch-summary"]')!.firstChild!;
+    first.textContent = first.textContent!.replace(/ in .*$/, ' in C:\\Scans\\Inbox');
+  });
+  await editor.getByTestId('card-schedule').screenshot({ path: path.join(shots, '29-editor-watch.png') });
+
+  const before = ticks();
+  fs.writeFileSync(path.join(inbox, 'skip.csv'), 'x');
+  fs.writeFileSync(path.join(inbox, 'order.txt'), 'x');
+  await expect.poll(ticks, { timeout: 10_000 }).toBe(before + 1);
+  await editor.getByTestId('tab-activity').click();
+  await expect(editor.getByText('file watch').first()).toBeVisible();
+  await editor.getByTestId('tab-trays').click();
+  await editor.getByTestId('tray-row').nth(2).click();
+  await editor.getByTestId('card-schedule').scrollIntoViewIfNeeded();
+
+  // a time window that is closed now: the watch waits
+  await editor.getByTestId('schedule-window-toggle-0').click();
+  const h = new Date().getHours();
+  await editor.getByTestId('schedule-from-0').fill(`${String((h + 2) % 24).padStart(2, '0')}:00`);
+  await editor.getByTestId('schedule-to-0').fill(`${String((h + 3) % 24).padStart(2, '0')}:00`);
+  await editor.getByTestId('schedule-window-days-0').getByRole('button', { name: 'Sat' }).click();
+  await editor.getByTestId('schedule-window-days-0').getByRole('button', { name: 'Sun' }).click();
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  const windowed = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8')).trays[2].schedules[0];
+  expect(windowed.between).toMatch(/^\d\d:00-\d\d:00$/);
+  expect(windowed.days).toBeUndefined(); // every day again
+  await expect.poll(async () => (await watches())?.[0]?.state).toBe('waiting');
+  await expect(editor.getByTestId('watch-state')).toContainText('not now');
+  await editor.getByTestId('card-schedule').screenshot({ path: path.join(shots, '30-editor-watch-window.png') });
+  const now = ticks();
+  fs.writeFileSync(path.join(inbox, 'later.txt'), 'x');
+  await editor.waitForTimeout(3500);
+  expect(ticks()).toBe(now);
+});

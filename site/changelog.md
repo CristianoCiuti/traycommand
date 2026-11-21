@@ -2,6 +2,13 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.3.0 — folder watches and time windows
+
+- **Run when files change** (`watch` schedule): an entry runs when files appear, change or disappear in a folder, e.g. every new `*.pdf` in `Scans`. Name patterns (`*.txt`, `*.{csv,xlsx}`), sub folders, the files already there, one run per file or one for the whole batch, a quiet time so big files are completely written. The command gets the file in `TC_FILE` (and `TC_FILE_NAME`, `TC_EVENT`, `TC_FILES`…). Runs of an entry happen one after the other; a folder that is missing is watched as soon as it appears. See [when files change](./guide/schedules#when-files-change).
+- **Time windows for all schedules** (`between`, `days`): only from 08:00 to 19:00, only Monday to Friday, or across midnight (`"22:00-06:00"`). Outside the window scheduled runs do not happen and file events are ignored. See [time window](./guide/schedules#time-window).
+- The editor shows whether each folder watch is active, waiting for its time window or failing; so does the tray tooltip. Runs started by a file are marked *file watch* in the activity log, with the file.
+- Shortcuts: the documentation now explains how to remove a shortcut and how to turn off the launcher shortcut (the **×** next to it, or `"launcherHotkey": ""`), and both are covered by tests.
+
 ## 2.2.0 — launcher, shortcuts, forms and schedules
 
 - **Launcher**: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens a search box in the middle of the screen. Type a few letters (fuzzy, accents ignored, menus included), press <kbd>Enter</kbd>. Recent entries first, <kbd>Tab</kbd> to open a menu, <kbd>Shift</kbd>+<kbd>Enter</kbd> for the right click action, <kbd>Ctrl</kbd>+<kbd>E</kbd> to edit. It stays loaded in the background, so it opens instantly. See [launcher and shortcuts](./guide/launcher).

@@ -172,7 +172,11 @@ export function EntryEditor(props: { path: number[] }) {
         title="Schedule"
         icon={<CalendarClock size={16} />}
         desc={
-          st?.nextRun
+          st?.watches?.some((w) => w.state === 'error')
+            ? `Folder watch: ${st.watches.find((w) => w.state === 'error')!.error}`
+            : st?.watches?.some((w) => w.state === 'watching') && !st.nextRun
+              ? 'Watching for files'
+              : st?.nextRun
             ? `Next run ${new Date(st.nextRun).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
             : schedulesPaused.value && entry.schedules?.length
               ? 'Paused from the tray menu'
@@ -183,6 +187,7 @@ export function EntryEditor(props: { path: number[] }) {
         <SchedulesEditor
           value={entry.schedules}
           onChange={(v) => setKey('schedules', v as never)}
+          watches={st?.watches}
           isToggle={!!entry.state}
           hasOff={entry.offAction !== undefined}
           hasRight={isTray && tray.rightAction !== undefined}

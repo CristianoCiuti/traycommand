@@ -20,7 +20,7 @@ features:
   - title: Keyboard launcher
     details: Press Ctrl+Alt+Space, type a few letters, press Enter. Fuzzy search on every entry of every tray, recent first.
   - title: Shortcuts, forms and schedules
-    details: Give any entry a global shortcut, ask for values in a small form before it runs, or run it at set times.
+    details: Give any entry a global shortcut, ask for values in a small form before it runs, or run it at set times or when files land in a folder.
   - title: Toggles with live state
     details: A check script decides whether an entry is ON or OFF. The icon, the menu check mark and the editor follow it in real time.
   - title: Hide without deleting

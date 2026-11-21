@@ -301,6 +301,28 @@ A hidden tray that only exists for its schedule:
 }
 ```
 
+## When a file arrives: process it
+
+Convert every new `.docx` dropped in a folder to PDF, during office hours only. The file is in `$env:TC_FILE`; runs happen one after the other.
+
+```json
+{
+  "id": "to-pdf",
+  "label": "Word to PDF",
+  "hidden": true,
+  "action": "soffice --headless --convert-to pdf --outdir \"$env:TC_FILE_DIR\\pdf\" \"$env:TC_FILE\"",
+  "schedules": [
+    {
+      "watch": { "path": "${env:USERPROFILE}\\Documents\\To convert", "files": "[!~]*.docx", "existing": true },
+      "between": "08:00-19:00",
+      "days": "mon-fri"
+    }
+  ]
+}
+```
+
+`[!~]*.docx` skips the `~$` lock files Word creates while a document is open. With `"existing": true` the files left in the folder overnight are converted when the window opens at 08:00. See [when files change](../guide/schedules#when-files-change).
+
 ## Timeout
 
 Stop a script that hangs. After `timeout` seconds the process and its children are killed and an error is notified.

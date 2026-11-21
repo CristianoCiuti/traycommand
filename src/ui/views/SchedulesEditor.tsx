@@ -1,9 +1,19 @@
-import { CalendarClock, Plus, Trash2 } from 'lucide-preact';
-import type { Action, Schedule } from '../../shared/config';
+import { CalendarClock, FolderOpen, Plus, Trash2 } from 'lucide-preact';
+import type { Action, Schedule, Watch } from '../../shared/config';
+import type { WatchStatus } from '../../shared/api';
 import { cronError, describeCron, describeInterval, nextCronRuns, parseCron, parseInterval } from '../../shared/cron';
+import { daysText, describeWindow, parseDays, windowError } from '../../shared/window';
+import { globError, patternList } from '../../shared/glob';
+import { api } from '../store';
 import { Field, Switch } from '../components/ui';
 
-type Mode = 'every' | 'times' | 'cron' | 'startup';
+type Mode = 'every' | 'times' | 'cron' | 'startup' | 'watch';
+type FileEvent = 'add' | 'change' | 'remove';
+const EVENTS: { e: FileEvent; s: string; verb: string }[] = [
+  { e: 'add', s: 'Created', verb: 'appears' },
+  { e: 'change', s: 'Changed', verb: 'changes' },
+  { e: 'remove', s: 'Deleted', verb: 'is deleted' },
+];
 const DAYS = [
   { n: 1, s: 'Mon' },
   { n: 2, s: 'Tue' },
@@ -37,6 +47,7 @@ function cronOf(times: string[], days: number[]): string {
 }
 
 function modeOf(s: Schedule): Mode {
+  if (s.watch) return 'watch';
   if (s.startup) return 'startup';
   if (s.every !== undefined) return 'every';
   if (s.cron !== undefined && timesOf(s.cron)) return 'times';
@@ -45,27 +56,210 @@ function modeOf(s: Schedule): Mode {
 
 const fmt = (d: Date) => d.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-function Summary(props: { schedule: Schedule }) {
+function watchText(w: Watch, resolved?: string): string {
+  const files = patternList(w.files);
+  const events = (w.events?.length ? w.events : ['add']).map((e) => EVENTS.find((x) => x.e === e)!.verb);
+  const what = files.length ? `a file ${files.join(' or ')}` : 'a file';
+  return `When ${what} ${events.length > 1 ? `${events.slice(0, -1).join(', ')} or ${events.at(-1)}` : events[0]} in ${resolved ?? (w.path || '(choose a folder)')}${w.subfolders ? ' or its sub folders' : ''}`;
+}
+
+function Summary(props: { schedule: Schedule; watch?: WatchStatus }) {
   const s = props.schedule;
-  if (s.startup) return <span class="hint">Once, when TrayCommand starts</span>;
+  const window = describeWindow(s.between, s.days);
+  const tail = window ? `, ${window}` : '';
+  if (s.watch) {
+    const st = props.watch;
+    return (
+      <span class="hint" data-testid="watch-summary">
+        {watchText(s.watch, props.watch?.path)}
+        {tail}
+        {st && (
+          <>
+            {' · '}
+            <span class={`watch-state ${st.state}`} data-testid="watch-state">
+              {st.state === 'watching' ? 'watching now' : st.state === 'waiting' ? 'not now (outside the time window, or paused)' : `${st.error}: trying again every few seconds`}
+            </span>
+          </>
+        )}
+      </span>
+    );
+  }
+  if (s.startup) return <span class="hint">Once, when TrayCommand starts{window ? ` (only ${window})` : ''}</span>;
   if (s.every !== undefined) {
     const sec = parseInterval(s.every);
-    return <span class="hint">{sec ? `${describeInterval(sec)}, counted from when TrayCommand starts` : 'Invalid interval'}</span>;
+    return <span class="hint">{sec ? `${describeInterval(sec)}, counted from when TrayCommand starts${tail}` : 'Invalid interval'}</span>;
   }
   if (s.cron === undefined) return null;
   const error = cronError(s.cron);
   if (error) return <span class="hint" style={{ color: 'var(--danger)' }}>{error}</span>;
-  const next = nextCronRuns(s.cron, 3);
+  const next = window ? [] : nextCronRuns(s.cron, 3);
   return (
     <span class="hint">
       {describeCron(s.cron)}
+      {tail}
       {next.length > 0 && <> · next: {next.map(fmt).join(', ')}</>}
     </span>
   );
 }
 
+function DayButtons(props: { days: number[]; onChange: (days: number[]) => void; testId?: string }) {
+  return (
+    <span class="days" role="group" aria-label="Days" data-testid={props.testId}>
+      {DAYS.map((d) => {
+        const on = props.days.includes(d.n);
+        return (
+          <button class={`day${on ? ' on' : ''}`} aria-pressed={on} onClick={() => props.onChange(on ? props.days.filter((x) => x !== d.n) : [...props.days, d.n])}>
+            {d.s}
+          </button>
+        );
+      })}
+    </span>
+  );
+}
+
+/** "Only between 09:00 and 18:00 on Mon…Fri": limits any schedule to a time window. */
+function WindowEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: number }) {
+  const { s } = props;
+  const on = s.between !== undefined || s.days !== undefined;
+  const [from, to] = (s.between ?? '09:00-18:00').split('-');
+  let days: number[] = [0, 1, 2, 3, 4, 5, 6];
+  try {
+    if (s.days !== undefined) days = [...parseDays(s.days)];
+  } catch {
+    /* invalid: shown below */
+  }
+  const problem = windowError(s.between, s.days);
+  const setTimes = (a: string, b: string) => props.onChange({ ...s, between: a === '00:00' && (b === '00:00' || b === '24:00') ? undefined : `${a}-${b === '00:00' ? '24:00' : b}` });
+  return (
+    <div class="window-row" data-testid={`schedule-window-${props.i}`}>
+      <Switch
+        checked={on}
+        onChange={(v) => props.onChange(v ? { ...s, between: '09:00-18:00', days: 'mon-fri' } : { ...s, between: undefined, days: undefined })}
+        label="Only in a time window"
+        testId={`schedule-window-toggle-${props.i}`}
+      />
+      {on && (
+        <span class="inline">
+          <span class="hint">from</span>
+          <input class="input mono" type="time" style={{ width: 136 }} value={from} onChange={(e) => setTimes((e.currentTarget as HTMLInputElement).value || '00:00', to ?? '24:00')} aria-label="From" data-testid={`schedule-from-${props.i}`} />
+          <span class="hint">to</span>
+          <input class="input mono" type="time" style={{ width: 136 }} value={to === '24:00' ? '00:00' : to} onChange={(e) => setTimes(from ?? '00:00', (e.currentTarget as HTMLInputElement).value || '24:00')} aria-label="To" data-testid={`schedule-to-${props.i}`} />
+          <DayButtons days={days} onChange={(d) => { if (d.length) props.onChange({ ...s, days: daysText(d) }); }} testId={`schedule-window-days-${props.i}`} />
+        </span>
+      )}
+      {problem && <span class="hint" style={{ color: 'var(--danger)' }}>{problem.between ?? problem.days}</span>}
+    </div>
+  );
+}
+
+function WatchEditor(props: { w: Watch; onChange: (w: Watch) => void; i: number }) {
+  const { w } = props;
+  const events = w.events?.length ? w.events : (['add'] as FileEvent[]);
+  const set = (patch: Partial<Watch>) => {
+    const next: Watch = { ...w, ...patch };
+    for (const k of Object.keys(next) as (keyof Watch)[]) if (next[k] === undefined || next[k] === false) delete next[k];
+    props.onChange(next);
+  };
+  const files = Array.isArray(w.files) ? w.files.join(', ') : (w.files ?? '');
+  const badPattern = patternList(w.files).map(globError).find(Boolean);
+  const settle = parseInterval(w.settle ?? '2s') ?? 2;
+  return (
+    <div class="watch" data-testid={`schedule-watch-${props.i}`}>
+      <div class="grid2">
+        <Field label="Folder">
+          <span class="inline" style={{ display: 'flex', gap: 6 }}>
+            <input
+              class={`input mono${!w.path.trim() ? ' invalid' : ''}`}
+              style={{ flex: 1 }}
+              value={w.path}
+              placeholder="C:\Users\me\Downloads or ${HOME}/inbox"
+              onInput={(e) => set({ path: (e.currentTarget as HTMLInputElement).value })}
+              aria-label="Folder to watch"
+              data-testid={`watch-path-${props.i}`}
+            />
+            <button
+              class="btn sm"
+              onClick={async () => {
+                const dir = await api.pickFile({ title: 'Folder to watch', directory: true, defaultPath: w.path || undefined });
+                if (dir) set({ path: dir });
+              }}
+              aria-label="Choose the folder"
+              title="Choose the folder"
+            >
+              <FolderOpen size={14} />
+            </button>
+          </span>
+        </Field>
+        <Field label="Files" hint={badPattern ? <span style={{ color: 'var(--danger)' }}>{badPattern}</span> : 'Patterns separated by commas, e.g. *.txt, *.{csv,xlsx}. Empty = every file.'}>
+          <input
+            class={`input mono${badPattern ? ' invalid' : ''}`}
+            value={files}
+            placeholder="*.txt"
+            onInput={(e) => {
+              const v = (e.currentTarget as HTMLInputElement).value;
+              set({ files: v.trim() ? v : undefined });
+            }}
+            aria-label="File patterns"
+            data-testid={`watch-files-${props.i}`}
+          />
+        </Field>
+      </div>
+      <div class="watch-options">
+        <span class="inline">
+          <span class="hint">Run when a file is</span>
+          <span class="days" role="group" aria-label="Events" data-testid={`watch-events-${props.i}`}>
+            {EVENTS.map((x) => {
+              const on = events.includes(x.e);
+              return (
+                <button
+                  class={`day${on ? ' on' : ''}`}
+                  aria-pressed={on}
+                  onClick={() => {
+                    const next = on ? events.filter((e) => e !== x.e) : [...events, x.e];
+                    if (!next.length) return;
+                    set({ events: next.length === 1 && next[0] === 'add' ? undefined : EVENTS.map((y) => y.e).filter((e) => next.includes(e)) });
+                  }}
+                >
+                  {x.s}
+                </button>
+              );
+            })}
+          </span>
+        </span>
+        <span class="inline">
+          <span class="hint">after</span>
+          <input
+            class="input"
+            type="number"
+            min={1}
+            max={3600}
+            style={{ width: 64 }}
+            value={settle}
+            onInput={(e) => {
+              const n = Math.min(3600, Math.max(1, Math.round(Number((e.currentTarget as HTMLInputElement).value) || 2)));
+              set({ settle: n === 2 ? undefined : `${n}s` });
+            }}
+            aria-label="Quiet seconds"
+            data-testid={`watch-settle-${props.i}`}
+          />
+          <span class="hint" title="Waits until the folder has been quiet this long, so that files are completely written">s of quiet</span>
+        </span>
+      </div>
+      <div class="watch-options">
+        <Switch checked={w.subfolders === true} onChange={(v) => set({ subfolders: v })} label="Sub folders too" testId={`watch-subfolders-${props.i}`} />
+        <Switch checked={w.existing === true} onChange={(v) => set({ existing: v })} label="Also the files already there" hint="When watching starts" testId={`watch-existing-${props.i}`} />
+        <Switch checked={w.batch === true} onChange={(v) => set({ batch: v })} label="One run for files arriving together" hint="Otherwise one run per file" testId={`watch-batch-${props.i}`} />
+      </div>
+      <span class="hint">
+        The command gets the file in <code>TC_FILE</code> (also <code>TC_FILE_NAME</code>, <code>TC_FILE_DIR</code>, <code>TC_EVENT</code> = add / change / remove, <code>TC_FILES</code> one per line), as environment variables and as <code>{'${TC_FILE}'}</code>.
+      </span>
+    </div>
+  );
+}
+
 export function SchedulesEditor(props: {
   value: Schedule[] | undefined;
+  watches?: WatchStatus[];
   onChange: (v: Schedule[] | undefined) => void;
   isToggle: boolean;
   hasOff: boolean;
@@ -82,11 +276,23 @@ export function SchedulesEditor(props: {
     set(next);
   };
   const setMode = (i: number, mode: Mode) => {
-    const { cron: _c, every: _e, startup: _s, ...rest } = list[i]!;
+    const { cron: _c, every: _e, startup: _s, watch: _w, ...rest } = list[i]!;
     void _c;
     void _e;
     void _s;
-    update(i, mode === 'every' ? { ...rest, every: '15m' } : mode === 'startup' ? { ...rest, startup: true } : mode === 'times' ? { ...rest, cron: '0 9 * * 1-5' } : { ...rest, cron: list[i]!.cron ?? '*/30 9-18 * * 1-5' });
+    void _w;
+    update(
+      i,
+      mode === 'every'
+        ? { ...rest, every: '15m' }
+        : mode === 'startup'
+          ? { ...rest, startup: true }
+          : mode === 'watch'
+            ? { ...rest, watch: { path: '', files: '*.txt' } }
+            : mode === 'times'
+              ? { ...rest, cron: '0 9 * * 1-5' }
+              : { ...rest, cron: list[i]!.cron ?? '*/30 9-18 * * 1-5' },
+    );
   };
   const inputs = props.action?.inputs ?? [];
 
@@ -99,11 +305,12 @@ export function SchedulesEditor(props: {
         return (
           <div class={`schedule${s.disabled ? ' off' : ''}`} data-testid="schedule">
             <div class="schedule-head">
-              <select class="select" style={{ width: 150 }} value={mode} onChange={(e) => setMode(i, (e.currentTarget as HTMLSelectElement).value as Mode)} aria-label="Kind of schedule" data-testid={`schedule-mode-${i}`}>
+              <select class="select" style={{ width: 170 }} value={mode} onChange={(e) => setMode(i, (e.currentTarget as HTMLSelectElement).value as Mode)} aria-label="Kind of schedule" data-testid={`schedule-mode-${i}`}>
                 <option value="times">At set times</option>
                 <option value="every">Every…</option>
                 <option value="cron">Cron expression</option>
                 <option value="startup">At startup</option>
+                <option value="watch">When files change</option>
               </select>
 
               {mode === 'every' && (
@@ -140,20 +347,7 @@ export function SchedulesEditor(props: {
                     aria-label="Times"
                     data-testid={`schedule-times-${i}`}
                   />
-                  <span class="days" role="group" aria-label="Days">
-                    {DAYS.map((d) => {
-                      const on = times.days.includes(d.n);
-                      return (
-                        <button
-                          class={`day${on ? ' on' : ''}`}
-                          aria-pressed={on}
-                          onClick={() => update(i, { ...s, cron: cronOf(times.times, on ? times.days.filter((x) => x !== d.n) : [...times.days, d.n]) })}
-                        >
-                          {d.s}
-                        </button>
-                      );
-                    })}
-                  </span>
+                  <DayButtons days={times.days} onChange={(d) => update(i, { ...s, cron: cronOf(times.times, d) })} />
                 </span>
               )}
 
@@ -175,7 +369,9 @@ export function SchedulesEditor(props: {
                 <Trash2 size={14} />
               </button>
             </div>
-            <Summary schedule={s} />
+            {mode === 'watch' && s.watch && <WatchEditor w={s.watch} i={i} onChange={(w) => update(i, { ...s, watch: w })} />}
+            <Summary schedule={s} watch={props.watches?.find((w) => w.index === i)} />
+            {mode !== 'times' && <WindowEditor s={s} i={i} onChange={(next) => update(i, next)} />}
             {(props.isToggle || props.hasRight || inputs.length > 0) && (
               <div class="grid3">
                 {(props.isToggle || props.hasRight) && (
@@ -235,7 +431,7 @@ export function SchedulesEditor(props: {
               <CalendarClock size={12} style={{ verticalAlign: -2 }} /> Scheduled runs never ask for confirmation or values; runs missed while the PC was off are skipped.
             </>
           ) : (
-            'Run this entry automatically: at set times, at an interval, or when TrayCommand starts.'
+            'Run this entry automatically: at set times, at an interval, when TrayCommand starts, or when files appear in a folder.'
           )}
         </span>
       </div>

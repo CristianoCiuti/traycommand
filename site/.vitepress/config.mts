@@ -30,6 +30,7 @@ export default defineConfig({
             { text: 'Launcher and shortcuts', link: '/guide/launcher' },
             { text: 'Asking for values', link: '/guide/inputs' },
             { text: 'Schedules', link: '/guide/schedules' },
+            { text: 'Export and import', link: '/guide/sharing' },
             { text: 'Start at login and updates', link: '/guide/startup-and-updates' },
             { text: 'Administrator', link: '/guide/administrator' },
             { text: 'AI assistants', link: '/guide/ai-assistants' },

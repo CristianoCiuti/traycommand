@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { ExternalLink, FolderOpen, History, RefreshCw, ShieldAlert, ShieldCheck, Download, FileCog, Sparkles, Search, CalendarClock } from 'lucide-preact';
+import { Upload, ExternalLink, FolderOpen, History, RefreshCw, ShieldAlert, ShieldCheck, Download, FileCog, Sparkles, Search, CalendarClock } from 'lucide-preact';
 import { HotkeyInput } from '../components/HotkeyInput';
 import { Keys } from '../components/keys';
 import { hotkeyStatus, schedulesPaused } from '../store';
@@ -8,6 +8,7 @@ import type { Settings } from '../../shared/config';
 import { api, draft, info, mutate, reload, showToast, skills, update } from '../store';
 import { Card, Dialog, Switch } from '../components/ui';
 import { ShellSelect } from './ActionEditor';
+import { startExport, startImport } from './TransferDialogs';
 
 function Setting(props: { title: string; desc?: string; children: preact.ComponentChildren; testId?: string }) {
   return (
@@ -228,8 +229,16 @@ export function SettingsView() {
               <button class="btn sm" onClick={changeConfigFile}>
                 Use another file…
               </button>
+              <span style={{ flex: 1 }} />
+              <button class="btn sm" onClick={startExport} data-testid="export-open">
+                <Upload size={14} /> Export…
+              </button>
+              <button class="btn sm" onClick={() => void startImport()} data-testid="import-open">
+                <Download size={14} /> Import…
+              </button>
             </div>
             <div class="hint">Keep it in a synced folder (OneDrive, Dropbox…) to share it between PCs. Icons and relative paths are resolved from its folder. The choice of file is stored on this PC only.</div>
+            <div class="hint">Export shares some trays, schedules, variables or settings (with their icons) as a file; Import adds them from such a file or from another configuration file. You can also drop the file on this window.</div>
           </div>
         </Card>
 

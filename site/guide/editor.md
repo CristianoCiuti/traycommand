@@ -59,7 +59,7 @@ Clicking an error notification opens this page.
 | Section | Contains |
 | --- | --- |
 | **General** | Start at login, theme, default shell, where the TrayCommand menu appears, notification at startup. |
-| **Configuration file** | Path of the file in use, **Open folder**, **Use another file…** |
+| **Configuration file** | Path of the file in use, **Open folder**, **Use another file…**, **Export…** and **Import…** (see [export and import](./sharing)). |
 | **Backups** | The latest backups with **Restore**. |
 | **Updates** | Current version, **Check now** / **Install**, automatic checks on/off, link to this documentation. |
 | **Advanced** | **Allow commands as administrator**, **Start as administrator without prompt** (Windows), data folder. |

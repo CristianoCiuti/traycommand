@@ -9,6 +9,7 @@
 - **Keyboard launcher**: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>, type a few letters, <kbd>Enter</kbd>. Fuzzy search on every entry, recent first.
 - **Global shortcuts** for any entry, **forms** that ask for values before a command runs (text, choices, files, passwords), and **schedules** (cron, intervals, at startup, when files appear in a folder, within a time window, only if a check passes, after asking you with an alert).
 - **Test any command from the editor** and see its output and exit code.
+- **Export and import**: share some trays, schedules, variables or settings (with their icons) as a file; on import see what changes and choose what to do with what is already there.
 - **Compose actions**: run other entries before, together with, or after an action.
 - **Start at login without admin rights**: a shortcut in your Startup folder. No Task Scheduler, no registry.
 - **Ask your AI agent**: TrayCommand installs a skill for Claude Code and opencode, so you can just ask *"add a tray that starts my Docker stack"*.

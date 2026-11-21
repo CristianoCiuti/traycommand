@@ -1,5 +1,5 @@
 import { computed, signal } from '@preact/signals';
-import type { AppInfo, EntryStatus, ExecutionLog, HotkeyStatus, SkillsInfo, UpdateInfo } from '../shared/api';
+import type { AppInfo, EntryStatus, ExecutionLog, HotkeyStatus, OpenImportResult, SkillsInfo, UpdateInfo } from '../shared/api';
 import { type Config, type MenuEntry, type MenuNode, type Tray, isSeparator, parseConfig, type ConfigIssue } from '../shared/config';
 
 export const api = window.traycommand;
@@ -21,6 +21,8 @@ export const selection = signal<number[]>([]);
 /** Registration result of every global shortcut (only what is saved is registered). */
 export const hotkeyStatus = signal<HotkeyStatus[]>([]);
 export const schedulesPaused = signal(false);
+/** The export or import window, when open. */
+export const transfer = signal<{ mode: 'export' } | { mode: 'import'; opened: Extract<OpenImportResult, { ok: true }> } | undefined>(undefined);
 export const toast = signal<{ text: string; kind: 'ok' | 'error' } | undefined>(undefined);
 
 /** JSON with sorted keys, so that key order does not count as a change. */

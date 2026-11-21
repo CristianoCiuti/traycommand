@@ -8,6 +8,7 @@ import { SettingsView } from './views/SettingsView';
 import { LogsView } from './views/LogsView';
 import { JsonView } from './views/JsonView';
 import { WelcomeView } from './views/WelcomeView';
+import { TransferDialog, startImport } from './views/TransferDialogs';
 
 const TABS = [
   { route: '/', label: 'Trays', icon: SquareTerminal },
@@ -80,7 +81,25 @@ function App() {
       if (dirty.peek()) e.returnValue = false;
     };
     window.addEventListener('beforeunload', onUnload);
+    // a file dropped on the window is imported (an export or a configuration file)
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
+    };
+    const onDrop = (e: DragEvent) => {
+      const file = e.dataTransfer?.files[0];
+      if (!file) return;
+      e.preventDefault();
+      if (!/\.(zip|json)$/i.test(file.name)) {
+        showToast('Drop a TrayCommand export (.zip or .json) to import it', 'error');
+        return;
+      }
+      void startImport(api.pathForFile(file));
+    };
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('drop', onDrop);
     return () => {
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('drop', onDrop);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('beforeunload', onUnload);
     };
@@ -120,6 +139,7 @@ function App() {
         {current === '/welcome' ? <WelcomeView /> : current === '/json' || (broken && current !== '/logs') ? <JsonView /> : current === '/settings' ? <SettingsView /> : current === '/logs' ? <LogsView /> : <TraysView />}
       </div>
       <SaveBar />
+      <TransferDialog />
       {toast.value && <div class={`toast ${toast.value.kind === 'error' ? 'error' : ''}`}>{toast.value.text}</div>}
     </div>
   );

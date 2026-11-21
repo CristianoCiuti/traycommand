@@ -45,7 +45,7 @@ export function Card(props: { title: ComponentChildren; desc?: ComponentChildren
   );
 }
 
-export function Dialog(props: { title: ComponentChildren; icon?: ComponentChildren; children: ComponentChildren; footer: ComponentChildren; onClose: () => void; testId?: string }) {
+export function Dialog(props: { title: ComponentChildren; icon?: ComponentChildren; children: ComponentChildren; footer: ComponentChildren; onClose: () => void; testId?: string; wide?: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && props.onClose();
     window.addEventListener('keydown', onKey);
@@ -53,7 +53,7 @@ export function Dialog(props: { title: ComponentChildren; icon?: ComponentChildr
   }, [props.onClose]);
   return (
     <div class="backdrop" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
-      <div class="dialog" role="dialog" aria-modal="true" data-testid={props.testId}>
+      <div class={`dialog ${props.wide ? 'wide' : ''}`} role="dialog" aria-modal="true" data-testid={props.testId}>
         <div class="dialog-head">
           {props.icon}
           <span style={{ flex: 1 }}>{props.title}</span>

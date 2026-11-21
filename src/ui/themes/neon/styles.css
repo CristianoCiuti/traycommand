@@ -754,3 +754,9 @@ label.xfer-row { cursor: pointer; }
   .spin { animation: spin 1s linear infinite !important; }
   .look:hover img { transform: none; }
 }
+
+/* update status (a live state): data face (mono, uppercase, tracked); cyan while there is news or a download, red on error */
+.update-state { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.update-state[data-state='available'], .update-state[data-state='downloading'], .update-state[data-state='ready'] { color: var(--accent); }
+.update-state[data-state='downloading']::before, .update-state[data-state='available']::before { content: '◆ ' / ''; }
+.update-state[data-state='error'] { color: var(--danger); }

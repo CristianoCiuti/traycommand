@@ -2,6 +2,10 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.6.3 — update status in the look
+
+- The update status in **Settings → Updates** ("Downloading… 100%", a new version, an error) is now drawn as a state in each look's own face instead of a plain description: a yellow label in Brutal, cyan monospace in Neon HUD, amber in Phosphor, the accent colour in Aurora.
+
 ## 2.6.2 — readable Save shortcut
 
 - The **Ctrl+S** shortcut inside the Save button was unreadable in the Brutal look (dark keycap on yellow); every look now draws it in its own way, readable in light and dark. A test measures its contrast in all four looks.

@@ -10,10 +10,22 @@ export interface EntryStatus {
   lastCheck?: number;
   /** Next scheduled run (ms since epoch). */
   nextRun?: number;
+  /** Folder watches of the schedules. */
+  watches?: WatchStatus[];
+}
+
+export interface WatchStatus {
+  /** Index in `schedules`. */
+  index: number;
+  /** Folder, resolved. */
+  path: string;
+  /** "watching" = runs on events; "waiting" = outside its time window or paused; "error" = the folder cannot be watched (retried). */
+  state: 'watching' | 'waiting' | 'error';
+  error?: string;
 }
 
 /** What started an action. */
-export type RunSource = 'click' | 'hotkey' | 'launcher' | 'schedule' | 'test' | 'cli';
+export type RunSource = 'click' | 'hotkey' | 'launcher' | 'schedule' | 'watch' | 'test' | 'cli';
 
 export interface ExecutionLog {
   time: number;

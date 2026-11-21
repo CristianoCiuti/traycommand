@@ -252,3 +252,24 @@ A tray with only a menu and a shortcut: the shortcut opens the launcher on that 
   "schedules": [{ "cron": "0 7 * * 1-5", "values": { "ENV": "prod" } }, { "every": "4h", "values": { "ENV": "dev" } }]
 }
 ```
+
+## Folder watch
+
+"When a PDF lands in Scans during office hours, move it to the archive with the date in the name":
+
+```json
+{
+  "id": "archive-scans",
+  "label": "Archive scans",
+  "icon": "icons/folder.png",
+  "hidden": true,
+  "action": "Move-Item -LiteralPath $env:TC_FILE -Destination (Join-Path 'D:\\Archive' ((Get-Date -Format 'yyyy-MM-dd_') + $env:TC_FILE_NAME))",
+  "schedules": [{ "watch": { "path": "${env:USERPROFILE}\\Scans", "files": "*.pdf", "existing": true }, "between": "08:00-19:00", "days": "mon-fri" }]
+}
+```
+
+All the CSV files of an export at once, at night only:
+
+```json
+"schedules": [{ "watch": { "path": "\\\\server\\exports", "files": "*.csv", "batch": true, "settle": "10s" }, "between": "22:00-06:00" }]
+```

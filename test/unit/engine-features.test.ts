@@ -175,8 +175,8 @@ describe('configuration checks', () => {
         expect.stringMatching(/^trays\[1\]\.hotkey: Use at least Ctrl/),
         'trays[1].schedules[0].cron: minute must be between 0 and 59 (found 61)',
         'trays[1].schedules[1].every: The minimum interval is 5 seconds',
-        'trays[1].schedules[2]: Set exactly one of cron, every or startup',
-        'trays[1].schedules[3]: Set exactly one of cron, every or startup',
+        'trays[1].schedules[2]: Set exactly one of cron, every, startup or watch',
+        'trays[1].schedules[3]: Set exactly one of cron, every, startup or watch',
         'trays[1].schedules[4].run: Nothing to run: the entry has no offAction',
       ]),
     );

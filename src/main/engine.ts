@@ -13,7 +13,10 @@ import {
 } from '../shared/config';
 import { expand, type VariableContext } from '../shared/variables';
 import { nextCron, parseCron, parseInterval } from '../shared/cron';
-import type { EntryStatus, ExecutionLog, PromptField, PromptRequest, RunSource } from '../shared/api';
+import { inWindow, nextWindowChange, parseWindow, windowed, type TimeWindow } from '../shared/window';
+import { fileMatcher, patternList } from '../shared/glob';
+import type { EntryStatus, ExecutionLog, PromptField, PromptRequest, RunSource, WatchStatus } from '../shared/api';
+import { FolderWatch, type FileChange } from './watcher';
 import { isSuccess, type RunOptions, type RunResult, type Runner } from './runner';
 import { defaultShell } from './shell';
 import path from 'node:path';
@@ -41,6 +44,8 @@ export interface EngineDeps {
   recheckDelay?: number;
   /** Delay of "startup" schedules after TrayCommand starts (ms). */
   startupDelay?: number;
+  /** Retry delay of folder watches whose folder is missing (ms). */
+  watchRetry?: number;
 }
 
 export interface TriggerOptions {
@@ -63,6 +68,10 @@ export interface RuntimeEntry {
   lastCheck?: number;
   /** Next scheduled run per schedule index. */
   nextRuns: Map<number, number>;
+  /** Folder watches per schedule index. */
+  watches: Map<number, { watch: FolderWatch; path: string; window?: TimeWindow }>;
+  /** Runs started by file events, one after the other. */
+  watchQueue?: Promise<void>;
 }
 
 interface ExecContext {
@@ -124,6 +133,8 @@ export class Engine {
   /** Start time of "every" schedules, kept across reloads so that saving does not restart them. */
   private anchors = new Map<string, number>();
   private scheduleTimers = new Set<NodeJS.Timeout>();
+  /** Folder watches of the last start, to tell new ones (they report the files already there, with "existing"). */
+  private watchKeys = new Set<string>();
   private promptId = 0;
   private optionLoaders = new Map<string, () => Promise<{ options?: string[]; error?: string }>>();
 
@@ -158,6 +169,8 @@ export class Engine {
       if (entry.timer) clearTimeout(entry.timer);
       entry.timer = undefined;
       entry.nextRuns.clear();
+      for (const w of entry.watches.values()) w.watch.close();
+      entry.watches.clear();
     }
     for (const t of this.scheduleTimers) clearTimeout(t);
     this.scheduleTimers.clear();
@@ -173,7 +186,7 @@ export class Engine {
   }
 
   private build(node: Tray | MenuEntry, key: string, isTray: boolean, parent?: RuntimeEntry): RuntimeEntry {
-    const runtime: RuntimeEntry = { key, entry: node, isTray, parent, children: [], busy: false, checking: false, nextRuns: new Map() };
+    const runtime: RuntimeEntry = { key, entry: node, isTray, parent, children: [], busy: false, checking: false, nextRuns: new Map(), watches: new Map() };
     this.entries.set(key, runtime);
     if (node.id) this.byId.set(node.id, runtime);
     runtime.children = (node.menu ?? []).map((child: MenuNode, i) =>
@@ -241,7 +254,18 @@ export class Engine {
       enabled: this.isEnabled(entry),
       lastCheck: entry.lastCheck,
       nextRun: this.nextRun(entry),
+      watches: entry.watches.size ? this.watchStatus(entry) : undefined,
     };
+  }
+
+  watchStatus(entry: RuntimeEntry): WatchStatus[] {
+    const now = new Date();
+    return [...entry.watches].map(([index, w]) => ({
+      index,
+      path: w.path,
+      state: w.watch.error ? 'error' : this.paused || this.isDisabled(entry) || !inWindow(w.window, now) ? 'waiting' : 'watching',
+      error: w.watch.error,
+    }));
   }
 
   allStatus(): EntryStatus[] {
@@ -322,7 +346,7 @@ export class Engine {
       return;
     }
     const source = options.source ?? 'click';
-    const interactive = source !== 'schedule';
+    const interactive = source !== 'schedule' && source !== 'watch';
     const resolved = await this.resolveInputs(this.collectInputs(entry, kind), {
       title: this.label(entry),
       subtitle: this.pathLabel(entry) || undefined,
@@ -487,7 +511,7 @@ export class Engine {
     const ok = isSuccess(result);
     const redact = (text: string) => ctx.secrets.reduce((t, s) => (s ? t.split(s).join('••••') : t), text);
     const own = new Set((action.inputs ?? []).map((i) => i.name));
-    const shown = Object.entries(ctx.values).filter(([k]) => own.has(k));
+    const shown = Object.entries(ctx.values).filter(([k]) => own.has(k) || k === 'TC_EVENT' || k === 'TC_FILE' || (k === 'TC_FILES' && ctx.values.TC_FILES !== ctx.values.TC_FILE));
     this.deps.log({
       time: Date.now(),
       key: entry.key,
@@ -563,12 +587,21 @@ export class Engine {
     this.emit();
   }
 
-  private armSchedules(generation: number, appStart: boolean) {
+  private armSchedules(generation: number, appStart: boolean, rearm = false) {
     const now = Date.now();
     const used = new Set<string>();
+    const watchKeys = new Set<string>();
     for (const entry of this.entries.values()) {
       entry.entry.schedules?.forEach((schedule, index) => {
         if (schedule.disabled) return;
+        const window = parseWindow(schedule.between, schedule.days);
+        if (schedule.watch) {
+          const key = `${entry.entry.id ?? entry.key}#${index}#${JSON.stringify(schedule)}`;
+          watchKeys.add(key);
+          if (!rearm) this.startWatch(entry, index, schedule, window, appStart || !this.watchKeys.has(key));
+          if (window) this.armWindowEdges(entry, index, schedule, window, generation);
+          return;
+        }
         if (schedule.startup) {
           // only when TrayCommand starts, not at every reload of the configuration
           if (appStart) this.later(generation, this.deps.startupDelay ?? 3000, () => void this.fireSchedule(entry, schedule));
@@ -581,7 +614,7 @@ export class Engine {
           } catch {
             return;
           }
-          this.armAt(entry, index, schedule, generation, (from) => nextCron(spec, new Date(from))?.getTime());
+          this.armAt(entry, index, schedule, generation, windowed(window, (from) => nextCron(spec, new Date(from))?.getTime()));
           return;
         }
         const seconds = schedule.every !== undefined ? parseInterval(schedule.every) : undefined;
@@ -591,10 +624,77 @@ export class Engine {
         const anchor = this.anchors.get(anchorKey) ?? now;
         this.anchors.set(anchorKey, anchor);
         const ms = seconds * 1000;
-        this.armAt(entry, index, schedule, generation, (from) => anchor + (Math.floor((from - anchor) / ms) + 1) * ms);
+        this.armAt(entry, index, schedule, generation, windowed(window, (from) => anchor + (Math.floor((from - anchor) / ms) + 1) * ms));
       });
     }
     for (const key of [...this.anchors.keys()]) if (!used.has(key)) this.anchors.delete(key);
+    if (!rearm) this.watchKeys = watchKeys;
+  }
+
+  private startWatch(entry: RuntimeEntry, index: number, schedule: Schedule, window: TimeWindow | undefined, isNew: boolean) {
+    const w = schedule.watch!;
+    let match: (relative: string) => boolean;
+    try {
+      match = fileMatcher(patternList(w.files), (this.deps.platform ?? process.platform) !== 'linux');
+    } catch {
+      return;
+    }
+    const dir = this.resolvePath(w.path);
+    const watch = new FolderWatch({
+      dir,
+      match,
+      subfolders: w.subfolders === true,
+      events: new Set(w.events?.length ? w.events : ['add']),
+      settleMs: Math.max(0.2, parseInterval(w.settle ?? '2s') ?? 2) * 1000,
+      retryMs: this.deps.watchRetry,
+      onChanges: (changes) => this.onFileChanges(entry, schedule, window, changes),
+      onState: () => this.emit(entry.key),
+    });
+    entry.watches.set(index, { watch, path: dir, window });
+    // the files already there: when TrayCommand starts or the schedule is new, and only inside the time window
+    watch.start(w.existing === true && isNew && !this.paused && !this.isDisabled(entry) && inWindow(window, new Date()));
+  }
+
+  /** At each opening and closing of the time window of a watch: refresh its state; on opening, report the files already there. */
+  private armWindowEdges(entry: RuntimeEntry, index: number, schedule: Schedule, window: TimeWindow, generation: number) {
+    const at = nextWindowChange(window, new Date())?.getTime();
+    if (at === undefined) return;
+    const wait = () =>
+      this.later(generation, Math.max(0, Math.min(at - Date.now(), MAX_WAIT)), () => {
+        if (Date.now() < at - 1000) return wait();
+        this.emit(entry.key);
+        if (schedule.watch?.existing && !this.paused && inWindow(window, new Date())) entry.watches.get(index)?.watch.reportExisting();
+        this.armWindowEdges(entry, index, schedule, window, generation);
+      });
+    wait();
+  }
+
+  private onFileChanges(entry: RuntimeEntry, schedule: Schedule, window: TimeWindow | undefined, changes: FileChange[]) {
+    if (this.paused || this.stopped || this.isDisabled(entry) || !inWindow(window, new Date())) return;
+    const w = schedule.watch!;
+    const dir = this.resolvePath(w.path);
+    const valuesOf = (list: FileChange[]): Record<string, string> => {
+      const first = list[0]!;
+      const events = new Set(list.map((c) => c.event));
+      return {
+        TC_FILE: first.file,
+        TC_FILE_NAME: path.basename(first.file),
+        TC_FILE_DIR: path.dirname(first.file),
+        TC_EVENT: events.size === 1 ? first.event : 'mixed',
+        TC_FILES: list.map((c) => c.file).join('\n'),
+        TC_WATCH_DIR: dir,
+      };
+    };
+    const runs = w.batch ? [valuesOf(changes)] : changes.map((c) => valuesOf([c]));
+    const generation = this.generation;
+    for (const values of runs) {
+      entry.watchQueue = (entry.watchQueue ?? Promise.resolve()).then(async () => {
+        // one after the other: wait for the previous run (or a click) to finish
+        for (let waited = 0; entry.busy && waited < 30 * 60 * 1000; waited += 250) await new Promise((r) => setTimeout(r, 250));
+        if (generation !== this.generation) return;
+        await this.fireSchedule(entry, schedule, values, 'watch').catch(() => undefined);
+      });
+    }
   }
 
   private later(generation: number, ms: number, fn: () => void) {
@@ -634,15 +734,16 @@ export class Engine {
     for (const t of this.scheduleTimers) clearTimeout(t);
     this.scheduleTimers.clear();
     for (const entry of this.entries.values()) entry.nextRuns.clear();
-    this.armSchedules(this.generation, false);
+    this.armSchedules(this.generation, false, true);
     this.emit();
   }
 
-  async fireSchedule(entry: RuntimeEntry, schedule: Schedule) {
+  async fireSchedule(entry: RuntimeEntry, schedule: Schedule, extra?: Record<string, string>, source: RunSource = 'schedule') {
     if (this.paused || this.stopped || this.isDisabled(entry)) return;
+    if (!inWindow(parseWindow(schedule.between, schedule.days), new Date())) return;
     const label = this.label(entry);
     if (entry.busy) {
-      this.deps.log({ time: Date.now(), key: entry.key, label, kind: 'on', script: '', code: null, ok: false, durationMs: 0, stdout: '', stderr: '', error: 'Skipped: the previous run is still going', source: 'schedule' });
+      this.deps.log({ time: Date.now(), key: entry.key, label, kind: 'on', script: '', code: null, ok: false, durationMs: 0, stdout: '', stderr: '', error: 'Skipped: the previous run is still going', source });
       return;
     }
     const run = schedule.run ?? 'click';
@@ -653,7 +754,7 @@ export class Engine {
     else if (run === 'off') kind = entry.entry.state && entry.on === false ? undefined : 'off';
     else kind = 'right';
     if (!kind || !this.actionOf(entry, kind)) return;
-    await this.trigger(entry, kind, { source: 'schedule', values: schedule.values });
+    await this.trigger(entry, kind, { source, values: extra ? { ...schedule.values, ...extra } : schedule.values });
   }
 
   /* ---------- state checks ---------- */

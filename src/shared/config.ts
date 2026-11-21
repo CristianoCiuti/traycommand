@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { cronError, parseInterval } from './cron.ts';
 import { canonicalHotkey, hotkeyError } from './hotkey.ts';
+import { globError, patternList } from './glob.ts';
+import { windowError } from './window.ts';
 
 /*
  * TrayCommand configuration (format v2).
@@ -113,11 +115,34 @@ export const StateSchema = z
   .describe('Makes the entry a toggle: the check script decides whether it is ON or OFF.');
 export type State = z.infer<typeof StateSchema>;
 
+export const WatchSchema = z
+  .object({
+    path: z.string().describe('Folder to watch. ${VARIABLES} allowed; a relative path starts from the configuration folder.'),
+    files: z
+      .union([z.string(), z.array(z.string())])
+      .optional()
+      .describe('File name patterns, e.g. "*.txt", "*.{csv,xlsx}", "report-??.pdf" (a string with commas or a list). With "/" the pattern matches the path inside the folder ("in/**/*.txt"). Default: every file.'),
+    events: z
+      .array(z.enum(['add', 'change', 'remove']))
+      .optional()
+      .describe('What starts a run: "add" = a file appears (created, copied, moved or renamed in), "change" = a file is modified, "remove" = a file disappears. Default ["add"].'),
+    subfolders: z.boolean().optional().describe('Watch the sub folders too.'),
+    existing: z.boolean().optional().describe('Also run for the matching files already in the folder when the watch starts (TrayCommand starts, the schedule is saved, or its time window opens).'),
+    batch: z.boolean().optional().describe('One run for all the files that arrive together (listed in TC_FILES) instead of one run per file.'),
+    settle: z.string().optional().describe('Quiet time before running, so that files are completely written: e.g. "2s" (default), "10s".'),
+  })
+  .strict()
+  .describe('Runs the entry when files appear, change or disappear in a folder. The run gets TC_FILE, TC_FILE_NAME, TC_FILE_DIR, TC_EVENT, TC_FILES as ${...} and environment variables.');
+export type Watch = z.infer<typeof WatchSchema>;
+
 export const ScheduleSchema = z
   .object({
     cron: z.string().optional().describe('Cron expression (minute hour day month weekday), local time, e.g. "0 9 * * 1-5" = 09:00 on weekdays.'),
     every: z.string().optional().describe('Interval, e.g. "30s", "15m", "2h", "1d", "1h30m". The first run is one interval after TrayCommand starts.'),
     startup: z.boolean().optional().describe('Run once when TrayCommand starts.'),
+    watch: WatchSchema.optional(),
+    between: z.string().optional().describe('Active only in this time range, local time, e.g. "08:00-18:00" or "22:00-06:00" (crosses midnight). Runs and file events outside it are skipped.'),
+    days: z.string().optional().describe('Active only on these days: "mon-fri", "sat,sun", "mon,wed,fri" (with "between": the days the range starts on).'),
     run: z
       .enum(['click', 'on', 'off', 'right'])
       .optional()
@@ -126,7 +151,7 @@ export const ScheduleSchema = z
     disabled: z.boolean().optional().describe('Keep the schedule without running it.'),
   })
   .strict()
-  .describe('When to run the entry automatically. Exactly one of cron, every or startup.');
+  .describe('When to run the entry automatically. Exactly one of cron, every, startup or watch, optionally limited to a time window (between, days).');
 export type Schedule = z.infer<typeof ScheduleSchema>;
 
 const entryBase = {
@@ -144,7 +169,7 @@ const entryBase = {
   offAction: ActionInputSchema.optional().describe('Toggles only: run on click while ON.'),
   state: StateSchema.optional(),
   hotkey: z.string().optional().describe('Global keyboard shortcut, e.g. "Ctrl+Alt+V": works like a click from any application. On an entry with only a menu it opens the launcher on that menu.'),
-  schedules: z.array(ScheduleSchema).optional().describe('Run the entry automatically (cron, interval, at startup).'),
+  schedules: z.array(ScheduleSchema).optional().describe('Run the entry automatically (cron, interval, at startup, when files change).'),
 };
 
 export interface MenuEntry {
@@ -324,8 +349,25 @@ export function parseConfig(raw: unknown): ParseResult {
   };
 
   const checkSchedule = (entry: MenuEntry & { rightAction?: ActionInput }, schedule: Schedule, path: string) => {
-    const kinds = [schedule.cron !== undefined, schedule.every !== undefined, schedule.startup === true].filter(Boolean).length;
-    if (kinds !== 1) issues.push({ path, message: 'Set exactly one of cron, every or startup' });
+    const kinds = [schedule.cron !== undefined, schedule.every !== undefined, schedule.startup === true, schedule.watch !== undefined].filter(Boolean).length;
+    if (kinds !== 1) issues.push({ path, message: 'Set exactly one of cron, every, startup or watch' });
+    const windowProblem = windowError(schedule.between, schedule.days);
+    if (windowProblem?.between) issues.push({ path: `${path}.between`, message: windowProblem.between });
+    if (windowProblem?.days) issues.push({ path: `${path}.days`, message: windowProblem.days });
+    if (schedule.watch) {
+      const w = schedule.watch;
+      if (!w.path.trim()) issues.push({ path: `${path}.watch.path`, message: 'Choose the folder to watch' });
+      patternList(w.files).forEach((p) => {
+        const error = globError(p);
+        if (error) issues.push({ path: `${path}.watch.files`, message: error });
+      });
+      if (w.events && !w.events.length) issues.push({ path: `${path}.watch.events`, message: 'Choose at least one event' });
+      if (w.settle !== undefined) {
+        const seconds = parseInterval(w.settle);
+        if (seconds === undefined) issues.push({ path: `${path}.watch.settle`, message: 'Use a number and a unit: "2s", "1m"' });
+        else if (seconds > 3600) issues.push({ path: `${path}.watch.settle`, message: 'The longest wait is 1 hour' });
+      }
+    }
     if (schedule.cron !== undefined) {
       const error = cronError(schedule.cron);
       if (error) issues.push({ path: `${path}.cron`, message: error });

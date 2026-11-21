@@ -56,6 +56,7 @@ const stage = ref<HTMLElement | null>(null);
 const k = ref(1); // canvas scale (large screens)
 const lk = ref(1); // the same for the looks, when they fill one screen (not on phones)
 const stacked = ref(false); // narrow screen: text on top, windows under it
+const heroCrowded = ref(false); // small phone: the tray menu or the notification would cover the hero text
 const minOrigin = ref('100% 100%'); // where the editor shrinks to: the Proxy tray icon
 const seg = ref(0);
 const t = ref(0);
@@ -90,6 +91,12 @@ function clickWeb() {
 const s = computed(() => (reduced.value ? -1 : seg.value));
 
 const heroOut = computed(() => (s.value < 0 ? 0 : s.value === 0 ? ease(ramp(0.05, 0.5, t.value)) : 1));
+/* the hero steps aside while the tray menu or the notification is up, when they would cover it */
+const heroStyle = computed(() => {
+  const aside = heroCrowded.value && s.value <= 0 && (menuAlpha.value > 0.01 || toastAlpha.value > 0.01);
+  const a = aside ? 0 : 1 - heroOut.value;
+  return { opacity: a, transform: `translateY(${heroOut.value * -40}px)`, visibility: a < 0.01 ? ('hidden' as const) : ('visible' as const), transition: s.value <= 0 ? 'opacity 0.25s, visibility 0.25s' : undefined };
+});
 function caption(i: number) {
   let a = 0;
   let dir = 1;
@@ -295,7 +302,12 @@ function fitLayout() {
       if (!el?.offsetHeight) continue;
       el.style.setProperty('--fit', Math.min(1, (barTop - 14 - capBottom) / el.offsetHeight).toFixed(3));
     }
+    // on the first screen the hero text may leave too little room for them (small phones)
+    const hero = [...st.querySelectorAll<HTMLElement>('.hs-hero > *')].filter((e) => e.offsetHeight);
+    const heroBottom = (copy.getBoundingClientRect().top - stTop) / q + Math.max(0, ...hero.map((e) => e.offsetTop + e.offsetHeight));
+    heroCrowded.value = barTop - 14 - heroBottom < Math.max(0, ...tray.map((el) => el?.offsetHeight ?? 0));
   } else {
+    heroCrowded.value = false;
     canvas.style.removeProperty('--hs-captop');
     // side by side: the menu and the notification stop before the text column (both shrink
     // from their right edge, which stays where it is)
@@ -382,7 +394,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
 
         <div class="hs-canvas" :style="{ '--k': k }">
         <div class="hs-copy">
-          <div class="hs-hero" :style="{ opacity: 1 - heroOut, transform: `translateY(${heroOut * -40}px)`, visibility: heroOut > 0.99 ? 'hidden' : 'visible' }">
+          <div class="hs-hero" :style="heroStyle">
             <img class="hs-appicon" :src="withBase('/icons/icon-aurora.png')" alt="" width="72" height="72" />
             <h1>Your scripts, down by the clock.</h1>
             <p>TrayCommand puts your shell commands in the system tray. Click to run them. Toggles check whether the proxy, the VPN or the dev server is on, and show it.</p>

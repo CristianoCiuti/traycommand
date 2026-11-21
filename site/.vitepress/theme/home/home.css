@@ -121,7 +121,9 @@
 .hs-keys kbd.wide { min-width: 170px; }
 .hs-keys kbd.down { transform: translateY(3px); box-shadow: inset 0 1px 0 var(--hs-edge), 0 1px 0 var(--hs-border), 0 0 30px var(--hs-glow); }
 
-.hs-launcher { border-radius: 20px; padding: 10px; max-width: 560px; }
+.hs-launcher { border-radius: 20px; padding: 10px; max-width: 560px; container-type: inline-size; }
+/* very narrow (a small phone): the state is already in "Turned on", the Enter key is implied */
+@container (max-width: 330px) { .hs-lrow .hs-pill, .hs-act kbd { display: none; } }
 .hs-lq { display: flex; align-items: center; gap: 12px; padding: 10px 12px 14px; border-bottom: 1px solid var(--hs-border); margin-bottom: 8px; color: var(--hs-text-3); }
 .hs-typed { flex: 1; font-size: 20px; color: var(--hs-text); min-height: 1.4em; }
 .hs-ph { color: var(--hs-text-3); font-size: 16px; margin-left: 6px; }
@@ -258,13 +260,14 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 }
 .hs-stills { max-width: var(--hs-page); margin: 0 auto; padding: 96px 24px 24px; display: flex; flex-direction: column; gap: 96px; }
 .hs-still { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; }
-.hs-frame { position: relative; overflow: hidden; overflow: clip; isolation: isolate; border-radius: 18px; border: 1px solid var(--hs-border); background: var(--hs-bg); min-height: 440px; display: grid; place-items: center; padding: 32px 32px 72px; }
+.hs-frame { position: relative; overflow: hidden; overflow: clip; isolation: isolate; border-radius: 18px; border: 1px solid var(--hs-border); background: var(--hs-bg); min-height: 440px; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 32px 32px 72px; }
 .hs-frame .hs-wall { inset: -10%; }
 .hs-frame-win { width: 100%; max-width: 440px; }
-.hs-frame-menu { position: absolute; right: 108px; bottom: 60px; width: 290px; }
-.hs-frame-menu .hs-menu { position: static; }
-.hs-frame-editor { position: absolute; left: 32px; right: 32px; bottom: 44px; }
-.hs-frame-editor img { width: 100%; border-radius: 12px 12px 0 0; border: 1px solid var(--hs-border); }
+.hs-frame-menu { position: absolute; right: 108px; bottom: 60px; width: min(290px, calc(100% - 32px)); }
+.hs-frame-menu .hs-menu { position: static; width: 100%; }
+/* the whole editor window, in the flow of the frame (which grows to hold it), above the bar */
+.hs-frame-editor { width: 100%; }
+.hs-frame-editor img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--hs-border); box-shadow: var(--hs-shadow); }
 .hs-minibar { position: absolute; left: 0; right: 0; bottom: 0; height: 48px; display: flex; justify-content: flex-end; align-items: center; gap: 2px; padding: 0 16px; background: var(--hs-bar); border-top: 1px solid var(--hs-border); }
 .hs-minibar .hs-ti { width: 44px; height: 44px; }
 .hs-minibar .hs-tile { width: 24px; height: 24px; border-radius: 6px; font-size: 11px; }
@@ -370,7 +373,7 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
   .hs-progress .lbl { display: none; }
   .hs-progress { width: 100%; } /* without labels the bars need a width of their own */
   .hs-progress button { padding: 12px 2px; min-width: 18px; }
-  .hs-still, .hs-lstage { grid-template-columns: 1fr; gap: 24px; }
+  .hs-still, .hs-lstage { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .hs-frame { min-height: 380px; padding: 20px 16px 64px; }
   .hs-frame-menu { right: 16px; }
   .hs-lstage { align-content: center; }

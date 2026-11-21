@@ -10,7 +10,7 @@ import { Card, Dialog, Switch } from '../components/ui';
 import { ShellSelect } from './ActionEditor';
 import { startExport, startImport } from './TransferDialogs';
 
-function Setting(props: { title: string; desc?: string; children: preact.ComponentChildren; testId?: string }) {
+function Setting(props: { title: string; desc?: preact.ComponentChildren; children: preact.ComponentChildren; testId?: string }) {
   return (
     <div class="setting" data-testid={props.testId}>
       <div>
@@ -283,7 +283,14 @@ export function SettingsView() {
 
         <Card title="Updates" icon={<Download size={16} />}>
           <div class="settings-list">
-            <Setting title={`Version ${i.version}`} desc={u?.state === 'available' ? `Version ${u.latest} is available` : u?.state === 'none' ? 'You have the latest version' : u?.state === 'error' ? `Check failed: ${u.error}` : u?.state === 'downloading' ? `Downloading… ${Math.round((u.progress ?? 0) * 100)}%` : 'Checked automatically every 6 hours'}>
+            <Setting
+              title={`Version ${i.version}`}
+              desc={
+                <span class="update-state" data-state={u?.state ?? 'idle'} data-testid="update-state">
+                  {u?.state === 'available' ? `Version ${u.latest} is available` : u?.state === 'none' ? 'You have the latest version' : u?.state === 'error' ? `Check failed: ${u.error}` : u?.state === 'downloading' ? `Downloading… ${Math.round((u.progress ?? 0) * 100)}%` : 'Checked automatically every 6 hours'}
+                </span>
+              }
+            >
               <div style={{ display: 'flex', gap: 6 }}>
                 {u?.state === 'available' ? (
                   <button class="btn sm primary" onClick={() => api.installUpdate()}>

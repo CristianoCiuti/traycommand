@@ -611,3 +611,11 @@ label.xfer-row { cursor: pointer; }
   .spin { animation-duration: 1s !important; }
   .tray-row.selected, .look.on { transform: none; }
 }
+
+/* update status (a live state): the label face (Bahnschrift, bold, uppercase) like the other states; news and progress in ink on yellow */
+.update-state { font-family: var(--ui); font-weight: 700; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.update-state[data-state='available'], .update-state[data-state='downloading'], .update-state[data-state='ready'] {
+  display: inline-block; margin-top: 3px; padding: 2px 8px; color: var(--on-color); background: var(--yellow);
+  border: var(--bw-sm) solid var(--ink); border-radius: 999px; box-shadow: 0 2px 0 var(--ink);
+}
+.update-state[data-state='error'] { color: var(--danger); }

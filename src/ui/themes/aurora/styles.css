@@ -681,3 +681,8 @@ label.xfer-row { cursor: pointer; }
   .spin { animation: spin 1s linear infinite !important; }
   .look:hover img { transform: none; }
 }
+
+/* update status (a live state): body face with steady digits; news and progress in the accent, errors in red */
+.update-state { font-variant-numeric: tabular-nums; }
+.update-state[data-state='available'], .update-state[data-state='downloading'], .update-state[data-state='ready'] { color: var(--accent); font-weight: 600; }
+.update-state[data-state='error'] { color: var(--danger); font-weight: 600; }

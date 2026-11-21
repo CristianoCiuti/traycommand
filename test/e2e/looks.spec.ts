@@ -229,8 +229,25 @@ for (const look of LOOKS) {
     for (const [mode, ratio] of Object.entries(contrast)) expect(ratio, `Ctrl+S in the Save button, ${look} ${mode}`).toBeGreaterThanOrEqual(3);
     await page.getByRole('button', { name: 'Discard' }).click();
     await expect(page.getByTestId('savebar')).toBeHidden();
+
+    // an update downloading: the status is written in the look's own face for states, not as a plain description
+    await app.evaluate(({ BrowserWindow }) => {
+      for (const w of BrowserWindow.getAllWindows()) w.webContents.send('update', { state: 'downloading', current: '2.6.2', latest: '2.6.3', progress: 1 });
+    });
+    const state = page.getByTestId('update-state');
+    await expect(state).toHaveText('Downloading… 100%');
+    await expect.soft(state).toHaveCSS('font-family', STATE_FACE[look]);
+    await state.locator('xpath=ancestor::section[1]').screenshot({ path: path.join(shotsRoot, look, '15-update.png') });
   });
 }
+
+/** The face each look uses for live states (the update status). */
+const STATE_FACE: Record<(typeof ALL_LOOKS)[number], RegExp> = {
+  aurora: /Segoe UI Variable Text/,
+  terminal: /Cascadia Mono/,
+  brutal: /Bahnschrift/,
+  neon: /Cascadia Mono/,
+};
 
 /**
  * Contrast (WCAG) of the "Ctrl+S" shortcut in the Save button, measured on the pixels as drawn: the lightest and the

@@ -39,8 +39,22 @@ export function assetPath(...parts: string[]): string {
   return path.join(__dirname, '..', '..', 'assets', ...parts);
 }
 
+/** The look in use: the app icon (window, taskbar, TrayCommand tray icon) is the one of that look. */
+let iconStyle = 'aurora';
+export function setIconStyle(style: string) {
+  iconStyle = style;
+}
+
+/** File of the app icon of the look in use. */
+export function appIconFile(style = iconStyle): string {
+  const own = assetPath(`icon-${style}.png`);
+  return fs.existsSync(own) ? own : assetPath('icon.png');
+}
+
 export function appIcon(size: number): NativeImage {
-  const name = process.platform === 'darwin' ? 'trayTemplate.png' : 'icon.png';
+  // macOS: a monochrome template image in the menu bar, whatever the look
+  if (process.platform !== 'darwin') return sizedIcon(appIconFile(), size) ?? nativeImage.createEmpty();
+  const name = 'trayTemplate.png';
   const icon = sizedIcon(assetPath(name), size) ?? nativeImage.createEmpty();
   if (process.platform === 'darwin') icon.setTemplateImage(true);
   return icon;

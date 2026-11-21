@@ -1,0 +1,95 @@
+/* NEON HUD: colours, fonts and shapes shared by the editor and the launcher.
+   Light = "daylight HUD" (ice background, ink-navy text, solid cyan/magenta accents, no glow).
+   Dark  = deep-space navy with a faint grid, neon cyan/magenta accents with controlled glow. */
+:root {
+  --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  /* condensed technical headings: Bahnschrift's width axis, named instances first */
+  --display: 'Bahnschrift SemiCondensed', 'Bahnschrift', 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
+  --mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', Menlo, monospace;
+  --radius: 0px;
+  --radius-sm: 0px;
+  /* chamfer sizes (top-left and bottom-right corners are cut) */
+  --cut-lg: 14px;
+  --cut: 10px;
+  --cut-sm: 6px;
+  --cut-xs: 4px;
+
+  --bg: #eef3fa;
+  --bg-deep: #e4ebf6;
+  --panel: #ffffff;
+  --panel-2: #f2f6fc;
+  --panel-glass: rgb(255 255 255 / 0.86);
+  --border: #d5deee;
+  --border-strong: #a9b8d6;
+  --text: #0b1433;
+  --text-2: #34446e;
+  --text-3: #56648c;
+  --accent: #00799a;          /* cyan for text and lines (AA on white) */
+  --accent-fill: #00c6e4;     /* cyan for solid fills */
+  --accent-soft: #dcf6fb;
+  --accent-text: #041127;     /* text on the cyan fill */
+  --accent-2: #c0108c;        /* magenta */
+  --accent-2-soft: #fde6f6;
+  --ok: #00799a;
+  --ok-soft: #dcf6fb;
+  --off: #56648c;
+  --off-soft: #eef2f9;
+  --warn: #8f5a00;
+  --warn-soft: #fff3d6;
+  --danger: #cf222e;
+  --danger-soft: #ffe5ee;
+  --grid-line: rgb(11 20 51 / 0.045);
+  --grid-size: 28px;
+  --edge-hi: rgb(0 121 154 / 0.55);
+  --glow: 0 0 0 transparent;
+  --glow-strong: 0 0 0 transparent;
+  --text-glow: none;
+  --inner-glow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  --shadow: 0 1px 2px rgb(11 20 51 / 0.06), 0 2px 8px rgb(11 20 51 / 0.05);
+  --shadow-lg: 0 14px 36px rgb(11 20 51 / 0.2);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #070b1a;
+    --bg-deep: #04060f;
+    --panel: #0c1330;
+    --panel-2: #121b42;
+    --panel-glass: rgb(10 16 40 / 0.9);
+    --border: #1d2a5c;
+    --border-strong: #2e3f80;
+    --text: #e4ecff;
+    --text-2: #a8b7dc;
+    --text-3: #8293c0;
+    --accent: #00e5ff;
+    --accent-fill: #00e5ff;
+    --accent-soft: #0a2847;
+    --accent-text: #021022;
+    --accent-2: #ff2bd6;
+    --accent-2-soft: #3a0f43;
+    --ok: #00e5ff;
+    --ok-soft: #062a43;
+    --off: #7383b0;
+    --off-soft: #111a3c;
+    --warn: #ffb547;
+    --warn-soft: #33250c;
+    --danger: #f85149;
+    --danger-soft: #3d0f26;
+    --grid-line: rgb(110 140 255 / 0.06);
+    --edge-hi: rgb(0 229 255 / 0.55);
+    --glow: 0 0 8px rgb(0 229 255 / 0.45);
+    --glow-strong: 0 0 6px rgb(0 229 255 / 0.7), 0 0 18px rgb(0 229 255 / 0.35);
+    --text-glow: 0 0 8px rgb(0 229 255 / 0.55);
+    --inner-glow: inset 0 1px 0 rgb(0 229 255 / 0.18), inset 0 0 28px rgb(0 229 255 / 0.035);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+}
+
+/* Title bar: the window buttons drawn by the system take these colours (sent to the main process). */
+:root { --chrome-bg: #f7fafe; --chrome-fg: #0b1433; }
+@media (prefers-color-scheme: dark) {
+  :root { --chrome-bg: #050915; --chrome-fg: #a8b7dc; }
+}

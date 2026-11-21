@@ -1,32 +1,49 @@
 import { BrowserWindow, dialog, nativeTheme, screen, shell } from 'electron';
 import path from 'node:path';
 import type { AppStateStore } from './appState';
-import { assetPath } from './icons';
+import { appIconFile } from './icons';
 
 let win: BrowserWindow | undefined;
 let pendingRoute: string | undefined;
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
 
-const COLORS = {
-  light: { bg: '#f6f7f9', symbol: '#1f2328' },
-  dark: { bg: '#15171c', symbol: '#e6e8eb' },
+/** Colours of the default look, until the editor tells the ones of the look in use. */
+const DEFAULT_CHROME = {
+  light: { bg: '#f1eefb', fg: '#1b1934' },
+  dark: { bg: '#090b18', fg: '#eef0ff' },
 };
+let stateRef: AppStateStore | undefined;
 
+/** Light, dark or as the system: the pages follow it (prefers-color-scheme) and send their title bar colours back. */
 export function applyTheme(theme: ThemeSetting) {
   nativeTheme.themeSource = theme;
-  if (win && !win.isDestroyed() && process.platform !== 'darwin') {
-    const c = nativeTheme.shouldUseDarkColors ? COLORS.dark : COLORS.light;
+}
+
+const COLOR = /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%/]+\))$/i;
+
+/**
+ * The window buttons drawn by the system (minimize, maximize, close) take the colours of the
+ * title bar of the look shown by the editor, light or dark, so they always match the page.
+ */
+export function setChrome(colors: { bg: string; fg: string }) {
+  if (!COLOR.test(colors.bg) || !COLOR.test(colors.fg)) return;
+  if (stateRef && (stateRef.get().chrome?.bg !== colors.bg || stateRef.get().chrome?.fg !== colors.fg)) stateRef.update({ chrome: colors });
+  if (!win || win.isDestroyed()) return;
+  if (process.platform !== 'darwin') {
     try {
-      win.setTitleBarOverlay({ color: c.bg, symbolColor: c.symbol, height: 44 });
+      win.setTitleBarOverlay({ color: colors.bg, symbolColor: colors.fg, height: 44 });
     } catch {
       /* not supported on this platform */
     }
-    win.setBackgroundColor(c.bg);
   }
+  win.setBackgroundColor(colors.bg);
 }
 
-nativeTheme.on('updated', () => applyTheme(nativeTheme.themeSource as ThemeSetting));
+/** The window and taskbar icon of a look. */
+export function setWindowIcon(style?: string) {
+  if (win && !win.isDestroyed()) win.setIcon(appIconFile(style));
+}
 
 function visibleOnSomeDisplay(b: { x?: number; y?: number; width: number; height: number }) {
   if (b.x === undefined || b.y === undefined) return false;
@@ -47,7 +64,8 @@ export function showWindow(state: AppStateStore, route?: string, dev?: string) {
   pendingRoute = route;
   const saved = state.get().window;
   const bounds = saved && visibleOnSomeDisplay(saved) ? saved : { width: saved?.width ?? 1100, height: saved?.height ?? 740 };
-  const c = nativeTheme.shouldUseDarkColors ? COLORS.dark : COLORS.light;
+  stateRef = state;
+  const c = state.get().chrome ?? (nativeTheme.shouldUseDarkColors ? DEFAULT_CHROME.dark : DEFAULT_CHROME.light);
 
   win = new BrowserWindow({
     ...bounds,
@@ -56,10 +74,10 @@ export function showWindow(state: AppStateStore, route?: string, dev?: string) {
     show: false,
     title: 'TrayCommand',
     backgroundColor: c.bg,
-    icon: assetPath('icon.png'),
+    icon: appIconFile(),
     autoHideMenuBar: true,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
-    ...(process.platform === 'darwin' ? {} : { titleBarOverlay: { color: c.bg, symbolColor: c.symbol, height: 44 } }),
+    ...(process.platform === 'darwin' ? {} : { titleBarOverlay: { color: c.bg, symbolColor: c.fg, height: 44 } }),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.cjs'),
       contextIsolation: true,

@@ -4,7 +4,7 @@ import { HotkeyInput } from '../components/HotkeyInput';
 import { Keys } from '../components/keys';
 import { hotkeyStatus, schedulesPaused } from '../store';
 import type { AgentSkillInfo } from '../../shared/api';
-import type { Settings } from '../../shared/config';
+import { STYLES, STYLE_NAMES, type Settings } from '../../shared/config';
 import { api, draft, info, mutate, reload, showToast, skills, update } from '../store';
 import { Card, Dialog, Switch } from '../components/ui';
 import { ShellSelect } from './ActionEditor';
@@ -160,9 +160,24 @@ export function SettingsView() {
     <div class="page">
       <div class="page-inner">
         <div>
-          <h1>Settings</h1>
+          <h1 data-hud="SYS // 03 · CONFIGURATION">Settings</h1>
           <p class="lead">Saved in the configuration file, except where noted.</p>
         </div>
+
+        <Card title="Look" desc="Editor, launcher and app icon">
+          <div class="card-body">
+            <div class="look-grid" role="radiogroup" aria-label="Look">
+              {STYLES.map((st) => (
+                <button type="button" role="radio" aria-checked={s.style === st} class={`look${s.style === st ? ' on' : ''}`} data-look={st} data-testid={`look-${st}`} onClick={() => set('style', st)}>
+                  <img src={`./icon-${st}.png`} alt="" />
+                  <span class="look-name">{STYLE_NAMES[st]}</span>
+                  {st === 'aurora' && <span class="look-default">default</span>}
+                </button>
+              ))}
+            </div>
+            <div class="hint">Shown right away; save to keep it. Light or dark is the Theme setting below.</div>
+          </div>
+        </Card>
 
         <Card title="General">
           <div class="settings-list">

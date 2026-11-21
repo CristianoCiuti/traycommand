@@ -254,10 +254,19 @@ export const TraySchema = z
   .strict();
 export type Tray = z.infer<typeof TraySchema>;
 
+/** Looks of the editor and the launcher (each with its own icon). */
+export const STYLES = ['aurora', 'terminal', 'brutal', 'neon'] as const;
+export type Style = (typeof STYLES)[number];
+export const STYLE_NAMES: Record<Style, string> = { aurora: 'Aurora', terminal: 'Phosphor', brutal: 'Brutal', neon: 'Neon HUD' };
+
 export const SettingsSchema = z
   .object({
     shell: ShellSchema.optional().describe('Default shell. When omitted: powershell on Windows, $SHELL (or bash) elsewhere.'),
     theme: z.enum(['system', 'light', 'dark']).default('system'),
+    style: z
+      .enum(STYLES)
+      .default('aurora')
+      .describe('Look of the editor, the launcher and the icon: "aurora" (default), "terminal" (Phosphor), "brutal", "neon" (Neon HUD). Light or dark follows "theme".'),
     appMenu: z
       .string()
       .default('own')

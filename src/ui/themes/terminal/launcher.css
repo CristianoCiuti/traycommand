@@ -1,0 +1,217 @@
+@import './tokens.css';
+
+/* =====================================================================
+   TrayCommand launcher - PHOSPHOR TERMINAL
+   a command prompt: tc:~$ query█, inverted-video selection, [key] hints
+   ===================================================================== */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: transparent; overflow: hidden; }
+body { font: 13.5px/1.4 var(--mono); font-variant-ligatures: none; color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; }
+button, input, select { font: inherit; color: inherit; }
+::selection { background: var(--accent); color: var(--accent-text); }
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border: 2px solid var(--panel); }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* room around the card for its shadow; the window is sized to this element */
+.lx-root { padding: 14px 16px 22px; }
+.lx-anim { animation: lx-in 0.16s cubic-bezier(0.2, 0.7, 0.3, 1); transform-origin: 50% 30%; }
+@keyframes lx-in {
+  0% { opacity: 0; transform: scaleY(0.94); filter: brightness(1.35); }
+  70% { opacity: 1; filter: brightness(1.05); }
+}
+
+.lx {
+  position: relative;
+  background: var(--ticks), var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  box-shadow: 6px 6px 0 rgb(17 36 26 / 0.16), 0 14px 40px rgb(40 30 10 / 0.18);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* scanlines + vignette (transparent in the light theme) */
+.lx::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 5;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 2px, var(--scan) 2px 3px),
+    radial-gradient(ellipse at center, transparent 55%, var(--vignette) 100%);
+  opacity: 0.6;
+}
+@media (prefers-color-scheme: dark) {
+  .lx { border-color: #2f6e4b; box-shadow: 0 0 0 1px rgb(56 242 154 / 0.06), 0 0 28px rgb(56 242 154 / 0.12), 0 18px 50px rgb(0 0 0 / 0.65); }
+}
+
+/* ---------- search: the prompt line ---------- */
+.lx-search {
+  display: flex; align-items: center; gap: 10px; padding: 0 14px 0 16px; height: 56px;
+  border-bottom: 1px solid var(--border-strong); background: var(--bg);
+}
+.lx-ps1 { flex: none; font-size: 15px; font-weight: 700; color: var(--accent); text-shadow: var(--glow); letter-spacing: 0.01em; }
+.lx-ps1-sep { color: var(--text-3); text-shadow: none; }
+.lx-line { position: relative; flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; }
+.lx-search input {
+  width: 100%; min-width: 0; border: 0; outline: none; background: transparent; font-size: 17px; height: 100%; padding: 0;
+  color: var(--text); caret-color: var(--accent); letter-spacing: 0;
+}
+.lx-search input::placeholder { color: var(--text-3); opacity: 1; }
+/* empty: the block caret sits at the start and the placeholder makes room for it */
+.lx-search input:placeholder-shown { caret-color: transparent; text-indent: 1.2ch; }
+/* invisible copy of the query, used only to place the block caret after the text */
+.lx-mirror {
+  position: absolute; left: 0; top: 0; bottom: 0; right: 0; display: flex; align-items: center;
+  font-size: 17px; white-space: pre; color: transparent; pointer-events: none; overflow: hidden;
+}
+.lx-caret {
+  display: inline-block; width: 0.62em; height: 1.1em; flex: none; margin-left: 1px;
+  background: var(--accent); box-shadow: var(--glow); opacity: 0.85;
+  animation: blink 1.06s steps(1) infinite;
+}
+.lx-search input:placeholder-shown + .lx-mirror .lx-caret { margin-left: 0; }
+.lx-scope {
+  display: inline-flex; align-items: center; gap: 0; flex: none; max-width: 220px;
+  background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 12.5px; border: 1px solid var(--accent);
+  padding: 2px 3px 2px 8px; border-radius: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: var(--glow-soft);
+}
+.lx-scope::before { content: '~/' / ''; color: var(--text-3); text-shadow: none; }
+.lx-scope button { margin-left: 6px; border: 0; background: none; color: inherit; cursor: pointer; display: flex; padding: 2px; border-radius: 0; }
+.lx-scope button:hover { background: var(--accent); color: var(--accent-text); }
+
+/* ---------- results ---------- */
+.lx-list { max-height: 352px; overflow-y: auto; padding: 6px; scroll-padding: 6px; }
+.lx-section {
+  font-size: 11px; font-weight: 700; color: var(--text-3); letter-spacing: 0.14em; padding: 9px 10px 4px;
+  display: flex; align-items: center; gap: 8px;
+}
+.lx-section::before { content: '//' / ''; color: var(--accent); letter-spacing: 0; text-shadow: var(--glow-soft); }
+.lx-section::after { content: ''; flex: 1; border-top: 1px dashed var(--border); }
+.lx-row {
+  display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center;
+  height: 44px; padding: 0 10px; border-radius: 0; cursor: default; position: relative;
+}
+.lx-row:not(.selected):hover { background: var(--panel-2); }
+/* inverted video */
+.lx-row.selected { background: var(--sel-bg); color: var(--sel-text); box-shadow: var(--halo); }
+.lx-row.selected::before {
+  content: '>' / ''; position: absolute; left: 2px; top: 0; bottom: 0; display: flex; align-items: center;
+  font-weight: 700; font-size: 12px; color: var(--sel-text); padding-left: 1px;
+}
+.lx-row.unavailable .lx-text, .lx-row.unavailable .lx-icon { opacity: 0.45; }
+.lx-icon {
+  width: 30px; height: 30px; border-radius: 0; background: var(--bg); border: 1px solid var(--border);
+  display: grid; place-items: center; color: var(--accent); overflow: hidden; flex: none;
+}
+.lx-icon img { width: 18px; height: 18px; object-fit: contain; }
+.lx-icon.off img { filter: grayscale(1); opacity: 0.7; }
+.lx-row.selected .lx-icon { background: var(--panel); border-color: var(--sel-text); }
+.lx-text { display: flex; flex-direction: column; min-width: 0; }
+.lx-label, .lx-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lx-label mark { background: none; color: var(--accent); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-shadow: var(--glow-soft); }
+.lx-row.selected .lx-label mark { color: inherit; text-shadow: none; }
+.lx-path { font-size: 11.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lx-path::before { content: '~/' / ''; opacity: 0.7; }
+.lx-row.selected .lx-path { color: var(--sel-text); opacity: 0.78; }
+.lx-meta { display: flex; align-items: center; gap: 8px; color: var(--text-3); }
+.lx-row.selected .lx-meta { color: var(--sel-text); }
+.lx-go { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: 0.04em; }
+.lx-row.selected .lx-go { color: var(--sel-text); }
+.lx-chev { color: var(--text-3); }
+.lx-tag { display: inline-flex; color: var(--text-3); }
+.lx-row.selected .lx-tag { color: var(--sel-text); }
+.lx-state { font-size: 11px; font-weight: 700; padding: 0 2px; border-radius: 0; letter-spacing: 0.04em; }
+.lx-state::before { content: '[' / ''; font-weight: 400; }
+.lx-state::after { content: ']' / ''; font-weight: 400; }
+.lx-state.on { color: var(--ok); text-shadow: var(--glow); }
+.lx-state.off { color: var(--off); }
+.lx-row.selected .lx-state { color: var(--sel-text); text-shadow: none; background: transparent; }
+.lx-empty { padding: 26px 16px; text-align: center; color: var(--text-2); }
+.lx-empty::before { content: '?? ' / ''; color: var(--amber); font-weight: 700; }
+.lx-hint { color: var(--text-3); font-size: 12px; margin-top: 4px; }
+.lx-message { display: flex; align-items: center; gap: 8px; padding: 8px 16px; color: var(--danger); background: var(--danger-soft); font-size: 12.5px; border-top: 1px solid var(--danger); }
+.lx-message::before { content: 'ERR!' / ''; font-weight: 700; }
+
+/* ---------- keys: bracketed amber tokens ---------- */
+.keys { display: inline-flex; gap: 1px; }
+kbd, .keys kbd {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 700; line-height: 1; color: var(--amber);
+  min-width: 0; padding: 0; text-align: center; border: 0; border-radius: 0; background: transparent; white-space: nowrap;
+}
+kbd::before { content: '[' / ''; color: var(--text-3); font-weight: 400; }
+kbd::after { content: ']' / ''; color: var(--text-3); font-weight: 400; }
+.keys.small kbd { font-size: 11px; }
+.lx-row.selected kbd, .lx-row.selected kbd::before, .lx-row.selected kbd::after { color: var(--sel-text); }
+
+/* ---------- footer: status line ---------- */
+.lx-foot {
+  display: flex; align-items: center; gap: 14px; padding: 0 12px 0 16px; min-height: 34px;
+  background: var(--bg); border-top: 1px solid var(--border-strong); font-size: 11.5px; color: var(--text-3);
+}
+.lx-foot span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.lx-foot kbd { margin-right: 0; }
+.lx-spacer { flex: 1; }
+
+/* ---------- form ---------- */
+.lx-head { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 12px 12px 11px 16px; border-bottom: 1px solid var(--border-strong); background: var(--bg); }
+.lx-title { font-size: 15px; color: var(--accent); text-shadow: var(--glow); }
+.lx-title::before { content: '$ ' / ''; color: var(--text-3); text-shadow: none; }
+.lx-close { border: 0; background: none; color: var(--text-3); cursor: pointer; display: flex; padding: 4px; border-radius: 0; }
+.lx-close:hover { background: var(--danger-soft); color: var(--danger); }
+.lx-fields { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; max-height: 340px; overflow-y: auto; }
+.lx-field { display: flex; flex-direction: column; gap: 5px; }
+.lx-field > label { font-size: 12px; font-weight: 700; color: var(--text-2); display: flex; gap: 6px; align-items: baseline; letter-spacing: 0.03em; }
+.lx-field > label:not(.lx-check)::before { content: '--' / ''; color: var(--accent); }
+.lx-optional { font-weight: 400; color: var(--text-3); font-size: 11px; }
+.lx-optional::before { content: '(' / ''; }
+.lx-optional::after { content: ')' / ''; }
+.lx-input-row { display: flex; gap: 8px; }
+.lx-input {
+  width: 100%; height: 34px; border: 1px solid var(--border-strong); background: var(--bg);
+  border-radius: 0; padding: 0 10px; outline: none; user-select: text; caret-color: var(--accent);
+}
+.lx-input:hover { border-color: var(--text-3); }
+select.lx-input { padding: 0 26px 0 10px; cursor: pointer; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--accent) 50%), linear-gradient(135deg, var(--accent) 50%, transparent 50%);
+  background-position: right 13px center, right 8px center; background-size: 5px 5px; background-repeat: no-repeat; }
+select.lx-input option { background: var(--panel); color: var(--text); }
+.lx-input:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--halo); }
+.lx-field.invalid .lx-input { border-color: var(--danger); box-shadow: inset 3px 0 0 var(--danger); }
+.lx-loading { display: flex; align-items: center; gap: 8px; color: var(--text-3); }
+.lx-field-error { color: var(--danger); font-size: 11.5px; }
+.lx-field-error::before { content: 'ERR! ' / ''; font-weight: 700; }
+.lx-link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; font-weight: 700; text-decoration: underline dotted; text-underline-offset: 3px; }
+.lx-check { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; color: var(--text); }
+.lx-check input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.lx-track { width: 36px; height: 18px; border-radius: 0; background: var(--bg); border: 1px solid var(--border-strong); position: relative; transition: border-color 0.12s; flex: none; }
+.lx-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 0; background: var(--text-3); transition: transform 0.12s steps(3); }
+.lx-check input:checked + .lx-track { border-color: var(--accent); background: var(--accent-soft); }
+.lx-check input:checked + .lx-track::after { transform: translateX(18px); background: var(--accent); box-shadow: var(--glow); }
+.lx-check input:focus-visible + .lx-track { box-shadow: 0 0 0 1px var(--accent), var(--halo); }
+.lx-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 0; flex: none;
+  border: 1px solid var(--border-strong); background: var(--panel); cursor: pointer; font-weight: 700; font-size: 12.5px;
+}
+.lx-btn:hover { border-color: var(--accent); color: var(--accent); }
+.lx-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); box-shadow: var(--glow-soft); }
+.lx-btn.primary:hover { color: var(--accent-text); box-shadow: var(--halo); filter: brightness(1.08); }
+.lx-btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.lx-form .lx-foot { padding: 7px 8px 7px 16px; }
+
+/* ---------- alert ---------- */
+.lx-alert-text { padding: 14px 18px 4px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; user-select: text; line-height: 1.5; }
+.lx-alert-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 14px 16px 16px; }
+.lx-alert-actions .lx-btn { height: 34px; padding: 0 14px; max-width: 100%; }
+.lx-alert.arming .lx-alert-actions .lx-btn { opacity: 0.55; cursor: default; }
+.lx-num { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 5px; font-size: 11px; background: rgb(127 127 127 / 0.16); }
+.lx-btn.primary .lx-num { background: rgb(255 255 255 / 0.22); }
+.lx-alert-timer { color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes blink { 50% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lx-anim, .lx-caret, .spin { animation: none !important; }
+  .lx-track, .lx-track::after { transition: none; }
+}

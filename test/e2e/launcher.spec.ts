@@ -92,6 +92,8 @@ test('launcher: search, run with a form, values in script and environment', asyn
   await launcher.getByTestId('launcher-field-BRANCH').press('Enter');
   await expect.poll(() => read('deploy.txt'), { timeout: 15000 }).toBe('feature/x|prod|feature/x|true');
   await expect.poll(launcherVisible).toBe(false);
+  // the file is written before the process ends: wait until the entry is no longer running
+  await expect.poll(() => hook<boolean>("return tc.engine.get('deploy').busy"), { timeout: 15000 }).toBe(false);
 });
 
 test('launcher: last values are proposed, Esc goes back to the list, then closes', async () => {

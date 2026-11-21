@@ -501,6 +501,8 @@ input[type='checkbox']:disabled { opacity: 0.45; cursor: default; }
   font-family: var(--mono); font-size: 10.5px; padding: 1px 5px; color: var(--text-2);
   --c: 3px; --c2: 0px; --fill: transparent; --edge: currentColor;
 }
+/* a tag inside a cyan button: the button's own dark text, its edge drawn in that colour */
+.btn.primary .kbd, .btn.primary kbd { color: var(--accent-text); --edge: currentColor; --fill: transparent; opacity: 0.8; text-shadow: none; }
 @keyframes rise { from { transform: translate(-50%, 12px); opacity: 0; } }
 
 .toast {

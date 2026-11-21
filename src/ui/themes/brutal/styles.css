@@ -378,6 +378,8 @@ input::-webkit-datetime-edit-year-field:focus { background: var(--yellow); color
   border: var(--bw-sm) solid var(--ink); border-radius: var(--radius-xs); background: var(--panel);
   box-shadow: 0 2px 0 var(--ink); position: relative; top: -1px;
 }
+/* a keycap inside a coloured button: a white key with ink text, on yellow in light and dark */
+.btn.primary .kbd, .btn.primary kbd { background: #ffffff; color: var(--on-color); border-color: var(--ink); box-shadow: 0 2px 0 var(--ink); }
 @keyframes rise { from { transform: translate(-50%, 14px); opacity: 0; } }
 
 .toast {

@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test';
-import { editorWindow } from './support/windows';
+import { closeApp, editorWindow } from './support/windows';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -39,5 +39,5 @@ test('packaged app starts, loads the config and shows the welcome page', async (
   for (const look of ['aurora', 'terminal', 'brutal', 'neon']) {
     for (const ext of ['png', 'ico']) expect(fs.existsSync(path.join(assets, `icon-${look}.${ext}`)), `icon-${look}.${ext}`).toBe(true);
   }
-  await app.evaluate(({ app }) => app.exit(0));
+  await closeApp(app);
 });

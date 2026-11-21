@@ -104,6 +104,13 @@ if (validateArg) {
   cliExit({ ok: true, file, issues: [], warnings }, 0);
 }
 
+// end-to-end tests: windows covered by others (the launcher is always on top) keep painting, so screenshots never wait for a frame
+if (process.env.TRAYCOMMAND_E2E === '1') {
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+  app.commandLine.appendSwitch('disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);

@@ -183,6 +183,10 @@ for (const look of LOOKS) {
     await setDark(false);
     await expect.poll(async () => (await pageChrome(page)).bg).toBe(light.bg);
     await expect.poll(async () => JSON.stringify(savedChrome())).toBe(JSON.stringify(light));
+    // light and dark flipped quickly several times (as when saving re-applies "same as system"): the buttons end with the page
+    for (const d of [true, false, true, false, true, false]) await app.evaluate(({ nativeTheme }, dark) => (nativeTheme.themeSource = dark ? 'dark' : 'light'), d);
+    await expect.poll(() => page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(false);
+    await expect.poll(async () => JSON.stringify(savedChrome())).toBe(JSON.stringify(light));
     await setDark(true);
     await expect.poll(async () => (await pageChrome(page)).bg).not.toBe(light.bg);
     await page.getByTestId('tab-trays').click();

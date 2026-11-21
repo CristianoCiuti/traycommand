@@ -150,11 +150,15 @@ function App() {
 // the look: the one being chosen in the settings is shown at once; the window buttons follow it, light or dark
 applyStyle('aurora', EDITOR_CSS);
 const sendChrome = () => api.setChrome(chromeColors(), activeStyle.peek());
+/** After a change of light/dark the colours are read once the page has been drawn with it (never the old ones). */
+const sendChromeLater = () => requestAnimationFrame(() => requestAnimationFrame(sendChrome));
 effect(() => {
   applyStyle(activeStyle.value, EDITOR_CSS);
   sendChrome();
 });
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sendChrome);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sendChromeLater);
+// the system theme changed (also several times in a row): the main process asks for the colours again
+api.onChromeRequest(sendChromeLater);
 
 render(<App />, document.getElementById('app')!);
 void init();

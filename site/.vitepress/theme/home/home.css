@@ -58,7 +58,7 @@
 
 /* ---------- the desktop ---------- */
 .hs-story { position: relative; margin-top: calc(var(--vp-nav-height) * -1); }
-.hs-stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; overflow: clip; isolation: isolate; background: var(--hs-bg); }
+.hs-stage { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow: hidden; overflow: clip; isolation: isolate; background: var(--hs-bg); }
 .hs-reduced .hs-stage { position: relative; }
 .hs-wall {
   position: absolute; inset: -18%; z-index: -1; will-change: transform;
@@ -69,13 +69,13 @@
     radial-gradient(38% 42% at 28% 80%, var(--hs-a4), transparent 70%);
 }
 
-.hs-copy { position: absolute; left: var(--hs-side); top: calc(var(--vp-nav-height) + 7vh); width: min(660px, calc(100vw - 48px)); }
-.hs-appicon { width: 72px; height: 72px; margin-bottom: 20px; filter: drop-shadow(0 14px 30px var(--hs-glow)); }
+.hs-copy { position: absolute; left: var(--hs-side); top: calc(var(--vp-nav-height) + clamp(16px, 7vh, 72px)); width: min(660px, calc(100vw - 48px)); }
+.hs-appicon { width: clamp(44px, 8vh, 72px); height: clamp(44px, 8vh, 72px); margin-bottom: clamp(10px, 2.2vh, 20px); filter: drop-shadow(0 14px 30px var(--hs-glow)); }
 .hs h1 {
-  font: 700 clamp(44px, 6.2vw, 86px)/0.98 var(--hs-display); letter-spacing: -0.035em; margin: 0 0 22px; text-wrap: balance;
+  font: 700 clamp(40px, min(6.2vw, 10vh), 86px)/0.98 var(--hs-display); letter-spacing: -0.035em; margin: 0 0 clamp(12px, 2.4vh, 22px); text-wrap: balance;
   background: var(--hs-title); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.hs-hero p { font-size: clamp(17px, 1.5vw, 20px); line-height: 1.5; color: var(--hs-text-2); margin: 0 0 28px; max-width: 32em; }
+.hs-hero p { font-size: clamp(17px, 1.5vw, 20px); line-height: 1.5; color: var(--hs-text-2); margin: 0 0 clamp(16px, 3vh, 28px); max-width: 32em; }
 .hs-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .hs-btn {
   font: 600 16px/1 var(--hs-font); padding: 14px 22px; border-radius: 12px; text-decoration: none; color: #fff !important;
@@ -84,14 +84,16 @@
 .hs-btn.alt { background: var(--hs-panel); color: var(--hs-text) !important; border: 1px solid var(--hs-border); box-shadow: inset 0 1px 0 var(--hs-edge); }
 .hs-fine { display: block; margin-top: 18px; color: var(--hs-text-3); font-size: 14px; }
 
-.hs-cap { position: absolute; top: 0; left: 0; right: 0; }
-.hs-cap h2, .hs-still h2 { font: 700 clamp(30px, 3.6vw, 50px)/1.05 var(--hs-display); letter-spacing: -0.025em; margin: 0 0 16px; border: 0; padding: 0; text-wrap: balance; }
+/* the caption keeps to a narrow column so the windows on the right never cover it */
+.hs { --hs-capw: min(440px, 36vw); --hs-gap: 48px; }
+.hs-cap { position: absolute; top: 0; left: 0; width: var(--hs-capw); }
+.hs-cap h2, .hs-still h2 { font: 700 clamp(28px, min(3.4vw, 6.4vh), 48px)/1.05 var(--hs-display); letter-spacing: -0.025em; margin: 0 0 16px; border: 0; padding: 0; text-wrap: balance; }
 .hs-cap p, .hs-still p { font-size: 18px; line-height: 1.55; color: var(--hs-text-2); margin: 0 0 14px; max-width: 30em; }
 .hs-cap a, .hs-still a { font-weight: 600; text-decoration: none; }
 .hs-cap a:hover, .hs-still a:hover { text-decoration: underline; }
 
 /* the area on the right where the story's windows appear, one at a time */
-.hs-area { position: absolute; right: var(--hs-side); top: calc(var(--vp-nav-height) + 4vh); bottom: 84px; width: min(540px, 44vw); }
+.hs-area { position: absolute; right: var(--hs-side); top: calc(var(--vp-nav-height) + 4vh); bottom: 84px; width: min(540px, calc(100vw - 2 * var(--hs-side) - var(--hs-capw) - var(--hs-gap))); }
 .hs-area > * { position: absolute; left: 0; right: 0; top: 50%; margin: auto; translate: 0 -50%; }
 
 .hs-keys { display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--hs-text-3); font-size: 22px; }
@@ -149,7 +151,9 @@
 .hs-count span { display: block; height: 100%; background: var(--hs-grad); }
 .hs-countlabel { display: block; margin-top: 8px; color: var(--hs-text-3); font-size: 13px; font-variant-numeric: tabular-nums; }
 
-.hs-editor { position: absolute; right: var(--hs-side); bottom: 56px; width: min(780px, 56vw); transform-origin: bottom center; }
+.hs-editor { position: absolute; right: var(--hs-side); bottom: 56px; width: min(780px, calc(100vw - 2 * var(--hs-side) - var(--hs-capw) - var(--hs-gap))); transform-origin: bottom center; }
+/* never taller than the room between the nav and the taskbar */
+.hs-editor img { max-height: calc(100vh - var(--vp-nav-height) - 56px - 24px); object-fit: cover; object-position: top left; }
 .hs-editor img { display: block; width: 100%; border-radius: 16px 16px 0 0; border: 1px solid var(--hs-border); border-bottom: 0; box-shadow: var(--hs-shadow); }
 
 .hs-pointer { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; margin: -3px 0 0 -5px; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35)); }
@@ -196,7 +200,7 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 
 /* progress of the story, in the taskbar: one bar per scene, each fills as it plays */
 .hs-progress { display: flex; gap: 6px; max-width: 520px; }
-.hs-progress button { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 6px 4px; border: 0; background: none; cursor: pointer; text-align: left; border-radius: 6px; color: var(--hs-text-3); font: 600 12px/1 var(--hs-font); }
+.hs-progress button { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 6px 4px; border: 0; background: none; cursor: pointer; text-align: left; border-radius: 6px; color: var(--hs-text-3); font: 600 12px/1 var(--hs-font); white-space: nowrap; }
 .hs-progress button:hover { color: var(--hs-text); }
 .hs-progress button.now { color: var(--hs-text); }
 .hs-progress .bar { display: block; height: 3px; border-radius: 3px; background: var(--hs-border); overflow: hidden; }
@@ -211,6 +215,11 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 .hs-motion button:hover, .hs-stillbtn:hover { border-color: var(--hs-glow); }
 .hs-tleft { display: flex; align-items: center; gap: 12px; }
 .hs-stillbtn { flex: none; font-size: 12.5px; padding: 6px 10px; }
+.hs-stillbtn .short { display: none; }
+@media (max-width: 860px) {
+  .hs-stillbtn .long { display: none; }
+  .hs-stillbtn .short { display: inline; }
+}
 .hs-stills { max-width: 1240px; margin: 0 auto; padding: 96px 24px 24px; display: flex; flex-direction: column; gap: 96px; }
 .hs-still { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; }
 .hs-frame { position: relative; overflow: hidden; overflow: clip; isolation: isolate; border-radius: 18px; border: 1px solid var(--hs-border); background: var(--hs-bg); min-height: 440px; display: grid; place-items: center; padding: 32px 32px 72px; }
@@ -226,7 +235,7 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 /* ---------- looks: pinned, one look per stretch of scroll ---------- */
 .hs-looks { position: relative; height: 260vh; }
 .hs-reduced .hs-looks { height: auto; }
-.hs-lsticky { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; overflow: clip; isolation: isolate; }
+.hs-lsticky { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow: hidden; overflow: clip; isolation: isolate; }
 .hs-reduced .hs-lsticky { position: relative; height: auto; min-height: 100vh; }
 .hs-lstage { height: 100%; min-height: inherit; padding: var(--vp-nav-height) 24px 0; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; max-width: 1240px; margin: 0 auto; }
 .hs-lbg { position: absolute; inset: 0; z-index: -1; }
@@ -285,6 +294,7 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
   .hs h1 { font-size: clamp(38px, 11vw, 56px); }
   .hs-appicon { width: 56px; height: 56px; margin-bottom: 14px; }
   .hs-hero p { font-size: 16.5px; margin-bottom: 20px; }
+  .hs-cap { width: auto; right: 0; }
   .hs-cap h2 { font-size: clamp(26px, 7.5vw, 36px); }
   .hs-cap p { font-size: 16px; }
   .hs-area { left: 16px; right: 16px; width: auto; top: 46%; bottom: 72px; }
@@ -300,7 +310,8 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
   .hs-tray { position: relative; }
   .hs-menu { right: 0; width: min(290px, calc(100vw - 24px)); }
   .hs-progress .lbl { display: none; }
-  .hs-progress button { padding: 12px 2px; }
+  .hs-progress { flex: 1; width: 100%; } /* without labels the bars need a width of their own */
+  .hs-progress button { padding: 12px 2px; min-width: 18px; }
   .hs-still, .hs-lstage { grid-template-columns: 1fr; gap: 24px; }
   .hs-frame { min-height: 380px; padding: 20px 16px 64px; }
   .hs-frame-menu { right: 16px; }
@@ -311,6 +322,17 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 }
 @media (max-width: 860px) and (max-height: 760px) {
   .hs-hero p, .hs-fine { display: none; }
+}
+@media (min-width: 861px) and (max-height: 660px) {
+  .hs-fine { display: none; }
+}
+
+/* phones and short windows: text, picker and picture don't fit one screen, so the looks
+   are not pinned (the picture would be cut); the look is chosen with the icons */
+@media (max-width: 860px), (max-height: 700px) {
+  .hs-looks { height: auto; }
+  .hs-lsticky { position: relative; height: auto; min-height: 0; }
+  .hs-lstage { height: auto; padding-top: 72px; padding-bottom: 48px; }
 }
 
 /* reduced motion: nothing moves on its own */

@@ -194,7 +194,8 @@ function measure(now = performance.now()) {
     t.value = (y - STARTS[i]) / SEG[i];
   }
   placePointer();
-  if (!reduced.value && looksEl.value) {
+  const pinned = looksEl.value && getComputedStyle(looksEl.value.firstElementChild as Element).position === 'sticky';
+  if (!reduced.value && looksEl.value && pinned) { // not pinned (phones, short windows): icons only
     const r = looksEl.value.getBoundingClientRect();
     const span = r.height - vh;
     const p = span > 0 ? clamp(-r.top / span, 0, 0.9999) : 0;
@@ -322,7 +323,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
               </button>
             </nav>
             <span v-else class="hs-hint">Try the icons down here</span>
-            <button v-if="forced && !reduced" class="hs-stillbtn" @click="setMotion(false)">Show still pictures</button>
+            <button v-if="forced && !reduced" class="hs-stillbtn" @click="setMotion(false)"><span class="long">Show still pictures</span><span class="short">Still</span></button>
           </template>
         </TaskbarBar>
       </div>

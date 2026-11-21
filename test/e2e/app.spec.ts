@@ -49,7 +49,8 @@ test('lists trays with state, hidden badge and icons', async () => {
   const rows = page.getByTestId('tray-row');
   await expect(rows).toHaveCount(4);
   await expect(rows.nth(3)).toContainText('hidden');
-  await expect(rows.nth(0)).toContainText('OFF', { timeout: 15000 });
+  // the first state check starts PowerShell for the first time: slow on a cold CI runner
+  await expect(rows.nth(0)).toContainText('OFF', { timeout: 30000 });
   await expect(rows.nth(1)).toContainText('OFF');
   await shot('01-trays');
 });

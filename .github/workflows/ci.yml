@@ -31,7 +31,7 @@ jobs:
       - run: npm run build
       - name: End-to-end tests (Electron)
         if: matrix.os == 'windows-latest'
-        run: npx playwright test test/e2e/app.spec.ts test/e2e/launcher.spec.ts
+        run: npx playwright test test/e2e/app.spec.ts test/e2e/launcher.spec.ts test/e2e/looks.spec.ts test/e2e/transfer.spec.ts
       - uses: actions/upload-artifact@v7
         if: always() && matrix.os == 'windows-latest'
         with:

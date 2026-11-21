@@ -15,7 +15,7 @@
  * Clicks work in both: the Proxy icon opens its menu, the toggle flips, the Web server
  * icon flips. A click holds until the story moves to another scene.
  */
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { withBase } from 'vitepress';
 import TaskbarBar from './home/TaskbarBar.vue';
 import TrayMenu from './home/TrayMenu.vue';
@@ -31,7 +31,7 @@ const releases = 'https://github.com/CristianoCiuti/traycommand/releases/latest'
 const reduced = ref(false);
 const forced = ref(false);
 let mq: MediaQueryList | null = null;
-const onMq = () => { reduced.value = !!mq?.matches && !forced.value; requestAnimationFrame(measure); };
+const onMq = () => { reduced.value = !!mq?.matches && !forced.value; nextTick(fitLayout); requestAnimationFrame(measure); };
 function setMotion(on: boolean) {
   forced.value = on;
   try { on ? sessionStorage.setItem('hs-motion', 'on') : sessionStorage.removeItem('hs-motion'); } catch { /* storage blocked */ }
@@ -96,10 +96,11 @@ const toastAlpha = computed(() => Math.max(s.value === 1 ? win(t.value, 0.6, 0.6
 const rowHover = computed(() => s.value === 1 && t.value > 0.4 && t.value < 0.56);
 
 /* scene 2: keys, launcher, typing, Enter */
-const keysAlpha = computed(() => (s.value === 2 ? win(t.value, 0, 0.04, 0.25, 0.31) : 0));
+/* the keys are gone before the launcher shows: on a phone both sit in the same place */
+const keysAlpha = computed(() => (s.value === 2 ? win(t.value, 0, 0.04, 0.24, 0.29) : 0));
 const keyDown = computed(() => ({ ctrl: s.value === 2 && t.value > 0.07, alt: s.value === 2 && t.value > 0.12, space: s.value === 2 && t.value > 0.17 }));
-const launcherAlpha = computed(() => (s.value === 2 ? win(t.value, 0.22, 0.29, 0.88, 0.95) : 0));
-const query = computed(() => (s.value === 2 && t.value >= 0.33 ? 'web'.slice(0, Math.min(3, Math.floor((t.value - 0.33) / 0.07) + 1)) : ''));
+const launcherAlpha = computed(() => (s.value === 2 ? win(t.value, 0.29, 0.35, 0.88, 0.95) : 0));
+const query = computed(() => (s.value === 2 && t.value >= 0.37 ? 'web'.slice(0, Math.min(3, Math.floor((t.value - 0.37) / 0.07) + 1)) : ''));
 const enterDown = computed(() => s.value === 2 && t.value > 0.6 && t.value < 0.67);
 const webOn = computed(() => manual.web ?? (s.value > 2 || (s.value === 2 && t.value >= 0.64)));
 
@@ -203,6 +204,52 @@ function measure(now = performance.now()) {
     if (byScroll !== lookByScroll) { lookByScroll = byScroll; look.value = byScroll; }
   }
 }
+/*
+ * Layout that depends on real sizes. On narrow screens the windows go under the captions:
+ * --hs-captop is where the longest caption ends. Each window of the story then gets --fit,
+ * the scale that makes it fit the room left (never above 1).
+ */
+const STACKED = '(max-width: 639px), (max-width: 860px) and (min-height: 521px)'; // same as home.css
+function fitLayout() {
+  const st = stage.value;
+  if (!st) return;
+  const copy = st.querySelector<HTMLElement>('.hs-copy');
+  const caps = [...st.querySelectorAll<HTMLElement>('.hs-cap')];
+  const tray = [st.querySelector<HTMLElement>('.hs-menu'), st.querySelector<HTMLElement>('.hs-toast-pos')];
+  if (window.matchMedia(STACKED).matches && copy && caps.length) {
+    const stTop = st.getBoundingClientRect().top;
+    const capBottom = copy.getBoundingClientRect().top - stTop + Math.max(...caps.map((c) => c.offsetHeight)) + 16;
+    st.style.setProperty('--hs-captop', `${Math.round(capBottom)}px`);
+    // the tray menu and the notification rise from the taskbar: shrink them to stay under the text
+    const barTop = (st.querySelector<HTMLElement>('.hs-taskbar')?.getBoundingClientRect().top ?? 0) - stTop;
+    for (const el of tray) {
+      if (!el?.offsetHeight) continue;
+      el.style.setProperty('--fit', Math.min(1, (barTop - 14 - capBottom) / el.offsetHeight).toFixed(3));
+    }
+  } else {
+    st.style.removeProperty('--hs-captop');
+    // side by side: the menu and the notification stop before the text column (both shrink
+    // from their right edge, which stays where it is)
+    const capRight = copy && caps.length ? Math.max(...caps.map((c) => c.getBoundingClientRect().right)) : 0;
+    for (const el of tray) {
+      if (!el?.offsetWidth) continue;
+      el.style.setProperty('--fit', Math.min(1, (el.getBoundingClientRect().right - capRight - 16) / el.offsetWidth).toFixed(3));
+    }
+  }
+  const area = st.querySelector<HTMLElement>('.hs-area');
+  if (!area) return;
+  const aw = area.clientWidth;
+  const ah = area.clientHeight;
+  for (const el of [...area.children] as HTMLElement[]) {
+    if (!el.offsetHeight) continue;
+    el.style.setProperty('--fit', Math.min(1, ah / el.offsetHeight, aw / el.offsetWidth).toFixed(3));
+  }
+}
+function onResize() {
+  fitLayout();
+  onScroll();
+}
+
 function onScroll() {
   if (raf) return;
   if (!lastFrame) lastFrame = performance.now(); // the first eased frame starts from here
@@ -217,13 +264,15 @@ onMounted(() => {
   reduced.value = mq.matches && !forced.value;
   mq.addEventListener('change', onMq);
   window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onScroll);
+  window.addEventListener('resize', onResize);
+  nextTick(fitLayout);
+  document.fonts?.ready.then(fitLayout); // the captions' height depends on the font
   requestAnimationFrame(measure);
 });
 onBeforeUnmount(() => {
   mq?.removeEventListener('change', onMq);
   window.removeEventListener('scroll', onScroll);
-  window.removeEventListener('resize', onScroll);
+  window.removeEventListener('resize', onResize);
   cancelAnimationFrame(raf);
   clearTimeout(toastTimer);
 });

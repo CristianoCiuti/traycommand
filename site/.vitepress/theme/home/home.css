@@ -308,7 +308,7 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
   .hs-keys kbd.wide { min-width: 110px; }
   .hs-editor { left: 16px; right: 16px; width: auto; }
   .hs-editor img { max-height: calc(100dvh - var(--hs-captop, 50vh) - 56px); }
-  .hs-toast-pos { left: 12px; right: 12px; width: auto; }
+  .hs-toast-pos { width: min(340px, calc(100vw - 24px)); } /* a notification keeps its size, in the corner */
   .hs-sys { display: none; }
   .hs-taskbar { gap: 8px; padding-left: 12px; }
   /* no room left of the icon: the menu hangs from the right end of the tray instead */

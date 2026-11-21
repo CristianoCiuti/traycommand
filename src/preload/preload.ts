@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
-import type { TrayCommandApi } from '../shared/api';
+import type { LauncherApi, TrayCommandApi } from '../shared/api';
 
 const invoke = (channel: string) => (...args: unknown[]) => ipcRenderer.invoke(channel, ...args);
 function subscribe<T>(channel: string) {
@@ -48,6 +48,26 @@ const api: TrayCommandApi = {
   declineSkill: invoke('skills:decline') as TrayCommandApi['declineSkill'],
   onSkills: subscribe('skills'),
   windowControl: (action) => ipcRenderer.send('window', action),
+  hotkeys: invoke('hotkeys') as TrayCommandApi['hotkeys'],
+  onHotkeys: subscribe('hotkeys'),
+  openLauncher: invoke('launcher:open') as TrayCommandApi['openLauncher'],
+  recordingHotkey: (on) => ipcRenderer.send('hotkeys:recording', on),
+  schedulesPaused: invoke('schedules:paused') as TrayCommandApi['schedulesPaused'],
+  setSchedulesPaused: invoke('schedules:setPaused') as TrayCommandApi['setSchedulesPaused'],
+  launcher: {
+    onShow: subscribe('launcher:show'),
+    onPrompt: subscribe('launcher:prompt'),
+    onHide: (handler) => subscribe<void>('launcher:hide')(() => handler()),
+    onBack: (handler) => subscribe<void>('launcher:back')(() => handler()),
+    run: invoke('launcher:run') as LauncherApi['run'],
+    submit: (id, values) => ipcRenderer.send('launcher:submit', id, values),
+    cancel: (id, back) => ipcRenderer.send('launcher:cancel', id, back),
+    options: invoke('launcher:options') as LauncherApi['options'],
+    pick: invoke('launcher:pick') as LauncherApi['pick'],
+    edit: (key) => ipcRenderer.send('launcher:edit', key),
+    close: () => ipcRenderer.send('launcher:close'),
+    resize: (height) => ipcRenderer.send('launcher:resize', height),
+  },
 };
 
 contextBridge.exposeInMainWorld('traycommand', api);

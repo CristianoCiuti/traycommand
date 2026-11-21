@@ -223,6 +223,84 @@ With `terminal` TrayCommand only knows whether the terminal was opened: the resu
 }
 ```
 
+## Check out a branch (form with choices from git)
+
+A menu entry that lists the branches of a repository and checks out the one you pick. Give the tray a shortcut and the whole thing is keyboard only: shortcut, arrows, <kbd>Enter</kbd>.
+
+```json
+{
+  "label": "Check out branch…",
+  "action": {
+    "run": "git checkout $env:BRANCH",
+    "cwd": "C:/projects/app",
+    "notify": "Now on ${BRANCH}",
+    "inputs": [
+      {
+        "name": "BRANCH",
+        "label": "Branch",
+        "type": "select",
+        "optionsCommand": "git branch --format=%(refname:short)"
+      }
+    ]
+  }
+}
+```
+
+`$env:BRANCH` (instead of `${BRANCH}` in the script) keeps any character of the value safe.
+
+## Deploy with a form
+
+```json
+{
+  "id": "deploy",
+  "label": "Deploy",
+  "hotkey": "Ctrl+Alt+D",
+  "action": {
+    "run": "./deploy.ps1 -Branch $env:BRANCH -Target $env:TARGET -DryRun:$([bool]::Parse($env:DRY))",
+    "cwd": "C:/projects/app",
+    "confirm": "Deploy ${BRANCH} to ${TARGET}?",
+    "inputs": [
+      { "name": "BRANCH", "label": "Branch", "default": "main" },
+      { "name": "TARGET", "label": "Environment", "type": "select", "options": ["dev", "test", { "value": "prod", "label": "Production" }] },
+      { "name": "DRY", "label": "Dry run", "type": "checkbox", "default": true },
+      { "name": "TICKET", "label": "Ticket", "pattern": "[A-Z]+-\\d+", "optional": true }
+    ]
+  }
+}
+```
+
+## Every morning: start the VPN, open the day
+
+```json
+{
+  "id": "vpn",
+  "label": "VPN",
+  "state": { "check": "(Get-VpnConnection -Name Work).ConnectionStatus", "on": "Connected", "interval": 15 },
+  "action": "rasdial Work",
+  "offAction": "rasdial Work /disconnect",
+  "schedules": [
+    { "cron": "50 8 * * 1-5", "run": "on" },
+    { "cron": "0 19 * * 1-5", "run": "off" }
+  ]
+}
+```
+
+`"run": "on"` does nothing when the VPN is already connected.
+
+## Clean up every few hours
+
+A hidden tray that only exists for its schedule:
+
+```json
+{
+  "id": "cleanup",
+  "label": "Clean build folders",
+  "hidden": true,
+  "action": "Get-ChildItem C:/projects -Directory -Recurse -Filter node_modules -Depth 2 | Where-Object LastWriteTime -lt (Get-Date).AddDays(-30) | Remove-Item -Recurse -Force",
+  "schedules": [{ "every": "6h" }, { "startup": true }]
+}
+```
+
 ## Timeout
 
 Stop a script that hangs. After `timeout` seconds the process and its children are killed and an error is notified.

@@ -1,5 +1,5 @@
 import { computed, signal } from '@preact/signals';
-import type { AppInfo, EntryStatus, ExecutionLog, SkillsInfo, UpdateInfo } from '../shared/api';
+import type { AppInfo, EntryStatus, ExecutionLog, HotkeyStatus, SkillsInfo, UpdateInfo } from '../shared/api';
 import { type Config, type MenuEntry, type MenuNode, type Tray, isSeparator, parseConfig, type ConfigIssue } from '../shared/config';
 
 export const api = window.traycommand;
@@ -18,6 +18,9 @@ export const skillsSnoozed = signal(false);
 export const route = signal<string>(location.hash.replace(/^#/, '') || '/');
 /** Path of the selected entry: [trayIndex, menuIndex, ...] */
 export const selection = signal<number[]>([]);
+/** Registration result of every global shortcut (only what is saved is registered). */
+export const hotkeyStatus = signal<HotkeyStatus[]>([]);
+export const schedulesPaused = signal(false);
 export const toast = signal<{ text: string; kind: 'ok' | 'error' } | undefined>(undefined);
 
 /** JSON with sorted keys, so that key order does not count as a change. */
@@ -30,11 +33,32 @@ export function stableStringify(value: unknown): string {
 export const dirty = computed(() => stableStringify(saved.value) !== stableStringify(draft.value));
 export const validation = computed(() => (draft.value ? parseConfig(draft.value) : undefined));
 
-export function navigate(to: string) {
-  location.hash = to;
-  route.value = to;
+/** "trays[1].menu[0]" → [1, 0] */
+export function pathOfKey(key: string): number[] | undefined {
+  const m = /^trays\[(\d+)\]((?:\.menu\[\d+\])*)$/.exec(key);
+  if (!m) return undefined;
+  return [Number(m[1]), ...[...m[2]!.matchAll(/\[(\d+)\]/g)].map((x) => Number(x[1]))];
 }
-window.addEventListener('hashchange', () => (route.value = location.hash.replace(/^#/, '') || '/'));
+
+/** "/entry/<key>" selects that entry in the tray editor (used by the launcher's Ctrl+E). */
+function resolveRoute(to: string): string {
+  if (!to.startsWith('/entry/')) return to;
+  const p = pathOfKey(decodeURIComponent(to.slice('/entry/'.length)));
+  if (p) selection.value = p;
+  return '/';
+}
+
+export function navigate(to: string) {
+  const target = resolveRoute(to);
+  location.hash = target;
+  route.value = target;
+}
+window.addEventListener('hashchange', () => {
+  const raw = location.hash.replace(/^#/, '') || '/';
+  const target = resolveRoute(raw);
+  if (target !== raw) location.hash = target;
+  route.value = target;
+});
 
 let toastTimer: number | undefined;
 export function showToast(text: string, kind: 'ok' | 'error' = 'ok') {
@@ -69,7 +93,11 @@ export async function init() {
   api.onUpdate((u) => (update.value = u));
   api.onNavigate((to) => navigate(to));
   api.onSkills((s) => (skills.value = s));
+  api.onHotkeys((h) => (hotkeyStatus.value = h));
   skills.value = await api.skills();
+  hotkeyStatus.value = await api.hotkeys();
+  schedulesPaused.value = await api.schedulesPaused();
+  if (route.value.startsWith('/entry/')) navigate(route.value);
   if (draft.value?.trays.length && selection.value.length === 0) selection.value = [0];
 }
 

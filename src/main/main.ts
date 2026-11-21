@@ -1,18 +1,22 @@
-import { app, dialog, ipcMain, Notification, shell, type IpcMainInvokeEvent } from 'electron';
+import { app, dialog, ipcMain, Notification, powerMonitor, shell, type IpcMainInvokeEvent } from 'electron';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { isSeparator, normalizeAction, parseConfig, SCHEMA_URL, type Action, type Config, type MenuEntry, type MenuNode, type Tray } from '../shared/config';
 import { expand } from '../shared/variables';
-import type { AgentSkillInfo, AppInfo, ExecutionLog, LoadedConfig, SaveResult, SkillsInfo, TestResult } from '../shared/api';
+import type { AgentSkillInfo, AppInfo, ExecutionLog, LauncherItem, LauncherShow, LoadedConfig, SaveResult, SkillsInfo, TestResult } from '../shared/api';
+import { canonicalHotkey, formatHotkey } from '../shared/hotkey';
 import { defaultShell } from './shell';
 import { installSkill, planSkills, renderSkill, skillStatus, uninstallSkill, type SkillEnv } from './skills';
 import { AppStateStore } from './appState';
 import { defaultAutostartEnv, disableAutostart, isAutostartEnabled, startupFolder, syncAutostart, type LaunchTarget } from './autostart';
 import { ConfigStore } from './configStore';
 import { createAdminRunner, disableElevatedScript, enableElevatedScript, runElevatedOnce, runElevatedTask } from './elevation';
-import { evaluateState, Engine } from './engine';
+import { evaluateState, Engine, type ActionKind, type RuntimeEntry } from './engine';
+import { HotkeyManager, type HotkeyBinding } from './hotkeys';
+import { Launcher } from './launcher';
+import { LauncherStore } from './launcherStore';
 import { iconDataUrl } from './icons';
 import { installForUser, isInstalled, startMenuShortcut } from './install';
 import { LogStore } from './logStore';
@@ -103,6 +107,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 const logs = new LogStore(path.join(dataDir, 'logs'));
+const launcherStore = new LauncherStore(path.join(dataDir, 'launcher.json'));
 
 /* ---------------- notifications & dialogs ---------------- */
 
@@ -124,13 +129,134 @@ async function confirm(title: string, text: string) {
 
 /* ---------------- engine, store, trays ---------------- */
 
-const engine = new Engine({
+const engine: Engine = new Engine({
   run: runScript,
   runAdmin: createAdminRunner(),
   notify,
   confirm,
   log: (entry) => logs.add(entry),
+  prompt: (request): Promise<Record<string, string> | undefined> => launcher.prompt(request),
+  memory: launcherStore,
 });
+engine.setSchedulesPaused(state.get().schedulesPaused === true);
+
+/* ---------------- launcher & global shortcuts ---------------- */
+
+const iconUrls = new Map<string, string | undefined>();
+function iconUrl(file: string | undefined) {
+  if (!file) return undefined;
+  if (!iconUrls.has(file)) iconUrls.set(file, iconDataUrl(file));
+  return iconUrls.get(file);
+}
+
+const usageKey = (e: RuntimeEntry) => e.entry.id ?? e.key;
+
+/** Why an entry cannot run right now (busy, or enabledWhen not satisfied). */
+function unavailable(e: RuntimeEntry): string {
+  if (e.busy) return 'Still running, try again when it finishes';
+  if (engine.isDisabled(e)) return 'Disabled';
+  const cond = e.entry.enabledWhen;
+  if (cond) {
+    const target = engine.get(cond.replace(/^!/, ''));
+    return `Available only while ${target ? engine.label(target) : cond} is ${cond.startsWith('!') ? 'OFF' : 'ON'}`;
+  }
+  return 'Not available right now';
+}
+
+function launcherItems(): LauncherItem[] {
+  const items: LauncherItem[] = [];
+  for (const e of engine.all) {
+    if (engine.isDisabled(e)) continue;
+    const kind = engine.clickKind(e);
+    const group = e.children.some((c) => c !== 'separator');
+    if (!kind && !e.entry.rightAction && !group) continue;
+    items.push({
+      key: e.key,
+      id: e.entry.id,
+      label: engine.label(e),
+      path: engine.pathLabel(e),
+      icon: iconUrl(engine.iconFor(e)),
+      kind: kind === 'right' ? undefined : kind,
+      toggle: !!e.entry.state,
+      on: e.entry.state ? e.on : undefined,
+      enabled: engine.isEnabled(e),
+      busy: e.busy,
+      hidden: !engine.isActive(e),
+      hotkey: e.entry.hotkey ? canonicalHotkey(e.entry.hotkey) : undefined,
+      hasInputs: kind ? engine.needsInput(e, kind) : false,
+      alternate: !!e.entry.rightAction,
+      group,
+      recent: launcherStore.rank(usageKey(e)),
+    });
+  }
+  return items;
+}
+
+const launcher: Launcher = new Launcher(
+  {
+    show: (scope): LauncherShow => {
+      const s = scope ? engine.get(scope) : undefined;
+      const hk = store.loaded?.ok ? store.loaded.config.settings.launcherHotkey : undefined;
+      return { items: launcherItems(), scope: s?.key, scopeLabel: s ? engine.label(s) : undefined, hotkey: hk ? canonicalHotkey(hk) : undefined, platform: process.platform };
+    },
+    run: (key, alternate) => {
+      const e = engine.get(key);
+      if (!e) return { ok: false, message: 'This entry no longer exists' };
+      const kind: ActionKind | undefined = alternate ? (e.entry.rightAction ? 'right' : undefined) : engine.clickKind(e);
+      if (!kind) return { ok: false, message: alternate ? 'No right click action' : 'Nothing to run' };
+      if (!engine.isEnabled(e)) return { ok: false, message: unavailable(e) };
+      launcherStore.bump(usageKey(e));
+      const keepOpen = engine.needsInput(e, kind);
+      void engine.trigger(e, kind, { source: 'launcher' });
+      return { ok: true, keepOpen };
+    },
+    options: (id, name) => engine.inputOptions(id, name),
+    edit: (key) => showWindow(state, `/entry/${key}`, devUrl),
+  },
+  devUrl,
+);
+
+const hotkeys = new HotkeyManager();
+const reportedHotkeys = new Set<string>();
+
+function hotkeyFired(key: string) {
+  const e = engine.get(key);
+  if (!e) return;
+  const kind = engine.clickKind(e);
+  if (!kind) {
+    // a tray or sub menu without an action: open the launcher on its menu
+    if (e.children.length && !engine.isDisabled(e)) void launcher.open(e.key);
+    return;
+  }
+  if (!engine.isEnabled(e)) {
+    notify(engine.label(e), unavailable(e), 'warning');
+    return;
+  }
+  launcherStore.bump(usageKey(e));
+  void engine.trigger(e, kind, { source: 'hotkey' });
+}
+
+function applyHotkeys(config: Config) {
+  const bindings: HotkeyBinding[] = [];
+  if (config.settings.launcherHotkey) bindings.push({ path: 'settings.launcherHotkey', hotkey: config.settings.launcherHotkey, label: 'Launcher', handler: () => void launcher.toggle() });
+  for (const e of engine.all) {
+    if (e.entry.hotkey) bindings.push({ path: e.key, hotkey: e.entry.hotkey, label: engine.label(e), handler: () => hotkeyFired(e.key) });
+  }
+  hotkeys.apply(bindings);
+  for (const f of hotkeys.failures()) {
+    const id = `${f.hotkey}|${f.error}`;
+    if (reportedHotkeys.has(id)) continue;
+    reportedHotkeys.add(id);
+    notify('TrayCommand', `Shortcut ${formatHotkey(f.hotkey, process.platform)} (${f.label}) does not work: ${f.error}`, 'warning', f.path === 'settings.launcherHotkey' ? '/settings' : '/');
+  }
+}
+
+function setSchedulesPaused(paused: boolean) {
+  engine.setSchedulesPaused(paused);
+  state.update({ schedulesPaused: paused || undefined });
+  trays?.scheduleSync();
+  return paused;
+}
 
 let configError: string | undefined;
 
@@ -143,8 +269,10 @@ function applyLoaded(loaded: LoadedConfig) {
     return;
   }
   configError = undefined;
+  iconUrls.clear();
   engine.load(loaded.config, store.dir);
   engine.start();
+  if (app.isReady()) applyHotkeys(loaded.config);
   applyTheme(loaded.config.settings.theme);
   applySettings(loaded.config);
   if (skillsStarted && skillsAutomatic && loaded.config.settings.skillUpdates === 'auto') {
@@ -327,6 +455,9 @@ function startupSkills(windowShown: boolean) {
 }
 
 function quit() {
+  hotkeys.dispose();
+  launcher.destroy();
+  launcherStore.flush();
   trays?.destroy();
   engine.stop();
   store.unwatch();
@@ -508,6 +639,12 @@ function registerIpc() {
     }
     return r;
   });
+  handle('hotkeys', () => hotkeys.status());
+  handle('launcher:open', () => launcher.open());
+  ipcMain.on('hotkeys:recording', (_e, on: boolean) => hotkeys.suspend(!!on));
+  handle('schedules:paused', () => engine.schedulesPaused);
+  handle('schedules:setPaused', (paused: boolean) => setSchedulesPaused(!!paused));
+  hotkeys.onChange((s) => sendToWindow('hotkeys', s));
   ipcMain.on('window', (_e, action: 'minimize' | 'maximize' | 'close') => {
     const w = currentWindow();
     if (!w) return;
@@ -527,7 +664,29 @@ let statusTimer: NodeJS.Timeout | undefined;
 
 /* ---------------- startup ---------------- */
 
-app.on('second-instance', () => showWindow(state, '/', devUrl));
+/** --launcher opens the launcher, --run=<id> runs an entry (for other tools, or where global shortcuts do not work). */
+function handleArgs(args: string[]): boolean {
+  if (args.includes('--launcher')) {
+    void launcher.open();
+    return true;
+  }
+  const run = args.find((a) => a.startsWith('--run='))?.slice(6);
+  if (run) {
+    const e = engine.get(run);
+    if (!e) notify('TrayCommand', `No entry with id "${run}"`, 'error');
+    else {
+      const kind = engine.clickKind(e);
+      if (kind) void engine.trigger(e, kind, { source: 'cli' });
+      else if (e.children.length) void launcher.open(e.key);
+    }
+    return true;
+  }
+  return false;
+}
+
+app.on('second-instance', (_e, args) => {
+  if (!handleArgs(args)) showWindow(state, '/', devUrl);
+});
 app.on('window-all-closed', () => {
   /* keep running in the tray */
 });
@@ -547,15 +706,22 @@ void app.whenReady().then(() => {
     update: () => (updater.state.state === 'available' && updater.state.latest ? { version: updater.state.latest } : undefined),
     installUpdate: () => void updater.install(quit),
     configError: () => configError,
+    openLauncher: () => void launcher.open(),
+    launcherHotkey: () => (store.loaded?.ok ? store.loaded.config.settings.launcherHotkey : undefined),
+    hasSchedules: () => engine.all.some((e) => e.entry.schedules?.some((s) => !s.disabled)),
+    schedulesPaused: () => engine.schedulesPaused,
+    setSchedulesPaused: (paused) => void setSchedulesPaused(paused),
   });
 
   // test hook: lets the end-to-end tests inspect tray menus and drive the engine
-  if (process.env.TRAYCOMMAND_E2E === '1') (globalThis as Record<string, unknown>).__traycommand = { engine, trays, store };
+  if (process.env.TRAYCOMMAND_E2E === '1') (globalThis as Record<string, unknown>).__traycommand = { engine, trays, store, launcher, hotkeys, hotkeyFired };
 
   const loaded = store.load();
   applyLoaded(loaded);
   store.watch();
   trays.sync();
+  powerMonitor.on('resume', () => engine.rearmSchedules());
+  powerMonitor.on('unlock-screen', () => engine.rearmSchedules());
 
   // Opt-in elevated mode: the logon task replaces the Startup shortcut.
   if (state.get().startElevated && process.platform === 'win32') {
@@ -594,9 +760,13 @@ void app.whenReady().then(() => {
   state.update({ lastVersion: app.getVersion() });
   const settings = loaded.ok ? loaded.config.settings : undefined;
   const showNow = !flag('hidden') || firstRun;
-  if (showNow) showWindow(state, app.isPackaged && !isInstalled() && process.platform !== 'darwin' ? '/welcome' : '/', devUrl);
+  const fromArgs = handleArgs(argv);
+  if (showNow && !(fromArgs && !firstRun)) showWindow(state, app.isPackaged && !isInstalled() && process.platform !== 'darwin' ? '/welcome' : '/', devUrl);
   else if (settings?.notifyOnStartup) notify('TrayCommand', 'Running in the tray');
   startupSkills(showNow);
   skillsStarted = true;
+  // the launcher is loaded in the background right after start-up (the editor window comes first),
+  // so that its shortcut only has to show it
+  setTimeout(() => launcher.create(), 300);
 });
 

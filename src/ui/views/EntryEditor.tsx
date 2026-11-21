@@ -1,7 +1,10 @@
-import { ChevronRight, Copy, Eye, EyeOff, ListTree, MousePointerClick, MousePointer2, Power, Trash2, ToggleRight, Ban, Link2 } from 'lucide-preact';
+import { ChevronRight, Copy, Eye, EyeOff, ListTree, MousePointerClick, MousePointer2, Power, Trash2, ToggleRight, Ban, Link2, Keyboard, CalendarClock } from 'lucide-preact';
 import type { MenuEntry, Tray } from '../../shared/config';
 import { allIds, draft, entryAt, issuesFor, mutate, selection, siblingsOf, status, statusKey, uniqueId, updateEntry, type AnyEntry } from '../store';
-import { isSeparator, type MenuNode } from '../../shared/config';
+import { isSeparator, normalizeAction, type MenuNode } from '../../shared/config';
+import { HotkeyInput } from '../components/HotkeyInput';
+import { SchedulesEditor } from './SchedulesEditor';
+import { schedulesPaused } from '../store';
 import { Card, Field, Switch } from '../components/ui';
 import { ActionEditor, AddActionButton } from './ActionEditor';
 import { StateEditor } from './StateEditor';
@@ -55,6 +58,7 @@ export function EntryEditor(props: { path: number[] }) {
         if (isSeparator(n as MenuNode)) return;
         const e = n as AnyEntry;
         if (e.id) e.id = uniqueId(c, e.id);
+        delete e.hotkey; // a shortcut can belong to one entry only
         e.menu?.forEach(renumber);
       };
       renumber(copy);
@@ -155,6 +159,36 @@ export function EntryEditor(props: { path: number[] }) {
           {tray.rightAction !== undefined && <ActionEditor value={tray.rightAction} onChange={(v) => setKey('rightAction', v as never)} />}
         </Card>
       )}
+
+      <Card
+        title="Keyboard shortcut"
+        icon={<Keyboard size={16} />}
+        desc={entry.action ? 'Works from any application, like a click' : entry.menu?.length ? 'Opens the launcher on this menu' : 'Add an action or a menu first'}
+        actions={<HotkeyInput value={entry.hotkey} onChange={(v) => setKey('hotkey', v as never)} statusPath={statusKey(path)} testId="entry-hotkey" />}
+        testId="card-hotkey"
+      />
+
+      <Card
+        title="Schedule"
+        icon={<CalendarClock size={16} />}
+        desc={
+          st?.nextRun
+            ? `Next run ${new Date(st.nextRun).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+            : schedulesPaused.value && entry.schedules?.length
+              ? 'Paused from the tray menu'
+              : 'Run automatically'
+        }
+        testId="card-schedule"
+      >
+        <SchedulesEditor
+          value={entry.schedules}
+          onChange={(v) => setKey('schedules', v as never)}
+          isToggle={!!entry.state}
+          hasOff={entry.offAction !== undefined}
+          hasRight={isTray && tray.rightAction !== undefined}
+          action={normalizeAction(entry.action)}
+        />
+      </Card>
 
       <Card title={isTray ? 'Menu' : 'Sub menu'} icon={<ListTree size={16} />} desc={`${(entry.menu ?? []).length} ${(entry.menu ?? []).length === 1 ? 'entry' : 'entries'}`} testId="card-menu">
         <MenuEditor path={path} />

@@ -4,6 +4,8 @@ import type { RunningInfo } from '../../shared/api';
 import { api, info, logs } from '../store';
 import { Card, formatDuration, timeAgo } from '../components/ui';
 
+const SOURCES: Record<string, string> = { hotkey: 'shortcut', launcher: 'launcher', schedule: 'scheduled', cli: 'command line' };
+
 export function LogsView() {
   const [open, setOpen] = useState<number>();
   const [filter, setFilter] = useState<'all' | 'errors'>('all');
@@ -73,7 +75,7 @@ export function LogsView() {
                       </td>
                       <td>
                         <div style={{ fontWeight: 600 }}>
-                          {l.label} <span class="hint">{l.kind === 'off' ? '· turn off' : l.kind === 'right' ? '· right click' : l.kind === 'test' ? '' : ''}</span>
+                          {l.label} <span class="hint">{l.kind === 'off' ? '· turn off' : l.kind === 'right' ? '· right click' : ''}{l.source && SOURCES[l.source] ? ` · ${SOURCES[l.source]}` : ''}</span>
                         </div>
                         <div class="hint mono" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 460 }}>
                           {l.script.split('\n')[0]}
@@ -89,6 +91,13 @@ export function LogsView() {
                         <td colSpan={4}>
                           <div class="output">
                             <pre>{l.script}</pre>
+                            {l.inputs && (
+                              <pre style={{ borderTop: '1px dashed var(--border)' }}>
+                                {Object.entries(l.inputs)
+                                  .map(([k, v]) => `${k} = ${v}`)
+                                  .join('\n')}
+                              </pre>
+                            )}
                             {(l.stdout || !l.stderr) && <pre style={{ borderTop: '1px dashed var(--border)' }}>{l.stdout || '(no output)'}</pre>}
                             {(l.stderr || l.error) && <pre class="err">{[l.error, l.stderr].filter(Boolean).join('\n')}</pre>}
                           </div>

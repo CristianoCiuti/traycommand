@@ -3,7 +3,7 @@
 ## Command line options
 
 ```powershell
-TrayCommand.exe [--hidden] [--config=<file>] [--data-dir=<dir>]
+TrayCommand.exe [--hidden] [--config=<file>] [--data-dir=<dir>] [--launcher] [--run=<id>]
 ```
 
 | Option | Description |
@@ -11,6 +11,10 @@ TrayCommand.exe [--hidden] [--config=<file>] [--data-dir=<dir>]
 | `--hidden` | Start in the tray without opening the editor window (used by start at login). On the very first start the window is shown anyway. |
 | `--config=<file>` | Use this configuration file. Takes precedence over everything else and is kept when TrayCommand relaunches itself (updates, start at login). |
 | `--data-dir=<dir>` | Use another [data folder](#data-folder) (state, logs, backups). With this option start at login is never changed, which makes it handy for test copies. |
+| `--launcher` | Open the [launcher](../guide/launcher). When TrayCommand is already running, the running copy opens it (and nothing else starts). |
+| `--run=<id>` | Run the entry with this id, like a click (a form opens if it [asks for values](../guide/inputs); an entry with only a menu opens the launcher on it). Same behaviour when TrayCommand is already running. |
+
+`--launcher` and `--run` let other tools start TrayCommand commands: a desktop shortcut, a key binding of your desktop environment (where global shortcuts are not available, such as Wayland), a Stream Deck button, another script.
 
 Examples:
 

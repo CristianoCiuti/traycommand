@@ -2,6 +2,7 @@ import { Menu, Tray, type MenuItemConstructorOptions, type NativeImage } from 'e
 import type { Engine, RuntimeEntry } from './engine';
 import { appIcon, sizedIcon } from './icons';
 import type { RunningProcess } from './runner';
+import { canonicalHotkey } from '../shared/hotkey';
 
 export interface TrayHooks {
   openWindow: (route?: string) => void;
@@ -15,6 +16,23 @@ export interface TrayHooks {
   update: () => { version: string } | undefined;
   installUpdate: () => void;
   configError: () => string | undefined;
+  openLauncher: () => void;
+  launcherHotkey: () => string | undefined;
+  hasSchedules: () => boolean;
+  schedulesPaused: () => boolean;
+  setSchedulesPaused: (paused: boolean) => void;
+}
+
+/** Shortcut text shown next to a menu item (the shortcut itself is global, not a menu accelerator). */
+function shortcut(hotkey: string | undefined): Pick<MenuItemConstructorOptions, 'accelerator' | 'registerAccelerator'> {
+  const accelerator = hotkey ? canonicalHotkey(hotkey) : undefined;
+  return accelerator ? { accelerator, registerAccelerator: false } : {};
+}
+
+function clock(t: number): string {
+  const d = new Date(t);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} ${time}`;
 }
 
 const APP_KEY = '__traycommand__';
@@ -88,6 +106,8 @@ export class TrayManager {
     if (entry.entry.state && entry.on !== undefined) parts.push(entry.on ? 'ON' : 'OFF');
     if (entry.busy) parts.push('running…');
     if (entry.entry.disabled) parts.push('disabled');
+    const next = this.engine.nextRun(entry);
+    if (next) parts.push(`next run ${clock(next)}`);
     return parts.join(' — ');
   }
 
@@ -157,7 +177,7 @@ export class TrayManager {
     const icon = sizedIcon(this.engine.iconFor(entry), 16);
     const isToggle = !!entry.entry.state;
     const kind = this.engine.clickKind(entry);
-    const base: MenuItemConstructorOptions = { label, enabled: enabled || entry.children.length > 0 };
+    const base: MenuItemConstructorOptions = { label, enabled: enabled || entry.children.length > 0, ...(entry.children.length ? {} : shortcut(entry.entry.hotkey)) };
     if (icon) base.icon = icon;
 
     if (entry.children.length) {
@@ -178,6 +198,7 @@ export class TrayManager {
     const error = this.hooks.configError();
     if (error) items.push({ label: `⚠ Configuration error — open editor`, click: () => this.hooks.openWindow('/json') }, { type: 'separator' });
     items.push({ label: 'Open TrayCommand', click: () => this.hooks.openWindow('/') });
+    if (this.engine.trays.length) items.push({ label: 'Search and run…', click: () => this.hooks.openLauncher(), ...shortcut(this.hooks.launcherHotkey()) });
 
     const trays = this.engine.trays;
     if (trays.length) {
@@ -198,6 +219,10 @@ export class TrayManager {
         label: `Running (${running.length})`,
         submenu: running.map((p) => ({ label: `Stop “${p.label}” (${Math.round((Date.now() - p.startedAt) / 1000)}s)`, click: () => p.kill() })),
       });
+    }
+
+    if (this.hooks.hasSchedules()) {
+      items.push({ label: 'Pause schedules', type: 'checkbox', checked: this.hooks.schedulesPaused(), click: (item) => this.hooks.setSchedulesPaused(item.checked) });
     }
 
     const update = this.hooks.update();

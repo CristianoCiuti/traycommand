@@ -1,9 +1,10 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { ChevronDown, ChevronRight, CirclePlay, Loader2, Plus, ShieldAlert, X } from 'lucide-preact';
 import type { Action, ActionInput, Shell } from '../../shared/config';
 import type { TestResult } from '../../shared/api';
 import { allIds, api, draft } from '../store';
 import { Field, Switch, TextArea, formatDuration } from '../components/ui';
+import { InputsEditor } from './InputsEditor';
 
 export function toAction(input: ActionInput | undefined): Action | undefined {
   if (input === undefined) return undefined;
@@ -129,6 +130,21 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
   const [open, setOpen] = useState(() => Object.keys(action).some((k) => k !== 'run'));
   const [result, setResult] = useState<TestResult>();
   const [running, setRunning] = useState(false);
+  const scriptRef = useRef<HTMLTextAreaElement>(null);
+
+  /** Inserts text at the caret of the script (or at the end). */
+  const insert = (text: string) => {
+    const t = scriptRef.current;
+    const at = t && document.activeElement === t ? t.selectionStart : (t?.selectionStart ?? action.run.length);
+    const end = t && document.activeElement === t ? t.selectionEnd : at;
+    const run = `${action.run.slice(0, at)}${text}${action.run.slice(end)}`;
+    change({ run });
+    requestAnimationFrame(() => {
+      if (!t) return;
+      t.focus();
+      t.selectionStart = t.selectionEnd = at + text.length;
+    });
+  };
 
   const change = (patch: Partial<Action>) => {
     const next = { ...action, ...patch } as Action;
@@ -151,8 +167,9 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
   return (
     <div class="card-body" data-testid={props.testId}>
       <Field label="Script">
-        <TextArea value={action.run} code placeholder={props.placeholder ?? 'e.g. Start-Process notepad'} onInput={(run) => change({ run })} testId={props.testId ? `${props.testId}-script` : undefined} />
+        <TextArea value={action.run} code placeholder={props.placeholder ?? 'e.g. Start-Process notepad'} onInput={(run) => change({ run })} testId={props.testId ? `${props.testId}-script` : undefined} inputRef={scriptRef} />
       </Field>
+      <InputsEditor value={action.inputs} onChange={(inputs) => change({ inputs })} script={action.run} onInsert={insert} testId={props.testId ? `${props.testId}-inputs` : undefined} />
       <div class="row" style={{ alignItems: 'center' }}>
         <button class="btn sm" onClick={test} disabled={!action.run || running} data-testid={props.testId ? `${props.testId}-test` : undefined}>
           <CirclePlay size={14} /> Test

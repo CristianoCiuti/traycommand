@@ -2,6 +2,15 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.2.0 — launcher, shortcuts, forms and schedules
+
+- **Launcher**: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens a search box in the middle of the screen. Type a few letters (fuzzy, accents ignored, menus included), press <kbd>Enter</kbd>. Recent entries first, <kbd>Tab</kbd> to open a menu, <kbd>Shift</kbd>+<kbd>Enter</kbd> for the right click action, <kbd>Ctrl</kbd>+<kbd>E</kbd> to edit. It stays loaded in the background, so it opens instantly. See [launcher and shortcuts](./guide/launcher).
+- **Global shortcuts for any entry** (`hotkey`), recorded in the editor by pressing the keys. On a tray or sub menu without an action, the shortcut opens the launcher on that menu. Shortcuts are shown in the tray menus; shortcuts taken by other applications are reported.
+- **Ask for values before running** (`inputs`): text, password, number, choice (also from the output of a script, e.g. the git branches), yes/no, file and folder, with defaults, required fields and formats. The form opens in the middle of the screen and is fully keyboard driven; the last values are proposed again. Values are `${NAME}` in the script and environment variables. Passwords are never stored and are hidden in the activity log. See [asking for values](./guide/inputs).
+- **Schedules** (`schedules`): run an entry at set times (cron), at an interval or when TrayCommand starts, turn toggles on or off only when needed, with values for the inputs. The next run is shown in the editor and in the tray tooltip; **Pause schedules** in the tray menu. No Task Scheduler. See [schedules](./guide/schedules).
+- **Command line**: `--launcher` opens the launcher, `--run=<id>` runs an entry (also when TrayCommand is already running).
+- The activity log shows what started each run (shortcut, launcher, schedule, command line) and the values typed.
+
 ## 2.1.3 — update extraction fix (Windows)
 
 - The update could fail with `Cannot extract the update: /usr/bin/tar: Cannot connect to C: resolve failed` when another `tar` (for example Git for Windows' `usrin`) came before Windows' own in `PATH`. TrayCommand now uses `%SystemRoot%\System32	ar.exe` by its full path, and falls back to PowerShell's `Expand-Archive`.

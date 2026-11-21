@@ -45,6 +45,7 @@ The schema is also available here: [config.schema.json](/traycommand/schema/v2/c
 | `checkUpdates` | boolean | `true` | Check GitHub releases every 6 hours. See [updates](../guide/startup-and-updates#updates). |
 | `autostart` | boolean | `false` | Start TrayCommand when you log in. See [start at login](../guide/startup-and-updates#start-at-login). |
 | `allowAdminCommands` | boolean | `false` | Allow actions with `"admin": true` (prompt on each run). See [administrator](../guide/administrator). |
+| `launcherHotkey` | string | `"Ctrl+Alt+Space"` | Global [shortcut](#shortcuts) that opens the [launcher](../guide/launcher). `""` = no shortcut. |
 | `skillUpdates` | `"auto"` \| `"ask"` | `"auto"` | Update the [skill for AI assistants](../guide/ai-assistants) automatically, or ask first. |
 
 ## Variables
@@ -82,6 +83,8 @@ Each item of `trays` is one tray icon.
 | `offAction` | [action](#actions) | Toggles only: run on click while ON. |
 | `rightAction` | [action](#actions) | Run on right click. Without it, right click opens the menu. |
 | `state` | [state](#state) | Makes the tray a toggle. |
+| `hotkey` | [shortcut](#shortcuts) | Global keyboard shortcut: works like a click from any application. Without an action it opens the launcher on the tray menu. |
+| `schedules` | array of [schedules](#schedules) | Run the tray automatically. |
 | `menu` | array of [menu entries](#menu-entries) and [separators](#separators) | Menu of the tray icon. |
 
 ## Menu entries
@@ -104,6 +107,8 @@ Same as a tray, except:
 | `action` | [action](#actions) | Run on click. |
 | `offAction` | [action](#actions) | Toggles only: run on click while ON. |
 | `state` | [state](#state) | Makes the entry a toggle (check mark when it has no icon). |
+| `hotkey` | [shortcut](#shortcuts) | Global keyboard shortcut (a sub menu without action: opens the launcher on it). |
+| `schedules` | array of [schedules](#schedules) | Run the entry automatically. |
 | `menu` | array | Sub menu. If the entry also has an action, the sub menu starts with **Run** / **Turn off**. |
 
 An entry with neither `action` nor `menu` is shown greyed out (useful as a title).
@@ -144,6 +149,7 @@ is the same as
 | `before` | array of refs | — | Actions of other entries to run, one after the other, before this one. |
 | `parallel` | array of refs | — | Actions of other entries to run together with this one. |
 | `after` | array of refs | — | Actions of other entries to run, one after the other, after this one. |
+| `inputs` | array of [inputs](#inputs) | — | Values asked in a form before running, used as `${NAME}` and as environment variables. |
 
 A reference is `"id"` (same kind: on → on, off → off; right → on), `"id:on"`, `"id:off"` or `"id:right"`. See [composing actions](../guide/concepts#composing-actions). Unknown ids are errors.
 
@@ -172,6 +178,66 @@ Evaluation of each check:
 
 Patterns are JavaScript regular expressions in multi-line mode (`^` and `$` match at each line). Remember to escape backslashes in JSON (`"\\d+"`). A check is stopped after `max(interval, 30)` seconds. The state is also checked again right after the entry's action runs. Checks are paused while the entry (or a parent) is hidden or disabled. `admin` is not available for checks.
 
+## Inputs
+
+Values asked before an action runs. See [asking for values](../guide/inputs).
+
+```json
+"inputs": [
+  { "name": "BRANCH", "label": "Branch", "default": "main" },
+  { "name": "ENV", "type": "select", "options": ["dev", { "value": "prod", "label": "Production" }] },
+  { "name": "TOKEN", "type": "password" }
+]
+```
+
+| Property | Type | Default | Description |
+| --- | --- | --- | --- |
+| `name` | string | — | **Required.** Letters, digits and `_`, not starting with a digit. Used as `${NAME}` and as the name of the environment variable. Unique within the action. |
+| `label` | string | the name | Text shown above the field. |
+| `type` | `"text"` \| `"password"` \| `"number"` \| `"select"` \| `"checkbox"` \| `"file"` \| `"folder"` | `"text"` | Kind of field. A checkbox gives `"true"` / `"false"`. |
+| `default` | string \| number \| boolean | — | Value proposed the first time. |
+| `placeholder` | string | — | Hint inside an empty field. |
+| `options` | array of strings or `{ "value", "label"? }` | — | Choices of a `select`. |
+| `optionsCommand` | string | — | Script whose output lines are the choices of a `select` (run when the form opens). |
+| `optional` | boolean | `false` | Allow an empty value. |
+| `pattern` | string | — | Regular expression the whole value must match. |
+| `remember` | boolean | `true` | Propose the last value used. Passwords are never remembered. |
+
+When an action runs other entries (`before`, `parallel`, `after`), the inputs of all of them are asked together; a name used twice is asked once.
+
+## Schedules
+
+Run an entry automatically. See [schedules](../guide/schedules).
+
+```json
+"schedules": [
+  { "cron": "0 9 * * 1-5", "run": "on" },
+  { "every": "30m" },
+  { "startup": true, "values": { "ENV": "dev" } }
+]
+```
+
+| Property | Type | Default | Description |
+| --- | --- | --- | --- |
+| `cron` | string | — | Cron expression, 5 fields, local time. |
+| `every` | string | — | Interval: a number and `s`, `m`, `h` or `d` (`"90s"`, `"15m"`, `"1h30m"`). Minimum 5 seconds. Counted from when TrayCommand starts. |
+| `startup` | `true` | — | Once, when TrayCommand starts. |
+| `run` | `"click"` \| `"on"` \| `"off"` \| `"right"` | `"click"` | What runs. `"on"` / `"off"` are skipped when the toggle already is in that state. |
+| `values` | object | — | Values for the inputs of the action. Scheduled runs never ask: missing values use the default. |
+| `disabled` | boolean | `false` | Keep the schedule without running it. |
+
+Exactly one of `cron`, `every` and `startup` is required. Scheduled runs skip `confirm`, do not run while the entry is disabled, and are skipped while the previous run is still going.
+
+## Shortcuts
+
+Global keyboard shortcuts (`hotkey`, `settings.launcherHotkey`) are keys joined by `+`, case-insensitive: `"Ctrl+Alt+V"`, `"Win+Shift+D"`, `"F9"`.
+
+- Modifiers: `Ctrl` (or `Control`), `Alt` (or `Option`), `Shift`, `Win` (or `Super`, `Meta`, `Cmd`), `CommandOrControl`.
+- One key: `A`–`Z`, `0`–`9`, `F1`–`F24`, `Space`, `Tab`, `Enter`, `Backspace`, `Delete`, `Insert`, `Home`, `End`, `PageUp`, `PageDown`, `Up`, `Down`, `Left`, `Right`, `Esc`, `Plus`, punctuation, `num0`–`num9`, `numadd`, `numsub`, `nummult`, `numdiv`, `numdec`.
+- At least one of `Ctrl`, `Alt`, `Win`, unless the key is a function key.
+
+Each shortcut can be used once (entries and launcher together).
+
 ## Shell
 
 A preset name or a custom executable:
@@ -194,9 +260,12 @@ Besides the types above, TrayCommand checks that:
 - every `id` is unique across all trays and entries;
 - every reference in `before`, `parallel`, `after` and `enabledWhen` points to an existing id;
 - `on` and `off` are valid regular expressions;
-- `settings.appMenu` is `"own"` or the id of a tray.
+- `settings.appMenu` is `"own"` or the id of a tray;
+- shortcuts are valid and not used twice;
+- input names are unique within an action, a `select` has `options` or `optionsCommand`, `pattern` is a valid regular expression;
+- each schedule has exactly one of `cron` / `every` / `startup`, a valid expression or interval, and something to run (`"off"` needs an `offAction`, `"right"` a `rightAction`).
 
-`offAction` without `state` is accepted with a warning (it is never used).
+`offAction` without `state` is accepted with a warning (it is never used), and so are schedule `values` for inputs the action does not have.
 
 ## Complete example
 
@@ -260,14 +329,31 @@ Besides the types above, TrayCommand checks that:
       ]
     },
     {
-      // no action: a click opens the menu
+      // no action: a click opens the menu; Ctrl+Alt+C opens the launcher on this menu
       "id": "code",
       "label": "VS Code",
       "icon": "icons/code.png",
+      "hotkey": "Ctrl+Alt+C",
       "menu": [
         { "label": "Project A", "action": "code \"${WS}/a.code-workspace\"" },
-        { "label": "Project B", "action": "code \"${WS}/b.code-workspace\"" }
+        { "label": "Project B", "action": "code \"${WS}/b.code-workspace\"" },
+        {
+          // asks the branch in a small form, then opens the project on it
+          "label": "Project A on a branch…",
+          "action": {
+            "run": "git -C \"${WS}/a\" checkout $env:BRANCH; code \"${WS}/a.code-workspace\"",
+            "inputs": [{ "name": "BRANCH", "label": "Branch", "type": "select", "optionsCommand": "git -C \"${WS}/a\" branch --format=%(refname:short)" }]
+          }
+        }
       ]
+    },
+    {
+      // runs by itself every weekday evening, and on demand with Ctrl+Alt+B
+      "id": "backup",
+      "label": "Back up notes",
+      "hotkey": "Ctrl+Alt+B",
+      "action": "robocopy \"$env:USERPROFILE\\Notes\" \"D:\\Backup\\Notes\" /MIR; if ($LASTEXITCODE -lt 8) { exit 0 }",
+      "schedules": [{ "cron": "0 18 * * 1-5" }]
     },
     // kept in the file, not shown
     { "id": "notes", "label": "Notes", "icon": "icons/note.png", "hidden": true, "action": "Start-Process notepad" }

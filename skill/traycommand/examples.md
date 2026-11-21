@@ -188,3 +188,67 @@ with `"variables": { "INET": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersio
 ```json
 { "label": "Deploy (only with VPN on)", "enabledWhen": "vpn", "action": { "run": "./deploy.ps1", "cwd": "C:/projects/app", "confirm": "Deploy now?", "terminal": true } }
 ```
+
+## Ask for values before running (form)
+
+```json
+{
+  "label": "Check out branch…",
+  "action": {
+    "run": "git checkout $env:BRANCH",
+    "cwd": "C:/projects/app",
+    "notify": "Now on ${BRANCH}",
+    "inputs": [{ "name": "BRANCH", "label": "Branch", "type": "select", "optionsCommand": "git branch --format=%(refname:short)" }]
+  }
+}
+```
+
+```json
+{
+  "label": "New ticket branch…",
+  "action": {
+    "run": "git switch -c \"feature/$env:TICKET-$env:SLUG\" $env:BASE",
+    "cwd": "C:/projects/app",
+    "inputs": [
+      { "name": "TICKET", "label": "Ticket", "pattern": "[A-Z]+-\\d+", "placeholder": "ABC-123" },
+      { "name": "SLUG", "label": "Short name", "placeholder": "login-page" },
+      { "name": "BASE", "label": "From", "type": "select", "options": ["develop", "main"] }
+    ]
+  }
+}
+```
+
+## Keyboard shortcuts
+
+```json
+{ "id": "terminal_here", "label": "Terminal in projects", "hotkey": "Ctrl+Alt+T", "action": "Start-Process wt -ArgumentList '-d', 'C:/projects'" }
+```
+
+A tray with only a menu and a shortcut: the shortcut opens the launcher on that menu.
+
+```json
+{ "id": "docker", "label": "Docker", "hotkey": "Ctrl+Alt+D", "menu": [ { "label": "Up", "action": "docker compose up -d" }, { "label": "Down", "action": "docker compose down" } ] }
+```
+
+## Schedules
+
+```json
+{
+  "id": "vpn",
+  "label": "VPN",
+  "state": { "check": "(Get-VpnConnection -Name Work).ConnectionStatus", "on": "Connected", "interval": 15 },
+  "action": "rasdial Work",
+  "offAction": "rasdial Work /disconnect",
+  "schedules": [{ "cron": "50 8 * * 1-5", "run": "on" }, { "cron": "0 19 * * 1-5", "run": "off" }]
+}
+```
+
+```json
+{
+  "id": "report",
+  "label": "Daily report",
+  "hidden": true,
+  "action": { "run": "./report.ps1 -Env $env:ENV", "cwd": "C:/tools", "inputs": [{ "name": "ENV", "type": "select", "options": ["dev", "prod"] }] },
+  "schedules": [{ "cron": "0 7 * * 1-5", "values": { "ENV": "prod" } }, { "every": "4h", "values": { "ENV": "dev" } }]
+}
+```

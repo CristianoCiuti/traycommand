@@ -8,7 +8,12 @@ export interface EntryStatus {
   busy: boolean;
   enabled: boolean;
   lastCheck?: number;
+  /** Next scheduled run (ms since epoch). */
+  nextRun?: number;
 }
+
+/** What started an action. */
+export type RunSource = 'click' | 'hotkey' | 'launcher' | 'schedule' | 'test' | 'cli';
 
 export interface ExecutionLog {
   time: number;
@@ -22,6 +27,9 @@ export interface ExecutionLog {
   stdout: string;
   stderr: string;
   error?: string;
+  source?: RunSource;
+  /** Values typed for the inputs of the action (passwords masked). */
+  inputs?: Record<string, string>;
 }
 
 export interface TestResult {
@@ -33,6 +41,88 @@ export interface TestResult {
   error?: string;
   /** For state checks: the evaluated state. */
   on?: boolean;
+}
+
+/** One field of the form shown before an action runs. */
+export interface PromptField {
+  name: string;
+  label: string;
+  type: 'text' | 'password' | 'number' | 'select' | 'checkbox' | 'file' | 'folder';
+  value: string;
+  placeholder?: string;
+  options?: { value: string; label: string }[];
+  /** Options come from a script: ask them with launcher.options(). */
+  dynamic?: boolean;
+  optional?: boolean;
+  pattern?: string;
+}
+
+export interface PromptRequest {
+  id: number;
+  title: string;
+  /** Where the entry is, e.g. "Docker › Compose". */
+  subtitle?: string;
+  icon?: string;
+  fields: PromptField[];
+  submitLabel: string;
+}
+
+/** An entry as listed in the launcher. */
+export interface LauncherItem {
+  key: string;
+  id?: string;
+  label: string;
+  path: string;
+  icon?: string;
+  /** What Enter does: undefined = nothing to run (only a menu). */
+  kind?: 'on' | 'off';
+  toggle: boolean;
+  on?: boolean;
+  enabled: boolean;
+  busy: boolean;
+  hidden: boolean;
+  hotkey?: string;
+  hasInputs: boolean;
+  /** Has a right click action (Shift+Enter). */
+  alternate: boolean;
+  /** Has a sub menu: Tab opens it. */
+  group: boolean;
+  /** Usage rank for "Recent" (higher = more recent / frequent). */
+  recent?: number;
+}
+
+export interface LauncherShow {
+  items: LauncherItem[];
+  /** Key of the menu the launcher is limited to (shortcut of a tray with only a menu). */
+  scope?: string;
+  scopeLabel?: string;
+  hotkey?: string;
+  platform: string;
+}
+
+export interface HotkeyStatus {
+  path: string;
+  hotkey: string;
+  label: string;
+  ok: boolean;
+  error?: string;
+}
+
+/** API of the launcher window. */
+export interface LauncherApi {
+  onShow(handler: (data: LauncherShow) => void): () => void;
+  onPrompt(handler: (request: PromptRequest & { fromList: boolean }) => void): () => void;
+  onHide(handler: () => void): () => void;
+  /** The form was cancelled with Esc: back to the list it was opened from. */
+  onBack(handler: () => void): () => void;
+  run(key: string, alternate: boolean): Promise<{ ok: boolean; message?: string }>;
+  submit(id: number, values: Record<string, string>): void;
+  cancel(id: number, back: boolean): void;
+  options(id: number, name: string): Promise<{ options?: string[]; error?: string }>;
+  pick(type: 'file' | 'folder', current: string): Promise<string | undefined>;
+  edit(key: string): void;
+  close(): void;
+  resize(height: number): void;
 }
 
 export interface RunningInfo {
@@ -129,6 +219,14 @@ export interface TrayCommandApi {
   declineSkill(ids: AgentSkillInfo['id'][]): Promise<SkillsInfo>;
   onSkills(handler: (info: SkillsInfo) => void): () => void;
   windowControl(action: 'minimize' | 'maximize' | 'close'): void;
+  hotkeys(): Promise<HotkeyStatus[]>;
+  onHotkeys(handler: (status: HotkeyStatus[]) => void): () => void;
+  openLauncher(): Promise<void>;
+  /** Pauses global shortcuts while the editor records a new one. */
+  recordingHotkey(on: boolean): void;
+  schedulesPaused(): Promise<boolean>;
+  setSchedulesPaused(paused: boolean): Promise<boolean>;
+  launcher: LauncherApi;
 }
 
 declare global {

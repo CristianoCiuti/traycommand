@@ -5,10 +5,19 @@
   --display: 'Segoe UI Black', 'Arial Black', 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
   --ui: 'Bahnschrift', 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
   --mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', Menlo, monospace;
-  --radius: 10px;
-  --radius-sm: 8px;
+  --radius-lg: 14px; /* cards, dialogs, the launcher, savebar */
+  --radius: 10px;    /* rows, panels inside a card, notices */
+  --radius-sm: 8px;  /* buttons, fields */
+  --radius-xs: 6px;  /* icon frames, keycaps, small boxes */
+  --radius-pill: 999px; /* pills, chips, switches */
   --bw: 2.5px;      /* outline of inputs, buttons, rows */
+  --bw-sm: 2px;     /* outline of small things: pills, chips, icon frames, keycaps */
   --bw-lg: 3px;     /* outline of cards and big surfaces */
+  /* the select arrow sits on a yellow block, so it is always black */
+  --arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.2l4 4 4-4' fill='none' stroke='%23111' stroke-width='2.6' stroke-linecap='square'/%3E%3C/svg%3E");
+  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.4l3.1 3.1 6.4-7' fill='none' stroke='%23111' stroke-width='2.8' stroke-linecap='square'/%3E%3C/svg%3E");
+  --bar: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8h9' fill='none' stroke='%23111' stroke-width='3'/%3E%3C/svg%3E");
+  --clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5.6' fill='none' stroke='%23111' stroke-width='2.2'/%3E%3Cpath d='M8 4.8V8l2.2 1.6' fill='none' stroke='%23111' stroke-width='2.2' stroke-linecap='square'/%3E%3C/svg%3E");
 
   /* the flat palette: the same in both themes, always with black text on top */
   --yellow: #ffd23f;
@@ -42,8 +51,11 @@
   --warn-soft: #ffe1c9;
   --danger: #cf222e;
   --danger-soft: #ffd3de;
-  --shadow: 4px 4px 0 var(--ink);
+  /* hard offset shadows, never blurred: 2 = small things, 3 = controls, 5 = cards, 8 = floating */
   --shadow-sm: 2px 2px 0 var(--ink);
+  --shadow-md: 3px 3px 0 var(--ink);
+  --shadow: 4px 4px 0 var(--ink);
+  --shadow-card: 5px 5px 0 var(--ink);
   --shadow-lg: 8px 8px 0 var(--ink);
   color-scheme: light;
 }

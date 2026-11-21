@@ -1,8 +1,10 @@
 @import './tokens.css';
 
 /* =========================================================================
-   Launcher - Neobrutal: a chunky card that lands on its hard shadow,
-   huge search text, the selected row is a yellow block, raised keycaps.
+   Launcher - Neobrutal: same rules as the editor (see styles.css).
+   A chunky card that lands on its hard shadow, huge search text, the selected
+   row is a yellow block, icons in the shared icon frame, raised keycaps,
+   buttons in Bahnschrift bold, group heads as small uppercase labels.
    ========================================================================= */
 
 * { box-sizing: border-box; }
@@ -10,8 +12,12 @@ html, body { margin: 0; background: transparent; overflow: hidden; }
 body { font: 14px/1.4 var(--font); color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; }
 button, input, select { font: inherit; color: inherit; }
 ::selection { background: var(--yellow); color: var(--on-color); }
-::-webkit-scrollbar { width: 12px; }
-::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 12px; border: 3px solid transparent; background-clip: padding-box; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+::-webkit-scrollbar { width: 14px; }
+::-webkit-scrollbar-thumb { background: var(--ink); border-radius: var(--radius-xs); border: 4px solid transparent; background-clip: padding-box; min-height: 40px; }
+::-webkit-scrollbar-thumb:hover { background: var(--blue); background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+option { background: var(--panel); color: var(--text); }
 
 /* room around the card for its hard shadow; the window is sized to this element */
 .lx-root { padding: 12px 24px 26px 14px; }
@@ -20,13 +26,14 @@ button, input, select { font: inherit; color: inherit; }
 @keyframes lx-in { from { transform: translate(5px, 5px); box-shadow: 2px 2px 0 var(--ink); } }
 @media (prefers-reduced-motion: reduce) {
   .lx-anim { animation: none; }
-  .lx-row, .lx-btn { transition: none !important; }
+  .lx-row, .lx-btn, .lx-track, .lx-track::after { transition: none !important; }
+  .lx-row.selected { transform: none; }
 }
 
 .lx {
   background: var(--panel);
   border: var(--bw-lg) solid var(--ink);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   box-shadow: 9px 9px 0 var(--ink);
   overflow: hidden;
   display: flex;
@@ -40,54 +47,56 @@ button, input, select { font: inherit; color: inherit; }
 
 /* ---------- search ---------- */
 .lx-search {
-  display: flex; align-items: center; gap: 12px; padding: 0 14px 0 14px; height: 68px;
+  display: flex; align-items: center; gap: 12px; padding: 0 14px; height: 68px;
   border-bottom: var(--bw-lg) solid var(--ink); background: var(--panel);
 }
 .lx-search-icon {
-  flex: none; box-sizing: content-box; padding: 6px; border-radius: 9px;
-  background: var(--yellow); color: var(--on-color); border: 2.5px solid var(--ink); stroke-width: 3 !important;
+  flex: none; box-sizing: content-box; padding: 6px; border-radius: var(--radius-xs);
+  background: var(--yellow); color: var(--on-color); border: var(--bw-sm) solid var(--ink); box-shadow: var(--shadow-sm); stroke-width: 3 !important;
 }
 .lx-search input {
   flex: 1; min-width: 0; border: 0; outline: none; background: transparent; height: 100%;
-  font-family: 'Segoe UI Variable Display', 'Segoe UI', var(--font); font-size: 23px; font-weight: 700; letter-spacing: -0.02em;
+  font-family: var(--display); font-size: 23px; font-weight: 900; letter-spacing: -0.03em; caret-color: var(--blue);
 }
-.lx-search input::placeholder { color: var(--text-3); font-weight: 600; }
+.lx-search input::placeholder { color: var(--text-3); font-weight: 700; opacity: 1; }
 .lx-scope {
   display: inline-flex; align-items: center; gap: 4px; flex: none; max-width: 220px;
   background: var(--pink); color: var(--on-color); font-family: var(--ui); font-weight: 700; font-size: 13px;
-  padding: 2px 4px 2px 10px; border-radius: 8px; border: 2.5px solid var(--ink); box-shadow: 2px 2px 0 var(--ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transform: rotate(-1.5deg);
+  padding: 2px 4px 2px 10px; border-radius: var(--radius-sm); border: var(--bw) solid var(--ink); box-shadow: var(--shadow-sm);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.lx-scope button { border: 0; background: none; color: inherit; cursor: pointer; display: flex; padding: 2px; border-radius: 50%; }
-.lx-scope button:hover { background: rgb(255 255 255 / 0.5); }
+.lx-scope button { border: var(--bw-sm) solid transparent; background: none; color: inherit; cursor: pointer; display: flex; padding: 1px; border-radius: 50%; }
+.lx-scope button:hover { background: #fff; border-color: var(--on-color); }
 
 /* ---------- results ---------- */
 .lx-list { max-height: 360px; overflow-y: auto; padding: 8px 12px 10px 8px; scroll-padding: 8px; }
 .lx-section {
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--display); font-weight: 900; font-size: 12px; letter-spacing: 0.02em; color: var(--text);
-  padding: 9px 8px 5px;
+  font-family: var(--ui); font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text);
+  padding: 10px 8px 6px;
 }
-.lx-section::after { content: ''; flex: 1; border-top: 2.5px dashed var(--line); }
+.lx-section::after { content: ''; flex: 1; border-top: var(--bw-sm) dashed var(--line); }
 .lx-row {
   display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center;
-  height: 48px; padding: 0 10px; border-radius: 11px; cursor: default; position: relative;
-  border: 2.5px solid transparent; margin-bottom: 3px;
+  height: 48px; padding: 0 10px; border-radius: var(--radius); cursor: default; position: relative;
+  border: var(--bw) solid transparent; margin-bottom: 4px;
 }
-.lx-row:not(.selected):hover { border-color: var(--line); }
+.lx-row:not(.selected):hover { border-color: var(--ink); background: var(--panel-2); }
 .lx-row.selected {
   background: var(--yellow); color: var(--on-color); border-color: var(--ink);
-  box-shadow: 3px 3px 0 var(--ink); transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-md); transform: translate(-1px, -1px);
 }
 .lx-row.selected .lx-path, .lx-row.selected .lx-meta, .lx-row.selected .lx-tag, .lx-row.selected .lx-chev { color: var(--on-color); }
-.lx-row.selected .lx-icon { border-color: var(--on-color); background: #fff; color: var(--on-color); }
+.lx-row.selected .lx-icon { border-color: var(--on-color); background: #fff; color: var(--on-color); box-shadow: 2px 2px 0 var(--on-color); }
 .lx-row.selected .lx-label mark { color: var(--on-color); text-decoration-color: var(--pink); }
 .lx-row.selected .lx-state, .lx-row.selected kbd { border-color: var(--on-color); box-shadow: 0 2px 0 var(--on-color); }
 .lx-row.selected .lx-state { box-shadow: none; }
 .lx-row.unavailable .lx-text, .lx-row.unavailable .lx-icon { opacity: 0.5; }
+.lx-row.unavailable .lx-icon { border-style: dashed; box-shadow: none; }
+/* the shared icon frame */
 .lx-icon {
-  width: 32px; height: 32px; border-radius: 9px; background: var(--panel-2); border: 2px solid var(--ink);
-  display: grid; place-items: center; color: var(--text); overflow: hidden; flex: none;
+  width: 32px; height: 32px; border-radius: var(--radius-xs); background: var(--panel); border: var(--bw-sm) solid var(--ink);
+  box-shadow: var(--shadow-sm); display: grid; place-items: center; color: var(--text); overflow: hidden; flex: none;
 }
 .lx-icon img { width: 20px; height: 20px; object-fit: contain; }
 .lx-icon.off img { filter: grayscale(1); opacity: 0.7; }
@@ -101,19 +110,19 @@ button, input, select { font: inherit; color: inherit; }
 .lx-meta { display: flex; align-items: center; gap: 8px; color: var(--text-3); }
 .lx-go {
   display: inline-flex; align-items: center; gap: 4px; color: var(--on-color); font-family: var(--ui); font-weight: 700; font-size: 12.5px;
-  background: #fff; border: 2px solid var(--on-color); border-radius: 7px; padding: 1px 7px; height: 24px;
+  background: #fff; border: var(--bw-sm) solid var(--on-color); border-radius: var(--radius-xs); padding: 1px 7px; height: 24px; box-shadow: 2px 2px 0 var(--on-color);
 }
 .lx-chev { color: var(--text-3); }
 .lx-tag { display: inline-flex; color: var(--text-3); }
 .lx-state {
-  font-family: var(--ui); font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; padding: 0 7px; height: 19px;
-  display: inline-flex; align-items: center; border-radius: 20px; border: 2px solid var(--ink); color: var(--on-color);
+  font-family: var(--ui); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 0 7px; height: 20px;
+  display: inline-flex; align-items: center; border-radius: var(--radius-pill); border: var(--bw-sm) solid var(--ink); color: var(--on-color);
 }
 .lx-state.on { background: var(--mint); color: var(--on-color); }
 .lx-state.off { background: var(--off-soft); color: var(--text); }
 .lx-row.selected .lx-state.off { background: #fff; color: var(--on-color); }
-.lx-empty { padding: 28px 16px; text-align: center; color: var(--text-2); font-weight: 600; }
-.lx-hint { color: var(--text-3); font-size: 12px; margin-top: 4px; font-weight: 400; }
+.lx-empty { padding: 28px 16px; text-align: center; color: var(--text-2); font-family: var(--display); font-weight: 900; font-size: 15px; letter-spacing: -0.02em; }
+.lx-hint { color: var(--text-3); font-family: var(--font); font-size: 12px; margin-top: 4px; font-weight: 400; letter-spacing: 0; }
 .lx-message {
   display: flex; align-items: center; gap: 8px; padding: 9px 16px; color: var(--on-color); background: var(--pink);
   font-size: 13px; font-weight: 700; border-top: var(--bw-lg) solid var(--ink);
@@ -124,66 +133,79 @@ button, input, select { font: inherit; color: inherit; }
 kbd, .keys kbd {
   font-family: var(--ui); font-size: 11px; font-weight: 700; line-height: 1; color: var(--text);
   min-width: 20px; padding: 3px 6px; text-align: center;
-  border: 2px solid var(--ink); border-radius: 6px; background: var(--panel);
+  border: var(--bw-sm) solid var(--ink); border-radius: var(--radius-xs); background: var(--panel);
   box-shadow: 0 2px 0 var(--ink); position: relative; top: -1px;
 }
 .keys.small kbd { font-size: 10.5px; padding: 2px 5px; min-width: 18px; }
-/* hotkeys are blue chips */
+/* hotkeys are blue keycaps */
 .lx-row .keys kbd, .lx-search .keys kbd { background: var(--blue); color: #fff; }
 
 /* ---------- footer ---------- */
 .lx-foot {
   display: flex; align-items: center; gap: 14px; padding: 0 12px 0 14px; min-height: 40px;
-  background: var(--panel-2); border-top: var(--bw-lg) solid var(--ink); font-size: 12px; font-weight: 600; color: var(--text-2);
+  background: var(--panel-2); border-top: var(--bw-lg) solid var(--ink); font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--text-2);
 }
-.lx-foot span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.lx-foot span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .lx-foot kbd { margin-right: 1px; }
 .lx-spacer { flex: 1; }
 
 /* ---------- form ---------- */
 .lx-head {
-  display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center; padding: 13px 14px 13px 14px;
+  display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center; padding: 13px 14px;
   border-bottom: var(--bw-lg) solid var(--ink); background: var(--yellow); color: var(--on-color);
 }
-.lx-head .lx-icon { background: #fff; border-color: var(--on-color); color: var(--on-color); }
+.lx-head .lx-icon { background: #fff; border-color: var(--on-color); color: var(--on-color); box-shadow: 2px 2px 0 var(--on-color); }
 .lx-head .lx-path { color: var(--on-color); }
 .lx-title { font-family: var(--display); font-weight: 900; font-size: 18px; letter-spacing: -0.025em; }
-.lx-close { border: 2px solid transparent; background: none; color: var(--on-color); cursor: pointer; display: flex; padding: 3px; border-radius: 7px; }
-.lx-close:hover { background: #fff; border-color: var(--on-color); }
+.lx-close { border: var(--bw-sm) solid transparent; background: none; color: var(--on-color); cursor: pointer; display: flex; padding: 3px; border-radius: var(--radius-xs); }
+.lx-close:hover { background: #fff; border-color: var(--on-color); box-shadow: 2px 2px 0 var(--on-color); }
+.lx-close:active { transform: translate(2px, 2px); box-shadow: none; }
 .lx-fields { padding: 16px 16px 18px; display: flex; flex-direction: column; gap: 14px; max-height: 340px; overflow-y: auto; }
 .lx-field { display: flex; flex-direction: column; gap: 6px; }
-.lx-field > label { font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--text); display: flex; gap: 6px; align-items: baseline; }
-.lx-optional { font-family: var(--font); font-weight: 400; color: var(--text-3); font-size: 11.5px; }
+.lx-field > label { font-family: var(--ui); font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); display: flex; gap: 6px; align-items: baseline; }
+.lx-optional { font-family: var(--font); font-weight: 400; color: var(--text-3); font-size: 11.5px; letter-spacing: 0; text-transform: none; }
 .lx-input-row { display: flex; gap: 8px; }
 .lx-input {
-  width: 100%; height: 40px; border: var(--bw) solid var(--ink); background: var(--panel); font-weight: 500;
-  border-radius: 9px; padding: 0 12px; outline: none; user-select: text; transition: box-shadow 0.08s;
+  width: 100%; height: 40px; border: var(--bw) solid var(--ink); background-color: var(--panel); font-weight: 600;
+  border-radius: var(--radius-sm); padding: 0 12px; outline: none; user-select: text; transition: box-shadow 0.08s;
 }
-select.lx-input { padding: 0 8px; cursor: pointer; }
+.lx-input::placeholder { color: var(--text-3); opacity: 1; font-weight: 500; }
+.lx-input:hover:not(:focus) { box-shadow: var(--shadow-sm); }
+/* the select draws its own arrow on a yellow block, as in the editor */
+select.lx-input {
+  appearance: none; -webkit-appearance: none; padding: 0 44px 0 10px; cursor: pointer;
+  background-image: var(--arrow), linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--yellow), var(--yellow));
+  background-repeat: no-repeat;
+  background-size: 12px 12px, var(--bw) 100%, 32px 100%;
+  background-position: right 10px center, right 32px top 0, right 0 top 0;
+}
 .lx-input:focus { border-color: var(--ink); box-shadow: 3px 3px 0 var(--blue); }
 .lx-field.invalid .lx-input { border-color: var(--danger); box-shadow: 3px 3px 0 var(--pink); }
-.lx-loading { display: flex; align-items: center; gap: 8px; color: var(--text-3); }
+.lx-loading { display: flex; align-items: center; gap: 8px; color: var(--text-3); border-style: dashed; }
 .lx-field-error { color: var(--danger); font-size: 12px; font-weight: 700; }
-.lx-link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; }
+.lx-link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
+.lx-link:hover { background: var(--yellow); color: var(--on-color); }
 .lx-check { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; color: var(--text); }
 .lx-check input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .lx-track {
-  width: 42px; height: 24px; border-radius: 24px; background: var(--off-soft); position: relative; flex: none;
-  border: var(--bw) solid var(--ink); transition: background 0.12s;
+  width: 44px; height: 24px; border-radius: var(--radius-pill); background: var(--off-soft); position: relative; flex: none;
+  border: var(--bw) solid var(--ink); box-shadow: var(--shadow-sm); transition: background 0.12s;
 }
 .lx-track::after {
   content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%;
-  background: var(--panel); border: 2px solid var(--ink); box-sizing: border-box; transition: transform 0.12s;
+  background: var(--panel); border: var(--bw-sm) solid var(--ink); box-sizing: border-box; transition: transform 0.12s;
 }
 .lx-check input:checked + .lx-track { background: var(--mint); }
-.lx-check input:checked + .lx-track::after { transform: translateX(18px); background: #fff; border-color: #111; }
+.lx-check input:checked + .lx-track::after { transform: translateX(20px); background: #fff; border-color: #111; }
 .lx-check input:focus-visible + .lx-track { outline: 3px solid var(--focus); outline-offset: 2px; }
 .lx-btn {
-  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px; border-radius: 8px; flex: none;
-  border: var(--bw) solid var(--ink); background: var(--panel); cursor: pointer; font-weight: 700; font-size: 13px;
-  box-shadow: 3px 3px 0 var(--ink); transition: transform 0.07s, box-shadow 0.07s;
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 13px; border-radius: var(--radius-sm); flex: none;
+  border: var(--bw) solid var(--ink); background: var(--panel); color: var(--text); cursor: pointer;
+  font-family: var(--ui); font-weight: 700; font-size: 13.5px; letter-spacing: 0.01em;
+  box-shadow: var(--shadow-md); transition: transform 0.07s ease-out, box-shadow 0.07s ease-out;
 }
-.lx-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.lx-btn svg { stroke-width: 2.4; }
+.lx-btn:hover { transform: translate(-1px, -1px); box-shadow: var(--shadow); }
 .lx-btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
 .lx-btn.primary { background: var(--yellow); border-color: var(--ink); color: var(--on-color); }
 .lx-btn.primary kbd { border-color: var(--on-color); box-shadow: 0 2px 0 var(--on-color); background: #fff; color: var(--on-color); }
@@ -191,13 +213,18 @@ select.lx-input { padding: 0 8px; cursor: pointer; }
 .lx-form .lx-foot { padding: 9px 12px 11px 14px; }
 
 /* ---------- alert ---------- */
-.lx-alert-text { padding: 14px 18px 4px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; user-select: text; line-height: 1.5; }
-.lx-alert-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 14px 16px 16px; }
-.lx-alert-actions .lx-btn { height: 34px; padding: 0 14px; max-width: 100%; }
-.lx-alert.arming .lx-alert-actions .lx-btn { opacity: 0.55; cursor: default; }
-.lx-num { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 5px; font-size: 11px; background: rgb(127 127 127 / 0.16); }
-.lx-btn.primary .lx-num { background: rgb(255 255 255 / 0.22); }
-.lx-alert-timer { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.lx-alert-text { padding: 14px 18px 4px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; user-select: text; line-height: 1.5; font-weight: 500; }
+.lx-alert-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 14px 16px 16px; }
+.lx-alert-actions .lx-btn { height: 34px; padding: 0 14px 0 8px; max-width: 100%; }
+.lx-alert.arming .lx-alert-actions .lx-btn { opacity: 0.5; cursor: default; box-shadow: none; transform: none; }
+/* the number of a choice sits in the shared icon frame */
+.lx-num {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 3px; border-radius: 5px;
+  font-family: var(--ui); font-size: 11px; font-weight: 700; color: var(--text);
+  background: var(--panel-2); border: var(--bw-sm) solid var(--ink);
+}
+.lx-btn.primary .lx-num { background: #fff; color: var(--on-color); border-color: var(--on-color); }
+.lx-alert-timer { color: var(--text-2); font-variant-numeric: tabular-nums; font-family: var(--ui); font-weight: 700; }
 
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

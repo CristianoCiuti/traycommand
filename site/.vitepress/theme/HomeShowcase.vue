@@ -52,8 +52,9 @@ const src = (name: string, dark = false) => withBase(`/screens/home/${name}${dar
 </template>
 
 <style scoped>
-.showcase { max-width: 1152px; margin: 0 auto; padding: 8px 24px 72px; display: flex; flex-direction: column; gap: 72px; }
-@media (min-width: 768px) { .showcase { padding: 8px 48px 96px; } }
+/* the same breathing space above the pictures as between the sections below */
+.showcase { max-width: 1152px; margin: 0 auto; padding: 72px 24px 72px; display: flex; flex-direction: column; gap: 72px; }
+@media (min-width: 768px) { .showcase { padding: 96px 48px 96px; gap: 96px; } }
 .only-dark { display: none !important; }
 /* the dark variants are switched in aurora.css: a scoped ":global(.dark) x" would compile to ".dark" alone and hide the page */
 

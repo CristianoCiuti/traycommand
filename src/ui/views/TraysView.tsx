@@ -95,6 +95,10 @@ export function TraysView() {
             <Plus size={16} />
           </button>
         </div>
+        <div class="sidebar-title" aria-hidden="true">
+          <span class="t">trays</span>
+          <span class="n">{config.trays.length}</span>
+        </div>
         <div class="list" data-testid="tray-list">
           {visible.map(({ t, i }) => (
             <div

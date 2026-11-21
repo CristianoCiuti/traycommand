@@ -1,6 +1,6 @@
 import { render } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { ChevronRight, CircleAlert, CornerDownLeft, EyeOff, FolderOpen, Loader2, RectangleEllipsis, Search, Terminal, X } from 'lucide-preact';
+import { ChevronRight, CircleAlert, CornerDownLeft, EyeOff, FolderOpen, Loader2, RectangleEllipsis, Terminal, X } from 'lucide-preact';
 import './launcher.css';
 import type { LauncherItem, LauncherShow, PromptField, PromptRequest } from '../shared/api';
 import { fuzzyMatch } from '../shared/fuzzy';
@@ -198,7 +198,9 @@ function List(props: {
   return (
     <div class="lx" data-testid="launcher-list" style={props.hidden ? { display: 'none' } : undefined}>
       <div class="lx-search">
-        <Search size={18} class="lx-search-icon" />
+        <span class="lx-ps1" aria-hidden="true">
+          tc<span class="lx-ps1-sep">:~$</span>
+        </span>
         {scopeLabel && (
           <span class="lx-scope" title="Backspace to search everywhere">
             {scopeLabel}
@@ -207,18 +209,24 @@ function List(props: {
             </button>
           </span>
         )}
-        <input
-          ref={input}
-          value={query}
-          placeholder={scopeLabel ? `Search in ${scopeLabel}` : 'Search commands'}
-          spellcheck={false}
-          autoComplete="off"
-          onInput={(e) => props.setQuery((e.currentTarget as HTMLInputElement).value)}
-          onKeyDown={onKey}
-          data-testid="launcher-input"
-          aria-activedescendant={current ? `lx-${selected}` : undefined}
-          aria-controls="lx-list"
-        />
+        <span class="lx-line">
+          <input
+            ref={input}
+            value={query}
+            placeholder={scopeLabel ? `Search in ${scopeLabel}` : 'Search commands'}
+            spellcheck={false}
+            autoComplete="off"
+            onInput={(e) => props.setQuery((e.currentTarget as HTMLInputElement).value)}
+            onKeyDown={onKey}
+            data-testid="launcher-input"
+            aria-activedescendant={current ? `lx-${selected}` : undefined}
+            aria-controls="lx-list"
+          />
+          <span class="lx-mirror" aria-hidden="true">
+            {query}
+            <i class="lx-caret" />
+          </span>
+        </span>
         {data.hotkey && <Keys hotkey={data.hotkey} platform={platform} small />}
       </div>
       <div class="lx-list" id="lx-list" role="listbox" ref={listRef} onMouseMove={(e) => {

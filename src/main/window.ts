@@ -9,8 +9,8 @@ let pendingRoute: string | undefined;
 export type ThemeSetting = 'system' | 'light' | 'dark';
 
 const COLORS = {
-  light: { bg: '#f6f7f9', symbol: '#1f2328' },
-  dark: { bg: '#15171c', symbol: '#e6e8eb' },
+  light: { bg: '#ffffff', symbol: '#111111' },
+  dark: { bg: '#0a0a0a', symbol: '#f2f2f2' },
 };
 
 export function applyTheme(theme: ThemeSetting) {

@@ -1,56 +1,78 @@
-/* Colours, fonts and radii shared by the editor and the launcher. */
-:root {
-  --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
-  --mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', Menlo, monospace;
-  --radius: 8px;
-  --radius-sm: 6px;
+/* Colours, fonts and radii shared by the editor and the launcher.
+   Swiss Minimal: paper and ink, one signal red, hairline rules, no shadows. */
+/* arrows and key symbols from the monochrome Windows symbol font (local, no download) */
+@font-face {
+  font-family: 'TC Symbols';
+  src: local('Segoe UI Symbol'), local('SegoeUISymbol');
+  unicode-range: U+2190-21FF, U+2303, U+2318, U+2325, U+232B, U+23CE;
+}
 
-  --bg: #f6f7f9;
+:root {
+  --font: 'TC Symbols', 'Segoe UI Variable Text', 'Segoe UI', Arial, system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  --display: Bahnschrift, 'TC Symbols', 'DIN Alternate', 'Segoe UI', 'Segoe UI Symbol', Arial, 'Helvetica Neue', sans-serif;
+  --display-light: 'Bahnschrift Light', Bahnschrift, 'Segoe UI Light', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', Menlo, monospace;
+  --radius: 2px;
+  --radius-sm: 2px;
+  --gutter: 40px; /* hanging column for the section numbers */
+
+  --bg: #ffffff;
   --panel: #ffffff;
-  --panel-2: #f1f3f6;
-  --border: #e3e6eb;
-  --border-strong: #cfd4dc;
-  --text: #1f2328;
-  --text-2: #57606a;
-  --text-3: #8b949e;
-  --accent: #2f6fde;
-  --accent-soft: #e6eefc;
+  --panel-2: #f3f3f2;
+  --border: #e2e2e0;
+  --border-strong: #bdbdbb;
+  --rule: #111111;
+  --text: #111111;
+  --text-2: #474747;
+  --text-3: #6b6b6b;
+  --accent: #e30613;
+  --accent-fg: #d10511;
+  --accent-soft: #fdeceb;
   --accent-text: #ffffff;
-  --ok: #1a7f37;
-  --ok-soft: #dcf5e3;
-  --off: #8b949e;
-  --off-soft: #eceef1;
-  --warn: #9a6700;
-  --warn-soft: #fff4d4;
+  --ink: #111111;
+  --ink-text: #ffffff;
+  --ok: #111111;
+  --ok-soft: #111111;
+  --off: #6b6b6b;
+  --off-soft: transparent;
+  --warn: #8a5a00;
+  --warn-soft: #fbf3e2;
   --danger: #cf222e;
-  --danger-soft: #ffe7e9;
-  --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
-  --shadow-lg: 0 12px 32px rgb(16 24 40 / 0.18);
+  --danger-soft: #fdeceb;
+  --focus: #e30613;
+  --shadow: none;
+  --shadow-lg: none;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #15171c;
-    --panel: #1c1f26;
-    --panel-2: #232731;
-    --border: #2c313c;
-    --border-strong: #3a404d;
-    --text: #e6e8eb;
-    --text-2: #a5adb8;
-    --text-3: #6e7681;
-    --accent: #5b8ef0;
-    --accent-soft: #1f2d4a;
-    --ok: #3fb950;
-    --ok-soft: #173a24;
-    --off: #6e7681;
-    --off-soft: #2a2e37;
-    --warn: #d29922;
-    --warn-soft: #3a2f12;
+    --bg: #0a0a0a;
+    --panel: #0a0a0a;
+    --panel-2: #171717;
+    --border: #272727;
+    --border-strong: #4a4a4a;
+    --rule: #f2f2f2;
+    --text: #f2f2f2;
+    --text-2: #b8b8b8;
+    --text-3: #8f8f8f;
+    --accent: #e30613;
+    --accent-fg: #ff4d42;
+    --accent-soft: #2b0b0a;
+    --accent-text: #ffffff;
+    --ink: #f2f2f2;
+    --ink-text: #0a0a0a;
+    --ok: #f2f2f2;
+    --ok-soft: #f2f2f2;
+    --off: #8f8f8f;
+    --off-soft: transparent;
+    --warn: #e0a640;
+    --warn-soft: #241a08;
     --danger: #f85149;
-    --danger-soft: #45191c;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
-    --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.5);
+    --danger-soft: #2b0b0a;
+    --focus: #ff4d42;
+    --shadow: none;
+    --shadow-lg: none;
     color-scheme: dark;
   }
 }

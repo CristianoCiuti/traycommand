@@ -2,6 +2,7 @@
  * The remaining paths of the engine: input rules, clicks that cannot run, failures and their
  * messages, the editor's test runs, state checks and the edges of scheduled runs.
  */
+import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Engine, evaluateState, inputDefault, inputProblem, type EngineDeps } from '../../src/main/engine';
 import { ConfigSchema, type ConfigInput } from '../../src/shared/config';
@@ -206,7 +207,7 @@ describe('clicks, chains and failures', () => {
     expect(plain.calls[0]!.o.timeout).toBe(60);
     await plain.engine.test({ run: 'adm', admin: true }, true);
     expect(plain.calls[1]!.script).toBe('adm'); // a check is never elevated
-    expect(plain.engine.runOptions(undefined, { cwd: 'sub', env: { A: '${HOME_X}' }, shell: 'bash' })).toMatchObject({ shell: 'bash', cwd: 'C:\\cfg\\sub', env: { A: '${HOME_X}' } });
+    expect(plain.engine.runOptions(undefined, { cwd: 'sub', env: { A: '${HOME_X}' }, shell: 'bash' })).toMatchObject({ shell: 'bash', cwd: path.resolve('C:\\cfg', 'sub'), env: { A: '${HOME_X}' } });
     expect(plain.engine.runOptions(undefined, {}).shell).toBe('powershell');
     const allowed = setup([], () => res(), {}, { allowAdminCommands: true, shell: 'cmd' });
     await allowed.engine.test({ run: 'adm', admin: true });
@@ -240,7 +241,7 @@ describe('state checks', () => {
     engine.start();
     await vi.advanceTimersByTimeAsync(5);
     expect(engine.status(engine.get('t')!).on).toBe(false);
-    expect(engine.iconFor(engine.get('t')!)).toBe('C:\\cfg\\off.png');
+    expect(engine.iconFor(engine.get('t')!)).toBe(path.resolve('C:\\cfg', 'off.png'));
     expect(engine.status(engine.get('plain')!).on).toBeUndefined();
     on = true;
     await vi.advanceTimersByTimeAsync(10_000);

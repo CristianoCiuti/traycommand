@@ -142,6 +142,8 @@ for (const look of LOOKS) {
     await page.getByTestId('tray-row').nth(1).click();
     await page.locator('.schedule').first().evaluate((e) => e.scrollIntoView({ block: 'start' }));
     await shot(page, look, '02-schedules');
+    await page.getByTestId('schedule-alert-0').evaluate((e) => e.scrollIntoView({ block: 'start' }));
+    await shot(page, look, '02b-schedule-alert');
 
     await hook('await tc.launcher.open()');
     await expect.poll(launcherVisible).toBe(true);
@@ -184,13 +186,31 @@ for (const look of LOOKS) {
     await page.getByTestId('tab-trays').click();
     await page.getByTestId('tray-row').first().click();
     await shot(page, look, '08-dark');
+    await page.getByTestId('tray-row').nth(1).click();
+    await page.locator('.schedule').first().evaluate((e) => e.scrollIntoView({ block: 'start' }));
+    await shot(page, look, '11-schedules-dark');
     await page.getByTestId('tab-settings').click();
     await page.locator('.page').first().evaluate((e) => e.scrollTo(0, 0));
     await shot(page, look, '10-settings-dark');
+    await page.getByTestId('import-open').click();
+    await expect(page.getByTestId('import-dialog')).toBeVisible();
+    await shot(page, look, '13-import-dark');
+    await page.keyboard.press('Escape');
     await hook('await tc.launcher.open()');
     await expect.poll(launcherVisible).toBe(true);
+    await launcher.getByTestId('launcher-input').fill('se');
     await shot(launcher, look, '09-launcher-dark');
     await launcher.keyboard.press('Escape');
+    await launcher.keyboard.press('Escape');
+    await expect.poll(launcherVisible).toBe(false);
+    await hook(`
+      const e = tc.engine.get('server');
+      tc.lastAlert = tc.engine.fireSchedule(e, { every: '1h', alert: { title: 'New scan', text: 'invoice-2026-11.pdf has arrived.\\nWhat should I do?', timeout: '2m', default: 'Archive', choices: [{ label: 'Archive', action: 'echo a' }, { label: 'Open', action: 'echo o' }, { label: 'Ignore', action: 'echo i' }] } }, { TC_FILE: 'invoice.pdf' });
+    `);
+    await expect.poll(launcherVisible).toBe(true);
+    await expect(launcher.getByTestId('launcher-alert')).toHaveAttribute('data-armed', 'true');
+    await shot(launcher, look, '12-alert-dark');
+    await launcher.getByTestId('launcher-alert-choice-2').click();
     await expect.poll(launcherVisible).toBe(false);
     await setDark(false);
   });

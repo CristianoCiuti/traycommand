@@ -2,6 +2,13 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.6.0 — four looks
+
+- **Looks** (**Settings → Look**, `"style"`): **Aurora** (frosted glass over an aurora, the new default), **Phosphor** (a terminal), **Brutal** (flat colours, thick outlines, hard shadows) and **Neon HUD** (cyan and magenta on night blue). Each restyles every part of the editor and the launcher, light and dark, and has its own icon: window, taskbar, TrayCommand tray icon and Start menu shortcut. See [looks](./guide/editor#looks).
+- The window buttons (minimize, maximize, close) now always take the colours of the page, light or dark, instead of a fixed pair.
+- The documentation site has the Aurora look, with pictures of the app on the home page.
+- New app icon (Aurora).
+
 ## 2.5.0 — export and import
 
 - **Export** (**Settings → Configuration file → Export…**): choose what to share by section (trays and menus, schedules, variables, settings) and, inside each section, item by item. Entries the export needs (run before, *enabled when*, alert buttons, `${VARIABLES}`) are pointed out and added with one click. Icons go with it by default. A single item is a `.json` file, anything more a `.zip` with the icons.

@@ -19,7 +19,8 @@ JSON Schema: https://cristianociuti.github.io/traycommand/schema/v2/config.schem
 | Name | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `shell` | shell | `powershell` on Windows, `$SHELL` (or bash) elsewhere | Default shell for actions and checks. |
-| `theme` | `"system"` \| `"light"` \| `"dark"` | `"system"` | Editor window theme. |
+| `theme` | `"system"` \| `"light"` \| `"dark"` | `"system"` | Light or dark, for the editor and the launcher. |
+| `style` | `"aurora"` \| `"terminal"` \| `"brutal"` \| `"neon"` | `"aurora"` | Look of the editor, the launcher and the app icon (Aurora, Phosphor, Brutal, Neon HUD). Change it only when the user asks. |
 | `appMenu` | string | `"own"` | `"own"` = TrayCommand has its own icon; otherwise the `id` of a tray whose menu gets the TrayCommand sub menu. |
 | `notifyOnStartup` | boolean | `false` | Notification when TrayCommand starts hidden. |
 | `checkUpdates` | boolean | `true` | Check for new versions. |

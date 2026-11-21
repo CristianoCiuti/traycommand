@@ -141,7 +141,7 @@ Schedules do not run while the entry (or a parent) is `disabled`; `hidden` entri
 | `style` | `"window"` \| `"notification"` | `"window"` | Window over all others (keyboard: ←→, 1-4, Enter, Esc) or OS notification whose click shows the window. |
 | `title` / `text` | string | entry label / — | `${VALUES}` allowed (`${TC_FILE_NAME}`). |
 | `choices` | array (max 4) | — | `{ "label": "...", "run": "self" }` (what the schedule runs), `{ "label", "run": "<id>[:on|off|right]" }` or `{ "label", "action": <action> }`. Exactly one of run/action; unique labels. No choices = information only (OK). |
-| `timeout` | string | — | `"30s"`…`"1d"`: close if unanswered. |
+| `timeout` | string | — | `"5s"`…`"1d"`: close if unanswered. |
 | `default` | string | — | Label of the choice run at timeout (unattended: never asks). |
 
 A chosen action gets the event values and, being chosen by a person, can ask its `inputs` and `confirm`; it waits for a run of the entry still going. `"self"` is decided at answer time (hidden when there is nothing to run). Timed schedules: while a window alert is open, new runs are skipped; a newer notification replaces the older one. Folder watches: one alert per file, queued, never blocking the next files. With alert, the entry's own action is needed only if a choice uses `"self"`. Buttons pointing to an action the target lacks get a warning.
@@ -170,4 +170,6 @@ Keys joined by `+`: modifiers `Ctrl`, `Alt`, `Shift`, `Win` (`Super`/`Meta`/`Cmd
 
 ## Checks done by the validator
 
-Unique ids; every ref in `before` / `parallel` / `after` / `enabledWhen` exists; `on` / `off` / `pattern` are valid regexes; `settings.appMenu` is `"own"` or a tray id; shortcuts valid and unique; input names unique per action, `select` with choices; schedules with exactly one of `cron`/`every`/`startup`/`watch`, valid expression / interval / folder / patterns / time window, something to run. Warnings: `offAction` without `state`; schedule `values` for unknown inputs.
+Unique ids; every ref in `before` / `parallel` / `after` / `enabledWhen` exists; `on` / `off` / `pattern` are valid regexes; `settings.appMenu` is `"own"` or a tray id; shortcuts valid and unique (also against `settings.launcherHotkey`); input names unique per action, `select` with `options` or `optionsCommand`; schedules with exactly one of `cron`/`every`/`startup`/`watch`, valid expression / interval (≥ 5 s) / folder / patterns / settle (≤ 1 h) / time window, something to run; `if` with a check command and valid `on`/`off` regexes; `alert` with a text or choices, at most 4 choices with unique labels, each with exactly one of `run`/`action`, `run` = `"self"` or an existing id (`:on`/`:off`/`:right` allowed), `timeout` between 5 s and 1 day, `default` = a choice label.
+
+Warnings (the file is valid, but check them): `offAction` without `state`; schedule `values` for unknown inputs; `run: "on"`/`"off"` on an entry without `state`; an alert `default` without `timeout` (never used); a button whose target has no such action (`"b:off"` on an entry without `offAction`); admin actions while `settings.allowAdminCommands` is off; icon files that do not exist.

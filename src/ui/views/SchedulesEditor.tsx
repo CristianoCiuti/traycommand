@@ -1,19 +1,33 @@
 import { CalendarClock, FolderOpen, Plus, Trash2 } from 'lucide-preact';
 import type { Action, Schedule, Watch } from '../../shared/config';
 import type { WatchStatus } from '../../shared/api';
-import { cronError, describeCron, describeInterval, nextCronRuns, parseCron, parseInterval } from '../../shared/cron';
-import { daysText, describeWindow, parseDays, windowError } from '../../shared/window';
+import { cronError, describeCron, describeInterval, nextCronRuns, parseInterval } from '../../shared/cron';
+import { describeWindow, parseDays, windowError } from '../../shared/window';
 import { globError, patternList } from '../../shared/glob';
+import {
+  FILE_EVENTS,
+  cleanSchedule,
+  cronOf,
+  filesText,
+  modeOf,
+  patchWatch,
+  settleOf,
+  settleSeconds,
+  timesOf,
+  toggleEvent,
+  watchEvents,
+  watchStateText,
+  watchText,
+  windowTimes,
+  withDays,
+  withMode,
+  withTimes,
+  withWindow,
+  type ScheduleMode,
+} from '../../shared/scheduleForm';
 import { api } from '../store';
 import { Field, Switch } from '../components/ui';
 
-type Mode = 'every' | 'times' | 'cron' | 'startup' | 'watch';
-type FileEvent = 'add' | 'change' | 'remove';
-const EVENTS: { e: FileEvent; s: string; verb: string }[] = [
-  { e: 'add', s: 'Created', verb: 'appears' },
-  { e: 'change', s: 'Changed', verb: 'changes' },
-  { e: 'remove', s: 'Deleted', verb: 'is deleted' },
-];
 const DAYS = [
   { n: 1, s: 'Mon' },
   { n: 2, s: 'Tue' },
@@ -24,44 +38,7 @@ const DAYS = [
   { n: 0, s: 'Sun' },
 ];
 
-/** A cron the "At times" form can show: fixed minutes and hours, any day of month and month. */
-function timesOf(cron: string): { times: string[]; days: number[] } | undefined {
-  let spec;
-  try {
-    spec = parseCron(cron);
-  } catch {
-    return undefined;
-  }
-  if (!spec.domAny || spec.month.size !== 12 || spec.minute.size !== 1 || spec.hour.size > 6) return undefined;
-  const m = [...spec.minute][0]!;
-  const times = [...spec.hour].sort((a, b) => a - b).map((h) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-  return { times, days: spec.dowAny ? [0, 1, 2, 3, 4, 5, 6] : [...spec.dow] };
-}
-
-function cronOf(times: string[], days: number[]): string {
-  const parsed = times.map((t) => /^(\d{1,2}):(\d{2})$/.exec(t.trim())).filter((m) => m && Number(m[1]) < 24 && Number(m[2]) < 60) as RegExpExecArray[];
-  const minute = parsed[0] ? Number(parsed[0][2]) : 0;
-  const hours = [...new Set(parsed.map((m) => Number(m[1])))].sort((a, b) => a - b);
-  const dow = days.length === 7 || !days.length ? '*' : [...days].sort((a, b) => a - b).join(',');
-  return `${minute} ${hours.length ? hours.join(',') : '9'} * * ${dow}`;
-}
-
-function modeOf(s: Schedule): Mode {
-  if (s.watch) return 'watch';
-  if (s.startup) return 'startup';
-  if (s.every !== undefined) return 'every';
-  if (s.cron !== undefined && timesOf(s.cron)) return 'times';
-  return 'cron';
-}
-
 const fmt = (d: Date) => d.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-
-function watchText(w: Watch, resolved?: string): string {
-  const files = patternList(w.files);
-  const events = (w.events?.length ? w.events : ['add']).map((e) => EVENTS.find((x) => x.e === e)!.verb);
-  const what = files.length ? `a file ${files.join(' or ')}` : 'a file';
-  return `When ${what} ${events.length > 1 ? `${events.slice(0, -1).join(', ')} or ${events.at(-1)}` : events[0]} in ${resolved ?? (w.path || '(choose a folder)')}${w.subfolders ? ' or its sub folders' : ''}`;
-}
 
 function Summary(props: { schedule: Schedule; watch?: WatchStatus }) {
   const s = props.schedule;
@@ -77,7 +54,7 @@ function Summary(props: { schedule: Schedule; watch?: WatchStatus }) {
           <>
             {' · '}
             <span class={`watch-state ${st.state}`} data-testid="watch-state">
-              {st.state === 'watching' ? 'watching now' : st.state === 'waiting' ? 'not now (outside the time window, or paused)' : `${st.error}: trying again every few seconds`}
+              {watchStateText(st)}
             </span>
           </>
         )}
@@ -121,7 +98,7 @@ function DayButtons(props: { days: number[]; onChange: (days: number[]) => void;
 function WindowEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: number }) {
   const { s } = props;
   const on = s.between !== undefined || s.days !== undefined;
-  const [from, to] = (s.between ?? '09:00-18:00').split('-');
+  const { from, to } = windowTimes(s.between, on);
   let days: number[] = [0, 1, 2, 3, 4, 5, 6];
   try {
     if (s.days !== undefined) days = [...parseDays(s.days)];
@@ -129,22 +106,25 @@ function WindowEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: 
     /* invalid: shown below */
   }
   const problem = windowError(s.between, s.days);
-  const setTimes = (a: string, b: string) => props.onChange({ ...s, between: a === '00:00' && (b === '00:00' || b === '24:00') ? undefined : `${a}-${b === '00:00' ? '24:00' : b}` });
+  const setTimes = (a: string, b: string) => props.onChange(withTimes(s, a, b));
   return (
     <div class="window-row" data-testid={`schedule-window-${props.i}`}>
       <Switch
         checked={on}
-        onChange={(v) => props.onChange(v ? { ...s, between: '09:00-18:00', days: 'mon-fri' } : { ...s, between: undefined, days: undefined })}
+        onChange={(v) => props.onChange(withWindow(s, v))}
         label="Only in a time window"
         testId={`schedule-window-toggle-${props.i}`}
       />
       {on && (
         <span class="inline">
           <span class="hint">from</span>
-          <input class="input mono" type="time" style={{ width: 136 }} value={from} onChange={(e) => setTimes((e.currentTarget as HTMLInputElement).value || '00:00', to ?? '24:00')} aria-label="From" data-testid={`schedule-from-${props.i}`} />
+          <input class="input mono" type="time" style={{ width: 136 }} value={from} onChange={(e) => setTimes((e.currentTarget as HTMLInputElement).value, to)} aria-label="From" data-testid={`schedule-from-${props.i}`} />
           <span class="hint">to</span>
-          <input class="input mono" type="time" style={{ width: 136 }} value={to === '24:00' ? '00:00' : to} onChange={(e) => setTimes(from ?? '00:00', (e.currentTarget as HTMLInputElement).value || '24:00')} aria-label="To" data-testid={`schedule-to-${props.i}`} />
-          <DayButtons days={days} onChange={(d) => { if (d.length) props.onChange({ ...s, days: daysText(d) }); }} testId={`schedule-window-days-${props.i}`} />
+          <input class="input mono" type="time" style={{ width: 136 }} value={to} onChange={(e) => setTimes(from, (e.currentTarget as HTMLInputElement).value)} aria-label="To" data-testid={`schedule-to-${props.i}`} />
+          <DayButtons days={days} onChange={(d) => {
+              const next = withDays(s, d);
+              if (next) props.onChange(next);
+            }} testId={`schedule-window-days-${props.i}`} />
         </span>
       )}
       {problem && <span class="hint" style={{ color: 'var(--danger)' }}>{problem.between ?? problem.days}</span>}
@@ -154,15 +134,11 @@ function WindowEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: 
 
 function WatchEditor(props: { w: Watch; onChange: (w: Watch) => void; i: number }) {
   const { w } = props;
-  const events = w.events?.length ? w.events : (['add'] as FileEvent[]);
-  const set = (patch: Partial<Watch>) => {
-    const next: Watch = { ...w, ...patch };
-    for (const k of Object.keys(next) as (keyof Watch)[]) if (next[k] === undefined || next[k] === false) delete next[k];
-    props.onChange(next);
-  };
-  const files = Array.isArray(w.files) ? w.files.join(', ') : (w.files ?? '');
+  const events = watchEvents(w);
+  const set = (patch: Partial<Watch>) => props.onChange(patchWatch(w, patch));
+  const files = filesText(w);
   const badPattern = patternList(w.files).map(globError).find(Boolean);
-  const settle = parseInterval(w.settle ?? '2s') ?? 2;
+  const settle = settleSeconds(w);
   return (
     <div class="watch" data-testid={`schedule-watch-${props.i}`}>
       <div class="grid2">
@@ -208,16 +184,15 @@ function WatchEditor(props: { w: Watch; onChange: (w: Watch) => void; i: number 
         <span class="inline">
           <span class="hint">Run when a file is</span>
           <span class="days" role="group" aria-label="Events" data-testid={`watch-events-${props.i}`}>
-            {EVENTS.map((x) => {
+            {FILE_EVENTS.map((x) => {
               const on = events.includes(x.e);
               return (
                 <button
                   class={`day${on ? ' on' : ''}`}
                   aria-pressed={on}
                   onClick={() => {
-                    const next = on ? events.filter((e) => e !== x.e) : [...events, x.e];
-                    if (!next.length) return;
-                    set({ events: next.length === 1 && next[0] === 'add' ? undefined : EVENTS.map((y) => y.e).filter((e) => next.includes(e)) });
+                    const next = toggleEvent(events, x.e);
+                    if (next !== 'unchanged') set({ events: next });
                   }}
                 >
                   {x.s}
@@ -235,10 +210,7 @@ function WatchEditor(props: { w: Watch; onChange: (w: Watch) => void; i: number 
             max={3600}
             style={{ width: 64 }}
             value={settle}
-            onInput={(e) => {
-              const n = Math.min(3600, Math.max(1, Math.round(Number((e.currentTarget as HTMLInputElement).value) || 2)));
-              set({ settle: n === 2 ? undefined : `${n}s` });
-            }}
+            onInput={(e) => set({ settle: settleOf((e.currentTarget as HTMLInputElement).value) })}
             aria-label="Quiet seconds"
             data-testid={`watch-settle-${props.i}`}
           />
@@ -270,30 +242,10 @@ export function SchedulesEditor(props: {
   const set = (next: Schedule[]) => props.onChange(next.length ? next : undefined);
   const update = (i: number, s: Schedule) => {
     const next = [...list];
-    const clean = { ...s };
-    for (const k of Object.keys(clean) as (keyof Schedule)[]) if (clean[k] === undefined) delete clean[k];
-    next[i] = clean;
+    next[i] = cleanSchedule(s);
     set(next);
   };
-  const setMode = (i: number, mode: Mode) => {
-    const { cron: _c, every: _e, startup: _s, watch: _w, ...rest } = list[i]!;
-    void _c;
-    void _e;
-    void _s;
-    void _w;
-    update(
-      i,
-      mode === 'every'
-        ? { ...rest, every: '15m' }
-        : mode === 'startup'
-          ? { ...rest, startup: true }
-          : mode === 'watch'
-            ? { ...rest, watch: { path: '', files: '*.txt' } }
-            : mode === 'times'
-              ? { ...rest, cron: '0 9 * * 1-5' }
-              : { ...rest, cron: list[i]!.cron ?? '*/30 9-18 * * 1-5' },
-    );
-  };
+  const setMode = (i: number, mode: ScheduleMode) => update(i, withMode(list[i]!, mode));
   const inputs = props.action?.inputs ?? [];
 
   return (
@@ -305,7 +257,7 @@ export function SchedulesEditor(props: {
         return (
           <div class={`schedule${s.disabled ? ' off' : ''}`} data-testid="schedule">
             <div class="schedule-head">
-              <select class="select" style={{ width: 170 }} value={mode} onChange={(e) => setMode(i, (e.currentTarget as HTMLSelectElement).value as Mode)} aria-label="Kind of schedule" data-testid={`schedule-mode-${i}`}>
+              <select class="select" style={{ width: 170 }} value={mode} onChange={(e) => setMode(i, (e.currentTarget as HTMLSelectElement).value as ScheduleMode)} aria-label="Kind of schedule" data-testid={`schedule-mode-${i}`}>
                 <option value="times">At set times</option>
                 <option value="every">Every…</option>
                 <option value="cron">Cron expression</option>

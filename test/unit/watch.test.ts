@@ -265,6 +265,9 @@ describe('watch and window validation', () => {
             { watch: { path: ' ', files: '*.{a', events: [], settle: '2x' } },
             { every: '1m', between: '9-18', days: 'xyz' },
             { watch: { path: 'C:\\in' }, every: '5m' },
+            { watch: { path: 'C:\\in', settle: '2h' } },
+            { every: 'often' },
+            { every: '1m', run: 'right' },
           ],
         },
       ],
@@ -280,6 +283,9 @@ describe('watch and window validation', () => {
         expect.stringMatching(/^trays\[0\]\.schedules\[1\]\.between: "9" is not a time/),
         expect.stringMatching(/^trays\[0\]\.schedules\[1\]\.days:/),
         'trays[0].schedules[2]: Set exactly one of cron, every, startup or watch',
+        'trays[0].schedules[3].watch.settle: The longest wait is 1 hour',
+        'trays[0].schedules[4].every: Use a number and a unit: "30s", "15m", "2h", "1d"',
+        'trays[0].schedules[5].run: Nothing to run: the entry has no rightAction',
       ]),
     );
   });

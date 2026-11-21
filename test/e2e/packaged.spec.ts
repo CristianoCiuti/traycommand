@@ -34,5 +34,10 @@ test('packaged app starts, loads the config and shows the welcome page', async (
   const skill = fs.readFileSync(path.join(agents, '.claude', 'skills', 'traycommand', 'SKILL.md'), 'utf8');
   expect(skill).toContain(exe.replace(/\\/g, '/'));
   expect(fs.existsSync(path.join(agents, '.claude', 'skills', 'traycommand', 'scripts', 'make-icon.ps1'))).toBe(true);
+  // every look ships its icon: PNG for the window and the tray, ICO for the Start menu shortcut
+  const assets = path.join(path.dirname(exe), 'resources', 'assets');
+  for (const look of ['aurora', 'terminal', 'brutal', 'neon']) {
+    for (const ext of ['png', 'ico']) expect(fs.existsSync(path.join(assets, `icon-${look}.${ext}`)), `icon-${look}.${ext}`).toBe(true);
+  }
   await app.evaluate(({ app }) => app.exit(0));
 });

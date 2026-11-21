@@ -2,6 +2,10 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.6.1 — Start menu icon
+
+- The Start menu shortcut now really takes the icon of the look chosen (the icon files were missing from the package).
+
 ## 2.6.0 — four looks
 
 - **Looks** (**Settings → Look**, `"style"`): **Aurora** (frosted glass over an aurora, the new default), **Phosphor** (a terminal), **Brutal** (flat colours, thick outlines, hard shadows) and **Neon HUD** (cyan and magenta on night blue). Each restyles every part of the editor and the launcher, light and dark, and has its own icon: window, taskbar, TrayCommand tray icon and Start menu shortcut. See [looks](./guide/editor#looks).

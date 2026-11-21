@@ -11,7 +11,7 @@ files:
 extraResources:
   - from: assets
     to: assets
-    filter: ['*.png']
+    filter: ['*.png', '*.ico']
   - from: skill
     to: skill
 asar: true

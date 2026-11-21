@@ -86,7 +86,7 @@ h2 { font-size: 30px; line-height: 1.2; letter-spacing: -0.015em; margin: 0 0 8p
   transition: transform 0.2s, box-shadow 0.2s;
 }
 .more-card:hover { transform: translateY(-3px); box-shadow: inset 0 1px 0 var(--glass-edge), 0 20px 50px -24px var(--glow); }
-.more-card img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; object-position: top left; border-radius: 12px; border: 1px solid var(--glass-line); margin-bottom: 6px; }
+.more-card img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: contain; background: var(--vp-c-bg-soft); border-radius: 12px; border: 1px solid var(--glass-line); margin-bottom: 6px; }
 .more-card b { font-size: 16px; padding: 0 4px; }
 .more-card span { color: var(--vp-c-text-2); font-size: 14px; padding: 0 4px; }
 

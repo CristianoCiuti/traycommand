@@ -138,6 +138,8 @@ for (const look of LOOKS) {
 
     await page.getByTestId('tab-trays').click();
     await page.getByTestId('tray-row').first().click();
+    // saving reloads the configuration: wait for the toggles to show their state again
+    await expect(page.getByTestId('tray-row').first()).toContainText('OFF', { timeout: 20000 });
     await shot(page, look, '01-trays');
     await page.getByTestId('tray-row').nth(1).click();
     await page.locator('.schedule').first().evaluate((e) => e.scrollIntoView({ block: 'start' }));

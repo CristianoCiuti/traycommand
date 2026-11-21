@@ -25,7 +25,7 @@ export interface WatchStatus {
 }
 
 /** What started an action. */
-export type RunSource = 'click' | 'hotkey' | 'launcher' | 'schedule' | 'watch' | 'test' | 'cli';
+export type RunSource = 'click' | 'hotkey' | 'launcher' | 'schedule' | 'watch' | 'alert' | 'test' | 'cli';
 
 export interface ExecutionLog {
   time: number;
@@ -77,6 +77,32 @@ export interface PromptRequest {
   icon?: string;
   fields: PromptField[];
   submitLabel: string;
+  /** An alert instead of a form: a message and buttons. The answer is { choice: "<index>" }. */
+  alert?: PromptAlert;
+}
+
+export interface PromptAlert {
+  text?: string;
+  /** Labels of the buttons; empty = only an OK button. */
+  choices: string[];
+  /** Index of the choice run when the time is up. */
+  defaultChoice?: number;
+  /** When the alert closes by itself (ms since epoch). */
+  deadline?: number;
+}
+
+/** What the engine asks to show for an alert. */
+export interface AlertRequest {
+  id: number;
+  style: 'window' | 'notification';
+  title: string;
+  subtitle?: string;
+  /** Icon file. */
+  icon?: string;
+  text?: string;
+  choices: string[];
+  defaultChoice?: number;
+  deadline?: number;
 }
 
 /** An entry as listed in the launcher. */

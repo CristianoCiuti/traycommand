@@ -118,5 +118,14 @@ select.lx-input { padding: 0 8px; }
 .lx-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .lx-form .lx-foot { padding: 8px 10px 8px 16px; }
 
+/* ---------- alert ---------- */
+.lx-alert-text { padding: 14px 18px 4px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; user-select: text; line-height: 1.5; }
+.lx-alert-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 14px 16px 16px; }
+.lx-alert-actions .lx-btn { height: 34px; padding: 0 14px; max-width: 100%; }
+.lx-alert.arming .lx-alert-actions .lx-btn { opacity: 0.55; cursor: default; }
+.lx-num { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 5px; font-size: 11px; background: rgb(127 127 127 / 0.16); }
+.lx-btn.primary .lx-num { background: rgb(255 255 255 / 0.22); }
+.lx-alert-timer { color: var(--text-2); font-variant-numeric: tabular-nums; }
+
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

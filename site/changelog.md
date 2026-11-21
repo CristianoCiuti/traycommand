@@ -2,6 +2,12 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.4.0 — checks and alerts
+
+- **Only if a check passes** (`if` on a schedule): a command runs first and the schedule goes on only if it succeeds (exit code, and optionally patterns on its output, like a toggle). It gets the values of the event, e.g. the file of a folder watch. See [only if](./guide/schedules#only-if-a-check-passes).
+- **Alerts with choices** (`alert` on a schedule): instead of running directly, show a message over all the other windows, or a system notification, with up to 4 buttons. Each button runs the entry, another entry or a command of its own, with the values of the event (`TC_FILE`…). Fully keyboard driven (arrows, 1–4, Enter, Esc); keys are ignored for half a second after it appears so that typing elsewhere does not answer it. Optional timeout with a default choice, shown as a countdown. Without buttons, an alert simply informs. See [alerts and choices](./guide/schedules#alerts-and-choices).
+- The editor has **Only if a check passes** and **Show an alert first** under every schedule; runs chosen in an alert are marked *chosen in an alert* in the activity log.
+
 ## 2.3.1 — folder watch fixes, fully tested logic
 
 - Folder watches with sub folders: when a sub folder is emptied, renamed or moved away, its files are now reported as removed (they were missed when the system reported only the folder). A file replaced by a folder with the same name is reported as removed too.

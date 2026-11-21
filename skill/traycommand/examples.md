@@ -273,3 +273,39 @@ All the CSV files of an export at once, at night only:
 ```json
 "schedules": [{ "watch": { "path": "\\\\server\\exports", "files": "*.csv", "batch": true, "settle": "10s" }, "between": "22:00-06:00" }]
 ```
+
+## Check, then ask
+
+"When a PDF arrives in Scans, if it is not empty ask me whether to archive it or send it":
+
+```json
+{
+  "id": "scan-arrived",
+  "label": "Scan arrived",
+  "hidden": true,
+  "action": "Start-Process $env:TC_FILE",
+  "schedules": [
+    {
+      "watch": { "path": "${env:USERPROFILE}\\Scans", "files": "*.pdf" },
+      "if": "if ((Get-Item -LiteralPath $env:TC_FILE).Length -gt 0) { exit 0 } else { exit 1 }",
+      "alert": {
+        "text": "${TC_FILE_NAME} has arrived",
+        "choices": [
+          { "label": "Open", "run": "self" },
+          { "label": "Archive", "action": "Move-Item -LiteralPath $env:TC_FILE -Destination D:\\Archive" },
+          { "label": "Send", "run": "mail-scan" }
+        ],
+        "timeout": "10m",
+        "default": "Archive"
+      }
+    }
+  ]
+}
+```
+
+A reminder as a notification, no buttons:
+
+```json
+"schedules": [{ "cron": "0 13 * * 1-5", "alert": { "style": "notification", "text": "Lunch break!" } }]
+```
+

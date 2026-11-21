@@ -16,7 +16,7 @@ import { nextCron, parseCron, parseInterval } from '../shared/cron';
 import { inWindow, nextWindowChange, parseWindow, windowed, type TimeWindow } from '../shared/window';
 import { fileMatcher, patternList } from '../shared/glob';
 import type { EntryStatus, ExecutionLog, PromptField, PromptRequest, RunSource, WatchStatus } from '../shared/api';
-import { FolderWatch, type FileChange } from './watcher';
+import { FolderWatch, type FileChange, type FolderWatchOptions } from './watcher';
 import { isSuccess, type RunOptions, type RunResult, type Runner } from './runner';
 import { defaultShell } from './shell';
 import path from 'node:path';
@@ -46,6 +46,8 @@ export interface EngineDeps {
   startupDelay?: number;
   /** Retry delay of folder watches whose folder is missing (ms). */
   watchRetry?: number;
+  /** fs.watch (replaced in tests). */
+  watchFn?: FolderWatchOptions['watchFn'];
 }
 
 export interface TriggerOptions {
@@ -360,7 +362,7 @@ export class Engine {
     if ('error' in resolved) {
       const label = this.label(entry);
       this.deps.notify(label, `${DEFAULT_TEXT.failed}: ${resolved.error}`, 'error');
-      this.deps.log({ time: Date.now(), key: entry.key, label, kind, script: this.actionOf(entry, kind)?.run ?? '', code: null, ok: false, durationMs: 0, stdout: '', stderr: '', error: resolved.error, source });
+      this.deps.log({ time: Date.now(), key: entry.key, label, kind, script: this.actionOf(entry, kind)!.run, code: null, ok: false, durationMs: 0, stdout: '', stderr: '', error: resolved.error, source });
       return;
     }
     await this.execute(entry, kind, new Set(), { ...resolved, interactive, source });
@@ -444,6 +446,8 @@ export class Engine {
       for (const c of collected) if (c.input.type !== 'password' && c.input.remember !== false && answer[c.input.name] !== undefined) keep[c.input.name] = answer[c.input.name]!;
       this.deps.memory?.set(o.memoryKey, keep);
       return { values, secrets: secrets() };
+    } catch (error) {
+      return { error: `The form could not be shown: ${error instanceof Error ? error.message : String(error)}` };
     } finally {
       for (const f of fields) this.optionLoaders.delete(`${id}:${f.name}`);
     }
@@ -509,7 +513,7 @@ export class Engine {
     }
 
     const ok = isSuccess(result);
-    const redact = (text: string) => ctx.secrets.reduce((t, s) => (s ? t.split(s).join('••••') : t), text);
+    const redact = (text: string) => ctx.secrets.reduce((t, s) => t.split(s).join('••••'), text);
     const own = new Set((action.inputs ?? []).map((i) => i.name));
     const shown = Object.entries(ctx.values).filter(([k]) => own.has(k) || k === 'TC_EVENT' || k === 'TC_FILE' || (k === 'TC_FILES' && ctx.values.TC_FILES !== ctx.values.TC_FILE));
     this.deps.log({
@@ -647,6 +651,7 @@ export class Engine {
       events: new Set(w.events?.length ? w.events : ['add']),
       settleMs: Math.max(0.2, parseInterval(w.settle ?? '2s') ?? 2) * 1000,
       retryMs: this.deps.watchRetry,
+      watchFn: this.deps.watchFn,
       onChanges: (changes) => this.onFileChanges(entry, schedule, window, changes),
       onState: () => this.emit(entry.key),
     });
@@ -658,6 +663,8 @@ export class Engine {
   /** At each opening and closing of the time window of a watch: refresh its state; on opening, report the files already there. */
   private armWindowEdges(entry: RuntimeEntry, index: number, schedule: Schedule, window: TimeWindow, generation: number) {
     const at = nextWindowChange(window, new Date())?.getTime();
+    // a window parsed from the configuration always has at least one day: it opens within a week
+    /* v8 ignore next */
     if (at === undefined) return;
     const wait = () =>
       this.later(generation, Math.max(0, Math.min(at - Date.now(), MAX_WAIT)), () => {
@@ -768,7 +775,7 @@ export class Engine {
   async checkNow(key: string) {
     const entry = this.get(key);
     if (!entry?.entry.state) return;
-    if (entry.inflight) await entry.inflight.catch(() => undefined);
+    if (entry.inflight) await entry.inflight;
     await this.check(entry, this.generation, true);
   }
 
@@ -778,15 +785,17 @@ export class Engine {
     entry.timer = undefined;
     if (entry.checking) return;
     if (!force && !this.isActive(entry)) {
-      // paused while hidden or disabled: look again later in case it becomes active
-      if (!this.stopped) this.scheduleCheck(entry, state.interval * 1000, generation);
+      // paused while hidden or disabled: look again later in case it becomes active (a stopped engine has another generation)
+      this.scheduleCheck(entry, state.interval * 1000, generation);
       return;
     }
     entry.checking = true;
     let result: RunResult;
-    const pending = this.deps.run(this.expandText(state.check), {
-      ...this.runOptions(entry, { shell: state.shell, timeout: Math.max(state.interval, 30) }),
-    });
+    const pending = this.deps
+      .run(this.expandText(state.check), {
+        ...this.runOptions(entry, { shell: state.shell, timeout: Math.max(state.interval, 30) }),
+      })
+      .catch((error: unknown): RunResult => ({ code: null, stdout: '', stderr: '', durationMs: 0, timedOut: false, killed: false, error: error instanceof Error ? error.message : String(error) }));
     entry.inflight = pending.then(() => undefined);
     try {
       result = await pending;

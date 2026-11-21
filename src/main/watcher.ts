@@ -23,6 +23,8 @@ export interface FolderWatchOptions {
   onState: (error?: string) => void;
   /** Retry delay when the folder is missing or the watch fails (ms). */
   retryMs?: number;
+  /** fs.watch (replaced in tests). */
+  watchFn?: (dir: string, options: { recursive: boolean; persistent: boolean }, listener: (type: string, name: string | Buffer | null) => void) => Pick<fs.FSWatcher, 'on' | 'close'>;
 }
 
 interface Signature {
@@ -36,7 +38,7 @@ interface Signature {
  * events of a single copy become one "add", and a save that changes nothing is ignored.
  */
 export class FolderWatch {
-  private watcher?: fs.FSWatcher;
+  private watcher?: Pick<fs.FSWatcher, 'on' | 'close'>;
   private known = new Map<string, Signature>();
   private pending = new Set<string>();
   private fullScan = false;
@@ -54,7 +56,8 @@ export class FolderWatch {
       const stat = fs.statSync(this.o.dir);
       if (!stat.isDirectory()) throw Object.assign(new Error('not a folder'), { code: 'ENOTDIR' });
       this.known = this.scan();
-      this.watcher = fs.watch(this.o.dir, { recursive: this.o.subfolders, persistent: false }, (_type, name) => this.onRaw(name));
+      const watch = this.o.watchFn ?? ((dir, options, listener) => fs.watch(dir, options, listener));
+      this.watcher = watch(this.o.dir, { recursive: this.o.subfolders, persistent: false }, (_type, name) => this.onRaw(name));
       this.watcher.on('error', (error) => this.fail(error));
       this.error = undefined;
       this.o.onState(undefined);
@@ -80,13 +83,14 @@ export class FolderWatch {
   }
 
   private fail(error: unknown) {
+    // an error of a watch already closed (the configuration was saved meanwhile): nothing to report
+    if (this.closed) return;
     this.watcher?.close();
     this.watcher = undefined;
     const code = (error as NodeJS.ErrnoException)?.code;
     this.error =
       code === 'ENOENT' ? 'Folder not found' : code === 'ENOTDIR' ? 'Not a folder' : code === 'EACCES' || code === 'EPERM' ? 'Access denied' : ((error as Error)?.message ?? String(error));
     this.o.onState(this.error);
-    if (this.closed) return;
     clearTimeout(this.retryTimer);
     // the folder may appear later (a drive that is connected, a folder created by another program)
     this.retryTimer = setTimeout(() => this.start(false), this.o.retryMs ?? 5000);
@@ -142,7 +146,6 @@ export class FolderWatch {
   }
 
   private flush() {
-    if (this.closed) return;
     const changes: FileChange[] = [];
     const seen = new Set<string>();
     const consider = (rel: string, now: Signature | undefined) => {
@@ -175,14 +178,20 @@ export class FolderWatch {
       } catch {
         /* gone */
       }
-      if (isDir) {
-        // a folder copied or moved in: its files; or a folder removed/renamed: its known files
-        if (this.o.subfolders) for (const [r, sig] of this.scan(rel)) consider(r, sig);
-        continue;
-      }
       const prefix = `${rel}/`;
       const inside = [...this.known.keys()].filter((r) => r.startsWith(prefix));
-      if (inside.length) for (const r of inside) consider(r, this.signature(r));
+      if (isDir) {
+        // a file replaced by a folder of the same name
+        if (this.known.has(rel)) consider(rel, undefined);
+        if (!this.o.subfolders) continue;
+        // a folder copied or moved in, or changed: its files now, and the known ones that are gone
+        const current = this.scan(rel);
+        for (const [r, sig] of current) consider(r, sig);
+        for (const r of inside) if (!current.has(r)) consider(r, undefined);
+        continue;
+      }
+      // a folder removed or renamed away: its known files; or a file
+      for (const r of inside) consider(r, this.signature(r));
       if (this.o.match(rel)) consider(rel, this.signature(rel));
     }
     this.pending.clear();

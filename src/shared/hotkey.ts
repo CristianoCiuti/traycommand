@@ -64,7 +64,8 @@ function canonicalKey(raw: string): string | undefined {
   if (/^f([1-9]|1\d|2[0-4])$/i.test(raw)) return raw.toUpperCase();
   const named = NAMED_KEYS[raw.toLowerCase()];
   if (named) return named;
-  if (raw.length === 1 && PUNCTUATION.has(raw)) return raw === '+' ? 'Plus' : raw;
+  // ("+" never gets here: the text is split on it, and "Ctrl++" becomes "Ctrl+Plus")
+  if (raw.length === 1 && PUNCTUATION.has(raw)) return raw;
   return undefined;
 }
 

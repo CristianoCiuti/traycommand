@@ -111,11 +111,13 @@ describe('folder watch', () => {
     });
     return { w, changes, states };
   };
+  const settled = () => new Promise((r) => setTimeout(r, 500));
   const rel = (c: FileChange[][]) => c.map((batch) => batch.map((x) => `${x.event}:${path.relative(dir, x.file).replace(/\\/g, '/')}`));
 
   it('reports added, changed and removed matching files once per burst', async () => {
     const { w, changes } = watchFor();
     w.start();
+    await settled();
     fs.writeFileSync(path.join(dir, 'a.txt'), '1');
     fs.writeFileSync(path.join(dir, 'skip.csv'), '1');
     fs.appendFileSync(path.join(dir, 'a.txt'), '2');
@@ -132,6 +134,7 @@ describe('folder watch', () => {
     fs.mkdirSync(path.join(dir, 'sub'));
     const { w, changes } = watchFor({ events: new Set(['add']), subfolders: true });
     w.start(true);
+    await settled();
     expect(rel(changes)).toEqual([['add:old.txt']]);
     fs.writeFileSync(path.join(dir, 'sub', 'deep.txt'), 'x');
     fs.unlinkSync(path.join(dir, 'old.txt'));
@@ -193,6 +196,7 @@ describe('watch schedules in the engine', () => {
       return ok();
     });
     engine.start();
+    await new Promise((r) => setTimeout(r, 500));
     expect(engine.status(engine.get('w')!).watches).toEqual([{ index: 0, path: dir, state: 'watching', error: undefined }]);
     fs.writeFileSync(path.join(dir, 'one.txt'), '1');
     fs.writeFileSync(path.join(dir, 'two.txt'), '2');
@@ -212,6 +216,7 @@ describe('watch schedules in the engine', () => {
   it('batch: one run for the files arriving together', async () => {
     const { engine, calls } = setup({ watch: { path: dir, files: ['*.txt'], batch: true, settle: '1s' } });
     engine.start();
+    await new Promise((r) => setTimeout(r, 500));
     fs.writeFileSync(path.join(dir, 'a.txt'), '1');
     fs.writeFileSync(path.join(dir, 'b.txt'), '2');
     await vi.waitFor(() => expect(calls.length).toBe(1), { timeout: 5000 });
@@ -235,6 +240,7 @@ describe('watch schedules in the engine', () => {
 
     const inside = setup({ watch: { path: dir, files: '*.txt', existing: true, settle: '1s' } });
     inside.engine.start();
+    await new Promise((r) => setTimeout(r, 500));
     await vi.waitFor(() => expect(inside.calls.map((c) => c.script).sort()).toEqual(['process late.txt', 'process ready.txt']), { timeout: 3000 });
     inside.engine.setSchedulesPaused(true);
     expect(inside.engine.status(inside.engine.get('w')!).watches![0]!.state).toBe('waiting');
@@ -247,6 +253,7 @@ describe('watch schedules in the engine', () => {
   it('reports a missing folder in the status', async () => {
     const { engine } = setup({ watch: { path: 'nope', settle: '1s' } });
     engine.start();
+    await new Promise((r) => setTimeout(r, 500));
     expect(engine.status(engine.get('w')!).watches![0]).toMatchObject({ state: 'error', error: 'Folder not found', path: path.join(dir, 'nope') });
     engine.stop();
   });
@@ -265,6 +272,9 @@ describe('watch and window validation', () => {
             { watch: { path: ' ', files: '*.{a', events: [], settle: '2x' } },
             { every: '1m', between: '9-18', days: 'xyz' },
             { watch: { path: 'C:\\in' }, every: '5m' },
+            { watch: { path: 'C:\\in', settle: '2h' } },
+            { every: 'often' },
+            { every: '1m', run: 'right' },
           ],
         },
       ],
@@ -280,6 +290,9 @@ describe('watch and window validation', () => {
         expect.stringMatching(/^trays\[0\]\.schedules\[1\]\.between: "9" is not a time/),
         expect.stringMatching(/^trays\[0\]\.schedules\[1\]\.days:/),
         'trays[0].schedules[2]: Set exactly one of cron, every, startup or watch',
+        'trays[0].schedules[3].watch.settle: The longest wait is 1 hour',
+        'trays[0].schedules[4].every: Use a number and a unit: "30s", "15m", "2h", "1d"',
+        'trays[0].schedules[5].run: Nothing to run: the entry has no rightAction',
       ]),
     );
   });

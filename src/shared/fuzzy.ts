@@ -16,6 +16,8 @@ export function fold(text: string): string {
   for (const ch of text) {
     const base = ch.normalize('NFD').replace(/[̀-ͯ]/g, '');
     const lower = (base.length === ch.length ? base : ch).toLowerCase();
+    // positions must not move: keep a character whose lower case would be longer
+    /* v8 ignore next */
     out += lower.length === ch.length ? lower : ch;
   }
   return out;

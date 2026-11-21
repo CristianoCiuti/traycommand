@@ -4,6 +4,7 @@ import { allIds, draft, entryAt, issuesFor, mutate, selection, siblingsOf, statu
 import { isSeparator, normalizeAction, type MenuNode } from '../../shared/config';
 import { HotkeyInput } from '../components/HotkeyInput';
 import { SchedulesEditor } from './SchedulesEditor';
+import { scheduleCardText } from '../../shared/scheduleForm';
 import { schedulesPaused } from '../store';
 import { Card, Field, Switch } from '../components/ui';
 import { ActionEditor, AddActionButton } from './ActionEditor';
@@ -171,17 +172,7 @@ export function EntryEditor(props: { path: number[] }) {
       <Card
         title="Schedule"
         icon={<CalendarClock size={16} />}
-        desc={
-          st?.watches?.some((w) => w.state === 'error')
-            ? `Folder watch: ${st.watches.find((w) => w.state === 'error')!.error}`
-            : st?.watches?.some((w) => w.state === 'watching') && !st.nextRun
-              ? 'Watching for files'
-              : st?.nextRun
-            ? `Next run ${new Date(st.nextRun).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
-            : schedulesPaused.value && entry.schedules?.length
-              ? 'Paused from the tray menu'
-              : 'Run automatically'
-        }
+        desc={scheduleCardText(st, schedulesPaused.value, !!entry.schedules?.length, (t) => new Date(t).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}
         testId="card-schedule"
       >
         <SchedulesEditor

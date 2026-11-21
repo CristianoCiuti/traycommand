@@ -1,4 +1,5 @@
 import { Menu, Tray, type MenuItemConstructorOptions, type NativeImage } from 'electron';
+import { watchTooltip } from '../shared/scheduleForm';
 import type { Engine, RuntimeEntry } from './engine';
 import { appIcon, sizedIcon } from './icons';
 import type { RunningProcess } from './runner';
@@ -108,11 +109,8 @@ export class TrayManager {
     if (entry.entry.disabled) parts.push('disabled');
     const next = this.engine.nextRun(entry);
     if (next) parts.push(`next run ${clock(next)}`);
-    const watches = this.engine.watchStatus(entry);
-    const failed = watches.find((w) => w.state === 'error');
-    const watching = watches.filter((w) => w.state === 'watching');
-    if (failed) parts.push(`folder watch: ${failed.error}`);
-    else if (watching.length) parts.push(`watching ${watching.map((w) => w.path.split(/[\\/]/).filter(Boolean).pop()).join(', ')}`);
+    const watching = watchTooltip(this.engine.watchStatus(entry));
+    if (watching) parts.push(watching);
     return parts.join(' — ');
   }
 

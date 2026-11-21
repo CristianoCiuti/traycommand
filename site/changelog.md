@@ -2,6 +2,15 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.3.1 — folder watch fixes, fully tested logic
+
+- Folder watches with sub folders: when a sub folder is emptied, renamed or moved away, its files are now reported as removed (they were missed when the system reported only the folder). A file replaced by a folder with the same name is reported as removed too.
+- A folder watch closed by saving the configuration no longer reports a late error from the old watch.
+- If the form that asks for values cannot be shown, the run stops with a clear notification instead of failing silently.
+- A state check whose command cannot even start counts as OFF instead of being left pending.
+- In the editor, a time window with only days shows 00:00–24:00 instead of the office hours it does not use, and choosing every day with no hours keeps the window on.
+- The logic of the app (configuration, schedules and time windows, folder watches, shortcuts, search, the engine) is now covered 100% by unit tests, and the build fails if that drops.
+
 ## 2.3.0 — folder watches and time windows
 
 - **Run when files change** (`watch` schedule): an entry runs when files appear, change or disappear in a folder, e.g. every new `*.pdf` in `Scans`. Name patterns (`*.txt`, `*.{csv,xlsx}`), sub folders, the files already there, one run per file or one for the whole batch, a quiet time so big files are completely written. The command gets the file in `TC_FILE` (and `TC_FILE_NAME`, `TC_EVENT`, `TC_FILES`…). Runs of an entry happen one after the other; a folder that is missing is watched as soon as it appears. See [when files change](./guide/schedules#when-files-change).

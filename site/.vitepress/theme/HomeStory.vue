@@ -54,6 +54,7 @@ const storyHeight = `${(TOTAL + 1) * 100}vh`;
 const story = ref<HTMLElement | null>(null);
 const stage = ref<HTMLElement | null>(null);
 const k = ref(1); // canvas scale (large screens)
+const lk = ref(1); // the same for the looks, when they fill one screen (not on phones)
 const stacked = ref(false); // narrow screen: text on top, windows under it
 const minOrigin = ref('100% 100%'); // where the editor shrinks to: the Proxy tray icon
 const seg = ref(0);
@@ -68,7 +69,9 @@ const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 /* clicks: hold until the scene changes */
 const manual = reactive<{ proxy: boolean | null; web: boolean | null; menu: boolean | null; toast: boolean }>({ proxy: null, web: null, menu: null, toast: false });
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+const trayUsed = ref(false); // the bubble over the tray goes for good once the tray is used
 function clickProxyIcon() {
+  trayUsed.value = true;
   manual.menu = !(menuAlpha.value > 0.5);
 }
 function clickProxyEntry() {
@@ -79,6 +82,7 @@ function clickProxyEntry() {
   toastTimer = setTimeout(() => (manual.toast = false), 3200);
 }
 function clickWeb() {
+  trayUsed.value = true;
   manual.web = !webOn.value;
 }
 
@@ -128,6 +132,9 @@ const editorStyle = computed(() => {
   const hidden = { visibility: 'hidden' as const, opacity: 0 };
   if (s.value === 4) return { transform: `translateY(${(1 - rise.value) * 105}%) scale(${0.94 + 0.06 * rise.value})`, opacity: Math.min(1, rise.value * 4), visibility: rise.value > 0 ? ('visible' as const) : ('hidden' as const) };
   if (stacked.value) return hidden;
+  // the tray was used on the first screen: the editor goes into the tray, out of the way of
+  // the menu and the notification
+  if (trayUsed.value && s.value <= 0) return { transformOrigin: minOrigin.value, transform: 'scale(0.05)', opacity: 0, visibility: 'hidden' as const, transition: 'transform 0.4s ease-in, opacity 0.3s 0.1s, visibility 0s 0.4s' };
   if (s.value < 0) return {}; // still pictures: simply open
   if (s.value === 0) {
     const m = ease(ramp(0.04, 0.55, t.value));
@@ -137,7 +144,11 @@ const editorStyle = computed(() => {
 });
 
 /* the bubble over the tray, on the first screen only */
-const coachAlpha = computed(() => (manual.menu ? 0 : s.value < 0 ? 1 : s.value === 0 ? 1 - ramp(0, 0.18, t.value) : 0));
+/* never together with the menu or the notification: they use the same corner */
+const coachAlpha = computed(() => {
+  if (trayUsed.value || menuAlpha.value > 0.01 || toastAlpha.value > 0.01) return 0;
+  return s.value < 0 ? 1 : s.value === 0 ? 1 - ramp(0, 0.18, t.value) : 0;
+});
 
 /* progress in the taskbar */
 const chapters = ['Tray menu', 'Launcher', 'Schedules', 'Editor'];
@@ -215,9 +226,11 @@ function measure(now = performance.now()) {
     const y = shown;
     let i = SEG.length - 1;
     while (i > 0 && y < STARTS[i]) i--;
-    if (i !== seg.value) { manual.proxy = manual.web = manual.menu = null; manual.toast = false; }
+    const changed = i !== seg.value;
+    if (changed) { manual.proxy = manual.web = manual.menu = null; manual.toast = false; }
     seg.value = i;
     t.value = (y - STARTS[i]) / SEG[i];
+    if (changed && stacked.value) nextTick(fitLayout); // the room under the text depends on this scene's text
   }
   placePointer();
   const pinned = looksEl.value && getComputedStyle(looksEl.value.firstElementChild as Element).position === 'sticky';
@@ -272,7 +285,9 @@ function fitLayout() {
   const tray = [st.querySelector<HTMLElement>('.hs-menu'), st.querySelector<HTMLElement>('.hs-toast-pos')];
   if (stacked.value && copy && caps.length) {
     const stTop = st.getBoundingClientRect().top;
-    const capBottom = (copy.getBoundingClientRect().top - stTop) / q + Math.max(...caps.map((c) => c.offsetHeight)) + 16;
+    // the windows live under the text of the scene on screen (the first scene's on the hero)
+    const cap = caps[clamp(seg.value - 1, 0, caps.length - 1)];
+    const capBottom = (copy.getBoundingClientRect().top - stTop) / q + cap.offsetHeight + 20;
     canvas.style.setProperty('--hs-captop', `${Math.round(capBottom)}px`);
     // the tray menu and the notification rise from the taskbar: shrink them to stay under the text
     const barTop = ((st.querySelector<HTMLElement>('.hs-taskbar')?.getBoundingClientRect().top ?? 0) - stTop) / q;
@@ -302,6 +317,8 @@ function fitLayout() {
 }
 function relayout() {
   computeK();
+  const lc = looksEl.value?.querySelector<HTMLElement>('.hs-lcanvas');
+  lk.value = lc && getComputedStyle(lc).position === 'absolute' ? k.value : 1;
   nextTick(() => { fitLayout(); onScroll(); }); // k must be on the canvas before measuring
 }
 function onResize() {
@@ -421,7 +438,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
 
         <TaskbarBar :proxy-on="proxyOn" :web-on="webOn" :hover-p="s === 1 && t < 0.27" :press-p="pointer.down && t < 0.3" :menu-shown="menuAlpha > 0.5" :pulse="coachAlpha > 0.5" @proxy="clickProxyIcon" @web="clickWeb">
           <template #coach>
-            <div class="hs-coach hs-glass" :style="fade(coachAlpha)" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>
+            <div v-if="coachAlpha > 0.01" class="hs-coach hs-glass" :style="{ opacity: coachAlpha }" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>
           </template>
           <template #menu>
             <TrayMenu :proxy-on="proxyOn" :hover="rowHover" :style="fade(menuAlpha, `translateY(${(1 - menuAlpha) * 8}px)`)" @toggle="clickProxyEntry" />
@@ -478,6 +495,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
         <div class="hs-lbg" aria-hidden="true">
           <span v-for="(l, i) in looks" :key="l.id" :class="[`bg-${l.id}`, { in: look === i }]"></span>
         </div>
+        <div class="hs-lcanvas" :style="{ '--k': lk }">
         <div class="hs-lstage">
           <div class="hs-ltext">
             <h2>Same app, four looks.</h2>
@@ -496,6 +514,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
               <img class="only-dark" :class="{ in: look === i }" :src="srcDark(`look-${l.id}`)" :alt="`TrayCommand in the ${l.name} look, dark`" loading="lazy" />
             </template>
           </div>
+        </div>
         </div>
       </div>
     </section>

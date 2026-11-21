@@ -222,13 +222,15 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 .hs-sys { display: flex; gap: 12px; padding: 0 12px; color: var(--hs-text-2); }
 .hs-clock { display: flex; flex-direction: column; align-items: flex-end; font-size: 13px; line-height: 1.35; padding: 0 6px; font-variant-numeric: tabular-nums; }
 
-/* first screen: a bubble over the tray says where to look, and the icons breathe */
+/* first screen: a label says where to look, and the icons breathe. On wide screens it sits in
+   the taskbar, just left of the icons, so it never lands on the editor window; on narrow
+   screens (no editor on the first screen) it is a bubble over the icons. */
 .hs-coach {
-  position: absolute; right: 0; bottom: calc(100% + 16px); width: max-content; max-width: 260px; padding: 10px 14px; border-radius: 12px; z-index: 2;
-  font: 600 14px/1.35 var(--hs-font); color: var(--hs-text); pointer-events: none;
+  position: relative; flex: none; margin-right: 12px; padding: 7px 12px; border-radius: 10px; pointer-events: none;
+  font: 600 13.5px/1.3 var(--hs-font); color: var(--hs-text); box-shadow: inset 0 1px 0 var(--hs-edge);
 }
-.hs-coach small { display: block; font-weight: 400; font-size: 12.5px; color: var(--hs-text-2); }
-.hs-coach::after { content: ''; position: absolute; right: 120px; bottom: -7px; width: 12px; height: 12px; rotate: 45deg; background: inherit; border-right: 1px solid var(--hs-border); border-bottom: 1px solid var(--hs-border); }
+.hs-coach small { display: block; font-weight: 400; font-size: 12px; color: var(--hs-text-2); }
+.hs-coach::after { content: ''; position: absolute; right: -6px; top: 50%; width: 10px; height: 10px; translate: 0 -50%; rotate: 45deg; background: inherit; border-top: 1px solid var(--hs-border); border-right: 1px solid var(--hs-border); }
 .hs-tray.pulse .hs-ti:not(.hs-sys)::after { content: ''; position: absolute; inset: 4px; border-radius: 10px; box-shadow: 0 0 0 0 var(--hs-glow); animation: hs-breathe 2.4s ease-out infinite; pointer-events: none; }
 @keyframes hs-breathe { 0% { box-shadow: 0 0 0 0 var(--hs-glow); } 70%, 100% { box-shadow: 0 0 0 10px transparent; } }
 
@@ -271,8 +273,18 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 .hs-looks { position: relative; height: 260vh; }
 .hs-reduced .hs-looks { height: auto; }
 .hs-lsticky { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow: hidden; overflow: clip; isolation: isolate; }
-.hs-reduced .hs-lsticky { position: relative; height: auto; min-height: 100vh; }
-.hs-lstage { height: 100%; min-height: inherit; padding: var(--vp-nav-height) 24px 0; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; max-width: var(--hs-page); margin: 0 auto; }
+.hs-reduced .hs-lsticky { position: relative; } /* not pinned, still one screen tall */
+/* like the desktop, the looks sit on a canvas scaled by --k on large screens */
+.hs-lcanvas {
+  position: absolute; left: 0; top: 0; container-type: size;
+  width: calc(100% / var(--k, 1)); height: calc(100% / var(--k, 1));
+  transform: scale(var(--k, 1)); transform-origin: 0 0;
+  --hs-nav: calc(var(--vp-nav-height) / var(--k, 1));
+}
+.hs-lstage {
+  height: 100%; padding: var(--hs-nav) 24px 0; display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 56px; align-items: center;
+  max-width: clamp(1240px, calc(100cqw - 160px), 1760px); margin: 0 auto;
+}
 .hs-lbg { position: absolute; inset: 0; z-index: -1; }
 .hs-lbg span { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s; }
 .hs-lbg span.in { opacity: 1; }
@@ -307,7 +319,7 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 .hs-lpick button[aria-checked='true'] { background: var(--hs-panel); border-color: var(--hs-glow); color: var(--hs-text); box-shadow: inset 0 1px 0 var(--hs-edge); }
 .hs-lpick img { width: 48px; height: 48px; }
 .hs-lnote { margin: 18px 0 0; color: var(--hs-text-3); font-size: 15px; min-height: 1.5em; }
-.hs-lshots { position: relative; aspect-ratio: 3 / 2; }
+.hs-lshots { position: relative; aspect-ratio: 3 / 2; justify-self: end; width: min(100%, calc((100cqh - var(--hs-nav, 64px) - 72px) * 1.5)); }
 .hs-lshots img { position: absolute; inset: 0; width: 100%; border-radius: 16px; border: 1px solid var(--hs-border); box-shadow: var(--hs-shadow); opacity: 0; transition: opacity 0.45s; }
 .hs-lshots img.in { opacity: 1; }
 
@@ -337,12 +349,14 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
   .hs-cap p { font-size: 16px; }
   /* the windows live under the longest caption (--hs-captop, measured in HomeStory.vue)
      and shrink (--fit) when the room left is smaller than they are */
-  .hs-area { left: 16px; right: 16px; width: auto; top: var(--hs-captop, 46%); bottom: calc(var(--hs-bar-h) + 12px); }
-  .hs-area > * { top: auto; bottom: 0; translate: none; scale: var(--fit, 1); transform-origin: center bottom; }
+  .hs-area { left: 16px; right: 16px; width: auto; top: var(--hs-captop, 46%); bottom: calc(var(--hs-bar-h) + 20px); }
+  /* centred in the room between the text and the taskbar, not stuck to the taskbar */
+  .hs-area > * { top: 50%; translate: 0 -50%; scale: var(--fit, 1); transform-origin: center center; }
   .hs-keys kbd { font-size: 16px; padding: 12px 14px; min-width: 56px; }
   .hs-keys kbd.wide { min-width: 110px; }
-  .hs-editor { left: 16px; right: 16px; width: auto; }
-  .hs-editor img { max-height: calc(100cqh - var(--hs-captop, 50cqh) - var(--hs-bar-h)); }
+  /* the editor, too, floats in the middle of the room left, as a whole window */
+  .hs-editor { left: 16px; right: 16px; width: auto; top: var(--hs-captop, 50cqh); bottom: calc(var(--hs-bar-h) + 20px); display: flex; align-items: center; }
+  .hs-editor img { max-height: 100%; border-radius: 14px; border-bottom: 1px solid var(--hs-border); }
   .hs-toast-pos { width: min(340px, calc(100cqw - 24px)); } /* a notification keeps its size, in the corner */
   .hs-sys { display: none; }
   .hs-taskbar { gap: 8px; padding-left: 12px; }
@@ -351,7 +365,8 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
   /* no room left of the icon: the menu hangs from the right end of the tray instead */
   .hs-anchor { position: static; }
   .hs-menu { right: 0; width: min(290px, calc(100cqw - 24px)); }
-  .hs-coach::after { right: 100px; }
+  .hs-coach { position: absolute; right: 0; bottom: calc(100% + 16px); margin: 0; width: max-content; max-width: 260px; padding: 10px 14px; border-radius: 12px; z-index: 2; box-shadow: inset 0 1px 0 var(--hs-edge), var(--hs-shadow); }
+  .hs-coach::after { right: 100px; top: auto; bottom: -7px; translate: none; border-top: 0; border-left: 0; border-right: 1px solid var(--hs-border); border-bottom: 1px solid var(--hs-border); }
   .hs-progress .lbl { display: none; }
   .hs-progress { width: 100%; } /* without labels the bars need a width of their own */
   .hs-progress button { padding: 12px 2px; min-width: 18px; }
@@ -380,8 +395,10 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
    are not pinned (the picture would be cut); the look is chosen with the icons */
 @media (max-width: 860px), (max-height: 700px) {
   .hs-looks { height: auto; }
-  .hs-lsticky { position: relative; height: auto; min-height: 0; }
+  .hs-lsticky, .hs-reduced .hs-lsticky { position: relative; height: auto; min-height: 0; }
+  .hs-lcanvas { position: relative; width: auto; height: auto; transform: none; container-type: normal; }
   .hs-lstage { height: auto; padding-top: 72px; padding-bottom: 48px; }
+  .hs-lshots { width: 100%; }
 }
 
 /* reduced motion: nothing moves on its own */
@@ -390,3 +407,4 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
   .hs-tray.pulse .hs-ti::after { animation: none; }
   .hs-lbg span, .hs-lshots img { transition: none; }
 }
+.hs-reduced .hs-editor { transition: none !important; } /* still pictures: the editor just goes */

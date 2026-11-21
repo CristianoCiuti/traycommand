@@ -462,7 +462,15 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
                 <span class="lbl">{{ c }}</span>
               </button>
             </nav>
-            <button v-if="forced && !reduced" class="hs-stillbtn" @click="setMotion(false)"><span class="long">Show still pictures</span><span class="short">Still</span></button>
+            <!-- one switch, always here: play the story, or back to still pictures -->
+            <button v-if="reduced" class="hs-stillbtn" title="Your system asks for less motion, so the story is shown as still pictures below" @click="setMotion(true)">
+              <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor" /></svg>
+              <span class="long">Play the story</span><span class="short">Play</span>
+            </button>
+            <button v-else-if="forced" class="hs-stillbtn" @click="setMotion(false)">
+              <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><rect x="5" y="5" width="5" height="14" rx="1" fill="currentColor" /><rect x="14" y="5" width="5" height="14" rx="1" fill="currentColor" /></svg>
+              <span class="long">Show still pictures</span><span class="short">Still</span>
+            </button>
           </template>
         </TaskbarBar>
         </div>
@@ -471,10 +479,6 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
 
     <!-- ================= reduced motion: the same scenes, still ================= -->
     <section v-if="reduced" class="hs-stills">
-      <p class="hs-motion">
-        Your system asks for less motion, so the story is shown as still pictures.
-        <button @click="setMotion(true)">Show it animated</button>
-      </p>
       <div v-for="(c, i) in captions" :key="i" class="hs-still">
         <div class="hs-stilltext">
           <h2>{{ c.title }}</h2>

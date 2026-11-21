@@ -126,10 +126,11 @@ describe('FolderWatch with a fake fs.watch', () => {
     write('swap.txt');
     const { w, fake, rel } = make();
     w.start();
-    // a folder copied in: one event for the folder
+    // a folder copied in: an event for the folder and one for a file in it (a file is reported once)
     write('in/a.txt');
     write('in/deep/b.txt');
     fake.fire('in');
+    fake.fire('in/a.txt');
     await vi.advanceTimersByTimeAsync(150);
     expect(rel().at(-1)).toEqual(['add:in/a.txt', 'add:in/deep/b.txt']);
     // a file deleted inside a folder, reported only as the folder

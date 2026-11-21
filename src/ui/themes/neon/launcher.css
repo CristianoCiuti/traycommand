@@ -4,6 +4,9 @@
    NEON HUD: launcher palette
    A chamfered translucent panel with a neon edge, a scan line sweep on
    open, a glowing selection bar with chevrons, keycaps as HUD tags.
+   Same rules as styles.css: display uppercase for buttons, mono uppercase
+   for labels, mono for data, chamfered frames, reticle icon plates with
+   the picture cut to --plate, redrawn native controls.
    ===================================================================== */
 
 * { box-sizing: border-box; }
@@ -15,7 +18,7 @@ button, input, select { font: inherit; color: inherit; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: padding-box; }
 
 /* shared chamfered frame (see styles.css) */
-.lx, .lx-icon, .lx-scope, .lx-state, .lx-input, .lx-btn, .lx-row, kbd, .keys kbd {
+.lx, .lx-icon, .lx-scope, .lx-state, .lx-input, .lx-btn, .lx-row, .lx-num, kbd, .keys kbd {
   --c: 6px;
   --c2: var(--c);
   --fill: var(--panel);
@@ -124,12 +127,23 @@ button, input, select { font: inherit; color: inherit; }
 }
 .lx-row.selected .lx-label { color: var(--text); }
 .lx-row.unavailable .lx-text, .lx-row.unavailable .lx-icon { opacity: 0.45; }
+/* icon frame: chamfered plate with reticle ticks; the picture is cut to the plate */
 .lx-icon {
-  width: 30px; height: 30px; display: grid; place-items: center; color: var(--text-2); overflow: hidden; flex: none;
-  --c: 5px; --fill: var(--panel-2); --edge: var(--border);
+  width: 30px; height: 30px; display: grid; place-items: center; color: var(--text-2); overflow: hidden; flex: none; position: relative;
+  --c: 6px; --fill: color-mix(in srgb, var(--panel-2) 80%, transparent); --edge: var(--border-strong);
 }
-.lx-row.selected .lx-icon { --edge: var(--accent); color: var(--accent); }
-.lx-icon img { width: 20px; height: 20px; object-fit: contain; }
+.lx-icon::after {
+  content: ''; position: absolute; inset: 2px; pointer-events: none; --b: var(--accent);
+  background:
+    linear-gradient(var(--b), var(--b)) 100% 0 / 4px 1px no-repeat,
+    linear-gradient(var(--b), var(--b)) 100% 0 / 1px 4px no-repeat,
+    linear-gradient(var(--b), var(--b)) 0 100% / 4px 1px no-repeat,
+    linear-gradient(var(--b), var(--b)) 0 100% / 1px 4px no-repeat;
+  opacity: 0.5;
+}
+.lx-row.selected .lx-icon { --edge: var(--accent); --fill: var(--accent-soft); color: var(--accent); }
+.lx-row.selected .lx-icon::after, .lx-head .lx-icon::after { opacity: 1; filter: drop-shadow(var(--glow)); }
+.lx-icon img { width: 20px; height: 20px; object-fit: contain; clip-path: var(--plate); }
 .lx-icon.off img { filter: grayscale(1); opacity: 0.7; }
 .lx-text { display: flex; flex-direction: column; min-width: 0; }
 .lx-label, .lx-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -137,7 +151,7 @@ button, input, select { font: inherit; color: inherit; }
 .lx-path { font: 11.5px/1.4 var(--mono); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lx-meta { display: flex; align-items: center; gap: 8px; color: var(--text-3); }
 .lx-go {
-  display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font: 700 11.5px/1 var(--mono); letter-spacing: 0.08em;
+  display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font: 700 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
   text-shadow: var(--text-glow);
 }
 .lx-chev { color: var(--text-3); }
@@ -178,14 +192,25 @@ kbd, .keys kbd {
 .lx-close:hover { background: var(--panel-2); color: var(--accent-2); }
 .lx-fields { padding: 14px 18px 16px; display: flex; flex-direction: column; gap: 12px; max-height: 340px; overflow-y: auto; }
 .lx-field { display: flex; flex-direction: column; gap: 5px; }
-.lx-field > label { font-size: 12.5px; font-weight: 600; color: var(--text-2); display: flex; gap: 6px; align-items: baseline; letter-spacing: 0.02em; }
-.lx-optional { font: 400 10.5px/1 var(--mono); color: var(--text-3); letter-spacing: 0.06em; }
+.lx-field > label { font: var(--label-face); letter-spacing: var(--label-track); text-transform: uppercase; color: var(--text-2); display: flex; gap: 8px; align-items: baseline; }
+.lx-optional { font: 400 9.5px/1 var(--mono); color: var(--text-3); letter-spacing: 0.1em; }
+.lx-optional::before { content: '// '; color: var(--accent); }
 .lx-input-row { display: flex; gap: 8px; }
 .lx-input {
   width: 100%; height: 36px; padding: 0 11px; outline: none; user-select: text; caret-color: var(--accent);
   --c: 5px; --fill: color-mix(in srgb, var(--panel) 85%, transparent); --edge: var(--border-strong);
 }
-select.lx-input { padding: 0 8px; }
+.lx-input:hover { --edge: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); }
+select.lx-input {
+  appearance: none; -webkit-appearance: none; padding: 0 30px 0 10px; cursor: pointer;
+  --fill:
+    linear-gradient(45deg, transparent 50%, var(--accent) 50%) calc(100% - 15px) 50% / 5px 5px no-repeat,
+    linear-gradient(135deg, var(--accent) 50%, transparent 50%) calc(100% - 10px) 50% / 5px 5px no-repeat,
+    linear-gradient(var(--border), var(--border)) calc(100% - 24px) 50% / 1px 16px no-repeat,
+    color-mix(in srgb, var(--panel) 85%, transparent);
+}
+.lx-input::placeholder { color: var(--text-3); }
+.lx-input.lx-loading { font: 12px var(--mono); }
 select.lx-input option { background: var(--panel); color: var(--text); }
 .lx-input:focus { --edge: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 14px rgb(0 229 255 / 0.12); }
 .lx-field.invalid .lx-input { --edge: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
@@ -205,8 +230,8 @@ select.lx-input option { background: var(--panel); color: var(--text); }
 .lx-check input:checked + .lx-track::after { transform: translateX(18px); background: var(--accent); box-shadow: var(--glow-strong); }
 .lx-check input:focus-visible + .lx-track { box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 8px rgb(0 229 255 / 0.4); border-color: var(--accent); }
 .lx-btn {
-  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 13px; flex: none; cursor: pointer;
-  font-weight: 600; font-size: 13px; color: var(--text); --c: 5px;
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 13px; flex: none; cursor: pointer; color: var(--text); --c: 5px;
+  font: var(--btn-face); letter-spacing: var(--btn-track); text-transform: uppercase; font-stretch: semi-condensed; font-variation-settings: 'wdth' 82;
 }
 .lx-btn:hover { --fill: var(--panel-2); --edge: var(--accent); color: var(--accent); }
 .lx-btn.primary {
@@ -223,9 +248,14 @@ select.lx-input option { background: var(--panel); color: var(--text); }
 .lx-alert-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 14px 16px 16px; }
 .lx-alert-actions .lx-btn { height: 34px; padding: 0 14px; max-width: 100%; }
 .lx-alert.arming .lx-alert-actions .lx-btn { opacity: 0.55; cursor: default; }
-.lx-num { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 5px; font-size: 11px; background: rgb(127 127 127 / 0.16); }
-.lx-btn.primary .lx-num { background: rgb(255 255 255 / 0.22); }
-.lx-alert-timer { color: var(--text-2); font-variant-numeric: tabular-nums; }
+/* choice number: a small HUD tag */
+.lx-num {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; font: 700 10.5px/1 var(--mono); letter-spacing: 0;
+  --c: 4px; --c2: 0px; --edge: color-mix(in srgb, var(--accent) 55%, var(--border-strong)); --fill: var(--accent-soft); color: var(--accent);
+}
+.lx-btn.primary .lx-num { --edge: var(--accent-text); --fill: transparent; color: var(--accent-text); }
+.lx-alert-timer { color: var(--text-2); font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
+.lx-alert-timer::before { content: '\25C6  '; color: var(--accent-2); }
 
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

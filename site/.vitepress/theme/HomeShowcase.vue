@@ -55,8 +55,7 @@ const src = (name: string, dark = false) => withBase(`/screens/home/${name}${dar
 .showcase { max-width: 1152px; margin: 0 auto; padding: 8px 24px 72px; display: flex; flex-direction: column; gap: 72px; }
 @media (min-width: 768px) { .showcase { padding: 8px 48px 96px; } }
 .only-dark { display: none !important; }
-:global(.dark) .only-dark { display: block !important; }
-:global(.dark) .only-light { display: none !important; }
+/* the dark variants are switched in aurora.css: a scoped ":global(.dark) x" would compile to ".dark" alone and hide the page */
 
 .stage { position: relative; padding-bottom: 8%; }
 .stage img { border-radius: 16px; border: 1px solid var(--glass-line); }

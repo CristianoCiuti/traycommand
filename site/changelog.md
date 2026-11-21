@@ -2,6 +2,10 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.6.5 — skill for AI agents up to date
+
+- The TrayCommand skill for Claude Code and opencode now lists every check the validator does (alerts and their buttons, time limits, default choice) and its warnings, gives the right shortest alert timeout (5 seconds) and is picked by agents also for checks, alerts, looks and export/import. Installed skills update with the app.
+
 ## 2.6.4 — window buttons always in step
 
 - When light and dark changed several times in a row (for example saving with "same as system"), the window buttons could stay in the previous colours; they now always end up with the colours of the page.

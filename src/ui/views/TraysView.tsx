@@ -95,6 +95,9 @@ export function TraysView() {
             <Plus size={16} />
           </button>
         </div>
+        <div class="hud-label" aria-hidden="true">
+          SYS // TRAYS <b>{String(config.trays.length).padStart(2, '0')}</b>
+        </div>
         <div class="list" data-testid="tray-list">
           {visible.map(({ t, i }) => (
             <div

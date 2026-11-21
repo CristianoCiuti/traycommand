@@ -1,56 +1,89 @@
-/* Colours, fonts and radii shared by the editor and the launcher. */
+/* NEON HUD: colours, fonts and shapes shared by the editor and the launcher.
+   Light = "daylight HUD" (ice background, ink-navy text, solid cyan/magenta accents, no glow).
+   Dark  = deep-space navy with a faint grid, neon cyan/magenta accents with controlled glow. */
 :root {
   --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  /* condensed technical headings: Bahnschrift's width axis, named instances first */
+  --display: 'Bahnschrift SemiCondensed', 'Bahnschrift', 'Segoe UI Variable Display', 'Segoe UI', sans-serif;
   --mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', Menlo, monospace;
-  --radius: 8px;
-  --radius-sm: 6px;
+  --radius: 0px;
+  --radius-sm: 0px;
+  /* chamfer sizes (top-left and bottom-right corners are cut) */
+  --cut-lg: 14px;
+  --cut: 10px;
+  --cut-sm: 6px;
+  --cut-xs: 4px;
 
-  --bg: #f6f7f9;
+  --bg: #eef3fa;
+  --bg-deep: #e4ebf6;
   --panel: #ffffff;
-  --panel-2: #f1f3f6;
-  --border: #e3e6eb;
-  --border-strong: #cfd4dc;
-  --text: #1f2328;
-  --text-2: #57606a;
-  --text-3: #8b949e;
-  --accent: #2f6fde;
-  --accent-soft: #e6eefc;
-  --accent-text: #ffffff;
-  --ok: #1a7f37;
-  --ok-soft: #dcf5e3;
-  --off: #8b949e;
-  --off-soft: #eceef1;
-  --warn: #9a6700;
-  --warn-soft: #fff4d4;
+  --panel-2: #f2f6fc;
+  --panel-glass: rgb(255 255 255 / 0.86);
+  --border: #d5deee;
+  --border-strong: #a9b8d6;
+  --text: #0b1433;
+  --text-2: #34446e;
+  --text-3: #56648c;
+  --accent: #00799a;          /* cyan for text and lines (AA on white) */
+  --accent-fill: #00c6e4;     /* cyan for solid fills */
+  --accent-soft: #dcf6fb;
+  --accent-text: #041127;     /* text on the cyan fill */
+  --accent-2: #c0108c;        /* magenta */
+  --accent-2-soft: #fde6f6;
+  --ok: #00799a;
+  --ok-soft: #dcf6fb;
+  --off: #56648c;
+  --off-soft: #eef2f9;
+  --warn: #8f5a00;
+  --warn-soft: #fff3d6;
   --danger: #cf222e;
-  --danger-soft: #ffe7e9;
-  --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
-  --shadow-lg: 0 12px 32px rgb(16 24 40 / 0.18);
+  --danger-soft: #ffe5ee;
+  --grid-line: rgb(11 20 51 / 0.045);
+  --grid-size: 28px;
+  --edge-hi: rgb(0 121 154 / 0.55);
+  --glow: 0 0 0 transparent;
+  --glow-strong: 0 0 0 transparent;
+  --text-glow: none;
+  --inner-glow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  --shadow: 0 1px 2px rgb(11 20 51 / 0.06), 0 2px 8px rgb(11 20 51 / 0.05);
+  --shadow-lg: 0 14px 36px rgb(11 20 51 / 0.2);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #15171c;
-    --panel: #1c1f26;
-    --panel-2: #232731;
-    --border: #2c313c;
-    --border-strong: #3a404d;
-    --text: #e6e8eb;
-    --text-2: #a5adb8;
-    --text-3: #6e7681;
-    --accent: #5b8ef0;
-    --accent-soft: #1f2d4a;
-    --ok: #3fb950;
-    --ok-soft: #173a24;
-    --off: #6e7681;
-    --off-soft: #2a2e37;
-    --warn: #d29922;
-    --warn-soft: #3a2f12;
+    --bg: #070b1a;
+    --bg-deep: #04060f;
+    --panel: #0c1330;
+    --panel-2: #121b42;
+    --panel-glass: rgb(10 16 40 / 0.9);
+    --border: #1d2a5c;
+    --border-strong: #2e3f80;
+    --text: #e4ecff;
+    --text-2: #a8b7dc;
+    --text-3: #8293c0;
+    --accent: #00e5ff;
+    --accent-fill: #00e5ff;
+    --accent-soft: #0a2847;
+    --accent-text: #021022;
+    --accent-2: #ff2bd6;
+    --accent-2-soft: #3a0f43;
+    --ok: #00e5ff;
+    --ok-soft: #062a43;
+    --off: #7383b0;
+    --off-soft: #111a3c;
+    --warn: #ffb547;
+    --warn-soft: #33250c;
     --danger: #f85149;
-    --danger-soft: #45191c;
+    --danger-soft: #3d0f26;
+    --grid-line: rgb(110 140 255 / 0.06);
+    --edge-hi: rgb(0 229 255 / 0.55);
+    --glow: 0 0 8px rgb(0 229 255 / 0.45);
+    --glow-strong: 0 0 6px rgb(0 229 255 / 0.7), 0 0 18px rgb(0 229 255 / 0.35);
+    --text-glow: 0 0 8px rgb(0 229 255 / 0.55);
+    --inner-glow: inset 0 1px 0 rgb(0 229 255 / 0.18), inset 0 0 28px rgb(0 229 255 / 0.035);
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
-    --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.6);
     color-scheme: dark;
   }
 }

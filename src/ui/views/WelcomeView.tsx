@@ -9,7 +9,7 @@ export function WelcomeView() {
     <div class="page">
       <div class="welcome">
         <img src="./icon.png" alt="" />
-        <h1>Welcome to TrayCommand</h1>
+        <h1 data-hud="SYS // BOOT SEQUENCE">Welcome to TrayCommand</h1>
         <p class="lead">Run your commands from tray icons. Install it for your user: no administrator rights needed, it updates itself and can start at login.</p>
         <div class="choice">
           <div class="card">

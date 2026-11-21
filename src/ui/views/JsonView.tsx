@@ -40,7 +40,7 @@ export function JsonView() {
       <div class="page-inner" style={{ maxWidth: 1100 }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <h1>Configuration JSON</h1>
+            <h1 data-hud="SYS // 04 · RAW DATA">Configuration JSON</h1>
             <p class="lead path">{info.value?.configPath}</p>
           </div>
           {info.value && (

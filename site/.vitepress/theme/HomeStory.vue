@@ -548,6 +548,7 @@ function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | n
   }
 }
 function relayout() {
+  placeStage();
   computeK();
   const lc = looksEl.value?.querySelector<HTMLElement>('.hs-lcanvas');
   lk.value = lc && getComputedStyle(lc).position === 'absolute' ? k.value : 1;
@@ -557,7 +558,26 @@ function onResize() {
   relayout();
 }
 
+/*
+ * The desktop stays on screen as position: fixed while the story scrolls past, and sits at the
+ * bottom of its section once the story is over: what position: sticky did, but Safari on iOS
+ * skipped painting a sticky desktop for one frame after a long instant scroll (a tray click, the
+ * TrayCommand link), which showed the bare page as a dark flash. Decided in the scroll event
+ * itself, not a frame later. The still pictures keep the desktop in the flow.
+ */
+function placeStage() {
+  const st = stage.value;
+  const sec = story.value;
+  if (!st || !sec) return;
+  if (reduced.value) { st.classList.remove('pinned', 'past'); return; }
+  const r = sec.getBoundingClientRect();
+  const past = r.bottom <= window.innerHeight;
+  st.classList.toggle('pinned', !past && r.top <= 0);
+  st.classList.toggle('past', past);
+}
+
 function onScroll() {
+  placeStage();
   if (raf) return;
   if (!lastFrame) lastFrame = performance.now(); // the first eased frame starts from here
   raf = requestAnimationFrame(measure);

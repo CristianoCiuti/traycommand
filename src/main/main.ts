@@ -19,7 +19,7 @@ import { HotkeyManager, type HotkeyBinding } from './hotkeys';
 import { Alerts } from './alerts';
 import { Launcher } from './launcher';
 import { LauncherStore } from './launcherStore';
-import { appIconFile, assetPath, iconDataUrl, setIconStyle } from './icons';
+import { appIconFile, assetPath, iconDataUrl, setIconStyle, setMonochromeMenuBar } from './icons';
 import { bundleIconOutdated, setBundleIcon } from './macIcon';
 import { readImport, saveIcons, writeExport } from './transfer';
 import { exportKind } from '../shared/transfer';
@@ -52,6 +52,7 @@ const nativeNotifications = app.isPackaged && !option('data-dir');
 if (process.platform === 'win32' && nativeNotifications) app.setAppUserModelId(APP_ID);
 
 const state = new AppStateStore(path.join(dataDir, 'state.json'));
+setMonochromeMenuBar(state.get().monochromeMenuBar === true);
 const configPath = path.resolve(option('config') ?? process.env.TRAYCOMMAND_CONFIG ?? state.get().configPath ?? path.join(dataDir, 'traycommand.json'));
 
 /* ---------------- command line tools (also used by the AI agent skill) ---------------- */
@@ -348,7 +349,32 @@ let trays: TrayManager | undefined;
 
 const writeShortcut = (file: string, spec: Electron.ShortcutDetails) =>
   shell.writeShortcutLink(file, 'replace', spec) || shell.writeShortcutLink(file, 'create', spec);
-const autostartEnv = defaultAutostartEnv((file, spec) => writeShortcut(file, spec));
+const autostartEnv = {
+  ...defaultAutostartEnv((file, spec) => writeShortcut(file, spec)),
+  // macOS: TrayCommand.app itself in "Open at Login", with its name and icon
+  ...(process.platform === 'darwin'
+    ? {
+        loginItem: {
+          set: (open: boolean) => {
+            try {
+              app.setLoginItemSettings({ openAtLogin: open });
+              const s = app.getLoginItemSettings();
+              return open ? s.openAtLogin || s.status === 'enabled' || s.status === 'requires-approval' : !s.openAtLogin;
+            } catch {
+              return false;
+            }
+          },
+          get: () => {
+            try {
+              return app.getLoginItemSettings().openAtLogin;
+            } catch {
+              return false;
+            }
+          },
+        },
+      }
+    : {}),
+};
 
 function relaunchArgs(): string[] {
   const args = ['--hidden'];
@@ -810,6 +836,7 @@ function registerIpc() {
   });
   handle('hotkeys', () => hotkeys.status());
   handle('launcher:open', () => launcher.open());
+  handle('launcher:resetPosition', () => launcher.resetPosition());
   ipcMain.on('hotkeys:recording', (_e, on: boolean) => hotkeys.suspend(!!on));
   handle('schedules:paused', () => engine.schedulesPaused);
   handle('schedules:setPaused', (paused: boolean) => setSchedulesPaused(!!paused));
@@ -832,6 +859,14 @@ function registerIpc() {
 let statusTimer: NodeJS.Timeout | undefined;
 
 /* ---------------- startup ---------------- */
+
+function loginItemOpened(): boolean {
+  try {
+    return app.getLoginItemSettings().wasOpenedAtLogin;
+  } catch {
+    return false;
+  }
+}
 
 /** --launcher opens the launcher, --run=<id> runs an entry (for other tools, or where global shortcuts do not work). */
 function handleArgs(args: string[]): boolean {
@@ -880,6 +915,12 @@ void app.whenReady().then(() => {
     hasSchedules: () => engine.all.some((e) => e.entry.schedules?.some((s) => !s.disabled)),
     schedulesPaused: () => engine.schedulesPaused,
     setSchedulesPaused: (paused) => void setSchedulesPaused(paused),
+    monochromeMenuBar: () => state.get().monochromeMenuBar === true,
+    setMonochromeMenuBar: (on) => {
+      state.update({ monochromeMenuBar: on });
+      setMonochromeMenuBar(on);
+      trays?.scheduleSync();
+    },
   });
 
   // test hook: lets the end-to-end tests inspect tray menus and drive the engine
@@ -928,7 +969,9 @@ void app.whenReady().then(() => {
   const firstRun = state.get().lastVersion === undefined;
   state.update({ lastVersion: app.getVersion() });
   const settings = loaded.ok ? loaded.config.settings : undefined;
-  const showNow = !flag('hidden') || firstRun;
+  // started at login: hidden (the macOS login item cannot pass --hidden, the system tells instead)
+  const atLogin = flag('hidden') || (process.platform === 'darwin' && app.isPackaged && loginItemOpened());
+  const showNow = !atLogin || firstRun;
   const fromArgs = handleArgs(argv);
   if (showNow && !(fromArgs && !firstRun)) showWindow(state, app.isPackaged && !isInstalled() && process.platform !== 'darwin' ? '/welcome' : '/', devUrl);
   else if (settings?.notifyOnStartup) notify('TrayCommand', 'Running in the tray');

@@ -239,8 +239,15 @@ test('launcher can be moved and opens again where it was left', async () => {
   expect({ x: after.x, y: after.y }).toEqual({ x: before.x - 150, y: before.y - 60 });
   await launcher.keyboard.press('Escape');
   await expect.poll(launcherVisible).toBe(false);
-  // back to the centre for the other tests
-  await hook('tc.launcherStore.setPosition(undefined)');
+  // Settings → Launcher position → Reset: centred again
+  await editor.getByTestId('tab-settings').click();
+  await editor.getByTestId('reset-launcher-position').click();
+  await expect.poll(() => hook('return tc.launcherStore.position')).toBeUndefined();
+  await hook('await tc.launcher.open()');
+  await expect.poll(launcherVisible).toBe(true);
+  expect((await bounds()).x).toBe(before.x);
+  await launcher.keyboard.press('Escape');
+  await expect.poll(launcherVisible).toBe(false);
 });
 
 test('tray menus show shortcuts, the launcher entry and the schedules pause', async () => {

@@ -1,7 +1,7 @@
 import { Menu, Tray, type MenuItemConstructorOptions, type NativeImage } from 'electron';
 import { watchTooltip } from '../shared/scheduleForm';
 import type { Engine, RuntimeEntry } from './engine';
-import { appIcon, sizedIcon } from './icons';
+import { appIcon, sizedIcon, trayIcon } from './icons';
 import type { RunningProcess } from './runner';
 import { canonicalHotkey } from '../shared/hotkey';
 
@@ -22,6 +22,9 @@ export interface TrayHooks {
   hasSchedules: () => boolean;
   schedulesPaused: () => boolean;
   setSchedulesPaused: (paused: boolean) => void;
+  /** macOS: monochrome menu bar icon in the Apple style instead of the colour icon of the look. */
+  monochromeMenuBar: () => boolean;
+  setMonochromeMenuBar: (on: boolean) => void;
 }
 
 /** Shortcut text shown next to a menu item (the shortcut itself is global, not a menu accelerator). */
@@ -84,7 +87,7 @@ export class TrayManager {
     }
     for (const [key, entry] of wanted) {
       let tray = this.trays.get(key);
-      const image = entry ? this.trayImage(entry) : appIcon(16);
+      const image = entry ? this.trayImage(entry) : trayIcon(16);
       if (!tray) {
         tray = new Tray(image);
         if (isMac) tray.setIgnoreDoubleClickEvents(true);
@@ -99,7 +102,7 @@ export class TrayManager {
   }
 
   private trayImage(entry: RuntimeEntry): NativeImage {
-    return sizedIcon(this.engine.iconFor(entry), 16) ?? appIcon(16);
+    return sizedIcon(this.engine.iconFor(entry), 16) ?? trayIcon(16);
   }
 
   private tooltip(entry: RuntimeEntry): string {
@@ -236,6 +239,7 @@ export class TrayManager {
       { label: 'Edit configuration file', click: () => this.hooks.openConfigFile() },
       { label: 'Reload configuration', click: () => this.hooks.reload() },
       { label: 'Start at login', type: 'checkbox', checked: this.hooks.isAutostart(), click: (item) => this.hooks.setAutostart(item.checked) },
+      ...(isMac ? [{ label: 'Monochrome menu bar icon', type: 'checkbox' as const, checked: this.hooks.monochromeMenuBar(), click: (item: { checked: boolean }) => this.hooks.setMonochromeMenuBar(item.checked) }] : []),
       { label: 'Settings', click: () => this.hooks.openWindow('/settings') },
       { type: 'separator' },
       { label: 'Quit TrayCommand', click: () => this.hooks.quit() },

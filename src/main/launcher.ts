@@ -161,6 +161,12 @@ export class Launcher {
     this.win.setBounds({ x, y, width: WIDTH, height: this.height });
   }
 
+  /** Forgets where the person moved the launcher: it opens centred on the primary screen again. */
+  resetPosition() {
+    this.hooks.setPosition?.(undefined);
+    if (this.visible) this.place();
+  }
+
   /** The window was moved: remember where, unless the move was the app placing it. */
   private moved() {
     if (!this.win || this.win.isDestroyed()) return;

@@ -7,7 +7,9 @@ import { APP_ID, APP_NAME } from './paths';
  * Start at login WITHOUT Task Scheduler and WITHOUT registry Run keys:
  *  - Windows: a shortcut in the user's Startup folder (shell:startup)
  *  - Linux:   ~/.config/autostart/traycommand.desktop
- *  - macOS:   ~/Library/LaunchAgents/<id>.plist
+ *  - macOS:   the app itself in "Open at Login" (SMAppService, shown with the TrayCommand icon);
+ *             ~/Library/LaunchAgents/<id>.plist only when that cannot be registered (it shows a generic
+ *             "exec" icon in System Settings → Login Items)
  * No Electron import here, so it can be unit tested.
  */
 
@@ -26,6 +28,12 @@ export interface AutostartEnv {
   appData?: string;
   /** Writes a Windows .lnk (Electron shell.writeShortcutLink). */
   writeShortcut: (file: string, spec: ShortcutSpec) => boolean;
+  /** macOS: the app as a login item (Electron app.setLoginItemSettings / getLoginItemSettings). */
+  loginItem?: {
+    /** Registers or removes it; returns whether it is now in the wanted state. */
+    set: (open: boolean) => boolean;
+    get: () => boolean;
+  };
 }
 
 export interface LaunchTarget {
@@ -78,6 +86,7 @@ const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const desktopQuote = (s: string) => (/[\s"\\$`]/.test(s) ? `"${s.replace(/(["\\$`])/g, '\\$1')}"` : s);
 
 export function isAutostartEnabled(env: AutostartEnv): boolean {
+  if (env.platform === 'darwin' && env.loginItem?.get()) return true;
   return fs.existsSync(autostartFile(env));
 }
 
@@ -98,6 +107,11 @@ export function enableAutostart(env: AutostartEnv, target: LaunchTarget): void {
       return;
     }
     case 'darwin': {
+      // the app itself as a login item; the LaunchAgent of earlier versions goes away
+      if (env.loginItem?.set(true)) {
+        fs.rmSync(file, { force: true });
+        return;
+      }
       const args = [target.command, ...target.args].map((a) => `    <string>${xml(a)}</string>`).join('\n');
       fs.writeFileSync(
         file,
@@ -139,6 +153,7 @@ X-GNOME-Autostart-enabled=true
 
 /** Removes the autostart entry, retrying briefly if the file is locked (e.g. by antivirus). */
 export function disableAutostart(env: AutostartEnv): void {
+  if (env.platform === 'darwin') env.loginItem?.set(false);
   const file = autostartFile(env);
   const deadline = Date.now() + 3000;
   for (;;) {

@@ -51,9 +51,24 @@ export function appIconFile(style = iconStyle): string {
   return fs.existsSync(own) ? own : assetPath('icon.png');
 }
 
-/** Icon of the look in use, also in the macOS menu bar (in colour, like on Windows and Linux). */
+/** Icon of the look in use, in colour (window, menus, and the tray unless macOS asks for the monochrome one). */
 export function appIcon(size: number): NativeImage {
   return sizedIcon(appIconFile(), size) ?? nativeImage.createEmpty();
+}
+
+/** macOS: the person chose the monochrome symbol in the style of the other menu bar icons. */
+let monochromeMenuBar = false;
+export function setMonochromeMenuBar(on: boolean) {
+  monochromeMenuBar = on;
+}
+
+/** Icon of TrayCommand in the tray / menu bar: on macOS a template image (drawn by the system in the bar's colour) when chosen. */
+export function trayIcon(size: number): NativeImage {
+  if (process.platform !== 'darwin' || !monochromeMenuBar) return appIcon(size);
+  const icon = sizedIcon(assetPath('trayTemplate.png'), size);
+  if (!icon) return appIcon(size);
+  icon.setTemplateImage(true);
+  return icon;
 }
 
 export function iconDataUrl(file: string): string | undefined {

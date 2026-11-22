@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { Upload, ExternalLink, FolderOpen, History, RefreshCw, ShieldAlert, ShieldCheck, Download, FileCog, Sparkles, Search, CalendarClock } from 'lucide-preact';
+import { Upload, ExternalLink, FolderOpen, History, RefreshCw, ShieldAlert, ShieldCheck, Download, FileCog, Sparkles, Search, CalendarClock, RotateCcw } from 'lucide-preact';
 import { HotkeyInput } from '../components/HotkeyInput';
 import { Keys } from '../components/keys';
 import { hotkeyStatus, schedulesPaused } from '../store';
@@ -216,6 +216,18 @@ export function SettingsView() {
             <Setting title="Open the launcher now">
               <button class="btn sm" onClick={() => void api.openLauncher()} data-testid="open-launcher">
                 <Search size={14} /> Open
+              </button>
+            </Setting>
+            <Setting title="Launcher position" desc="Drag the launcher by its search bar or footer to move it. Reset brings it back to the centre of the main screen.">
+              <button
+                class="btn sm"
+                onClick={async () => {
+                  await api.resetLauncherPosition();
+                  showToast('The launcher opens in the centre again', 'ok');
+                }}
+                data-testid="reset-launcher-position"
+              >
+                <RotateCcw size={14} /> Reset position
               </button>
             </Setting>
             {hotkeyStatus.value.filter((h) => !h.ok).map((h) => (

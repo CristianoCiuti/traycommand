@@ -45,6 +45,27 @@ describe('autostart', () => {
     expect(fs.readFileSync(autostartFile(mac), 'utf8')).toContain('<string>--hidden</string>');
   });
 
+  it('macOS: the app itself is the login item, replacing the LaunchAgent of earlier versions', () => {
+    let open = false;
+    const mac: AutostartEnv = { ...env('darwin'), loginItem: { set: (v) => ((open = v), true), get: () => open } };
+    fs.mkdirSync(path.dirname(autostartFile(mac)), { recursive: true });
+    fs.writeFileSync(autostartFile(mac), '<plist/>'); // from an earlier version
+    enableAutostart(mac, { command: '/Apps/TrayCommand', args: ['--hidden'], cwd: '/' });
+    expect(open).toBe(true);
+    expect(fs.existsSync(autostartFile(mac))).toBe(false);
+    expect(isAutostartEnabled(mac)).toBe(true);
+    disableAutostart(mac);
+    expect(open).toBe(false);
+    expect(isAutostartEnabled(mac)).toBe(false);
+  });
+
+  it('macOS: falls back to the LaunchAgent when the login item cannot be registered', () => {
+    const mac: AutostartEnv = { ...env('darwin'), loginItem: { set: () => false, get: () => false } };
+    enableAutostart(mac, { command: '/Apps/TrayCommand', args: ['--hidden'], cwd: '/' });
+    expect(fs.readFileSync(autostartFile(mac), 'utf8')).toContain('<string>--hidden</string>');
+    expect(isAutostartEnabled(mac)).toBe(true);
+  });
+
   it('sync removes the entry when not wanted', () => {
     const e = env('linux');
     syncAutostart(e, true, { command: '/a', args: [], cwd: '/' });

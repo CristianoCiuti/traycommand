@@ -1,6 +1,6 @@
 import { computed, signal } from '@preact/signals';
 import type { AppInfo, EntryStatus, ExecutionLog, HotkeyStatus, OpenImportResult, SkillsInfo, UpdateInfo } from '../shared/api';
-import { type Config, type MenuEntry, type MenuNode, type Tray, isSeparator, parseConfig, type ConfigIssue, type Style } from '../shared/config';
+import { type Config, type MenuEntry, type MenuNode, type Tray, isSeparator, parseConfig, type ConfigIssue, type Style, STYLES } from '../shared/config';
 
 export const api = window.traycommand;
 
@@ -32,8 +32,12 @@ export function stableStringify(value: unknown): string {
   );
 }
 
+/** Look in use when the window was opened (given by the main process in the address), shown from the very first frame. */
+const requested = new URLSearchParams(location.search).get('style');
+export const bootStyle: Style = (STYLES as readonly string[]).includes(requested ?? '') ? (requested as Style) : 'aurora';
+
 /** Look shown by the editor: the one being chosen in the settings (not saved yet) or the saved one. */
-export const activeStyle = computed<Style>(() => draft.value?.settings.style ?? info.value?.style ?? 'aurora');
+export const activeStyle = computed<Style>(() => draft.value?.settings.style ?? info.value?.style ?? bootStyle);
 
 export const dirty = computed(() => stableStringify(saved.value) !== stableStringify(draft.value));
 export const validation = computed(() => (draft.value ? parseConfig(draft.value) : undefined));

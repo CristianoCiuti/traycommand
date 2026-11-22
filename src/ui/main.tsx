@@ -4,7 +4,7 @@ import { useEffect } from 'preact/hooks';
 import { Activity, Braces, Loader2, Settings as SettingsIcon, SquareTerminal, CircleAlert, Sparkles } from 'lucide-preact';
 import { applyStyle, chromeColors } from './themes/apply';
 import { EDITOR_CSS } from './themes/editor';
-import { activeStyle, api, dirty, discard, draft, info, init, loadIssues, navigate, route, save, showToast, skills, skillsSnoozed, toast, validation } from './store';
+import { activeStyle, api, bootStyle, dirty, discard, draft, info, init, loadIssues, navigate, route, save, showToast, skills, skillsSnoozed, toast, validation } from './store';
 import { TraysView } from './views/TraysView';
 import { SettingsView } from './views/SettingsView';
 import { LogsView } from './views/LogsView';
@@ -148,7 +148,7 @@ function App() {
 }
 
 // the look: the one being chosen in the settings is shown at once; the window buttons follow it, light or dark
-applyStyle('aurora', EDITOR_CSS);
+applyStyle(bootStyle, EDITOR_CSS);
 const sendChrome = () => api.setChrome(chromeColors(), activeStyle.peek());
 /** After a change of light/dark the colours are read once the page has been drawn with it (never the old ones). */
 const sendChromeLater = () => requestAnimationFrame(() => requestAnimationFrame(sendChrome));

@@ -67,9 +67,14 @@ function List(props: {
   const [message, setMessage] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  /** Hover selects only after the mouse really moved: opening under a still pointer must not change the selection. */
-  const mouseMoved = useRef(false);
+  /**
+   * Hover selects only when the pointer really moves. Rows that slide under a still pointer
+   * (the launcher opening, the arrow keys scrolling the list) fire mouse events at the same
+   * screen point: those never change the selection.
+   */
   const mouseAt = useRef<string>();
+  /** The arrow keys are in use: no hover look on the row under the pointer until it moves again. */
+  const [keys, setKeys] = useState(true);
   const platform = data.platform;
 
   const scopeItem = scope ? data.items.find((i) => i.key === scope) : undefined;
@@ -99,8 +104,8 @@ function List(props: {
 
   useEffect(() => setSelected(0), [query, scope, data]);
   useEffect(() => {
-    mouseMoved.current = false;
     mouseAt.current = undefined;
+    setKeys(true);
   }, [data]);
   useEffect(() => {
     if (!props.hidden) input.current?.focus();
@@ -145,6 +150,7 @@ function List(props: {
     const move = (to: number) => {
       e.preventDefault();
       if (!rows.length) return;
+      setKeys(true);
       setSelected((to + rows.length) % rows.length);
     };
     switch (e.key) {
@@ -240,11 +246,21 @@ function List(props: {
         </span>
         {data.hotkey && <Keys hotkey={data.hotkey} platform={platform} small />}
       </div>
-      <div class="lx-list" id="lx-list" role="listbox" ref={listRef} onMouseMove={(e) => {
+      <div
+        class={`lx-list${keys ? ' lx-arrows' : ''}`}
+        id="lx-list"
+        role="listbox"
+        ref={listRef}
+        onMouseMove={(e) => {
           const at = `${e.screenX},${e.screenY}`;
-          if (mouseAt.current !== undefined && mouseAt.current !== at) mouseMoved.current = true;
+          const moved = mouseAt.current !== undefined && mouseAt.current !== at;
           mouseAt.current = at;
-        }}>
+          if (!moved) return;
+          setKeys(false);
+          const row = (e.target as Element).closest<HTMLElement>('[data-index]');
+          if (row) setSelected(Number(row.dataset.index));
+        }}
+      >
         {rows.map((row, i) => {
           const it = row.item;
           return (
@@ -257,8 +273,6 @@ function List(props: {
                 data-index={i}
                 data-testid="launcher-item"
                 class={`lx-row${i === selected ? ' selected' : ''}${it.enabled || it.group ? '' : ' unavailable'}`}
-                onMouseEnter={() => mouseMoved.current && setSelected(i)}
-                onMouseMove={() => mouseMoved.current && i !== selected && setSelected(i)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => void run(it, e.shiftKey)}
               >

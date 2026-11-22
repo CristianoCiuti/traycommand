@@ -127,6 +127,68 @@ test('launcher: last values are proposed, Esc goes back to the list, then closes
   await expect.poll(launcherVisible).toBe(false);
 });
 
+test('launcher: the arrow keys scroll the list under a resting pointer without the pointer taking the selection', async () => {
+  await hook('await tc.launcher.open()');
+  await expect.poll(launcherVisible).toBe(true);
+  const list = launcher.locator('.lx-list');
+  expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight + 40), 'the list scrolls').toBe(true);
+  // the pointer rests on the second visible row (a real move selects it)
+  const rows = launcher.getByTestId('launcher-item');
+  const box = (await rows.nth(1).boundingBox())!;
+  await launcher.mouse.move(box.x + 40, box.y + box.height / 2, { steps: 3 });
+  await expect(rows.nth(1)).toHaveAttribute('aria-selected', 'true');
+  await expect(list).not.toHaveClass(/lx-arrows/);
+  // every row that is ever selected, in order: nothing in between may flash selected
+  await list.evaluate((el) => {
+    const w = window as unknown as { picked: string[] };
+    w.picked = [];
+    new MutationObserver((ms) => {
+      for (const m of ms) {
+        const t = m.target as HTMLElement;
+        if (t.getAttribute('aria-selected') === 'true') w.picked.push(t.dataset.index!);
+      }
+    }).observe(el, { subtree: true, attributes: true, attributeFilter: ['aria-selected'] });
+  });
+  const count = await rows.count();
+  const down = Math.min(count - 2, 14);
+  for (let i = 0; i < down; i++) {
+    await launcher.keyboard.press('ArrowDown');
+    await expect(rows.nth(2 + i)).toHaveAttribute('aria-selected', 'true');
+    // let the scroll land and the mouse events it causes arrive
+    await launcher.waitForTimeout(60);
+  }
+  await expect(list).toHaveClass(/lx-arrows/);
+  expect(await list.evaluate((el) => el.scrollTop), 'the list scrolled').toBeGreaterThan(0);
+  for (let i = down; i > 0; i--) {
+    await launcher.keyboard.press('ArrowUp');
+    await expect(rows.nth(i)).toHaveAttribute('aria-selected', 'true');
+    await launcher.waitForTimeout(60);
+  }
+  const picked = await launcher.evaluate(() => (window as unknown as { picked: string[] }).picked);
+  const expected = [...Array.from({ length: down }, (_, i) => String(2 + i)), ...Array.from({ length: down }, (_, i) => String(down - i))];
+  expect(picked).toEqual(expected);
+  // moving the pointer again gives it the selection back
+  await launcher.mouse.move(box.x + 60, box.y + box.height / 2, { steps: 3 });
+  await expect(list).not.toHaveClass(/lx-arrows/);
+  await launcher.keyboard.press('Escape');
+  await expect.poll(launcherVisible).toBe(false);
+});
+
+test('settings: how often updates are checked, only while the automatic check is on', async () => {
+  await editor.bringToFront();
+  await editor.getByTestId('tab-settings').click();
+  const auto = editor.getByTestId('setting-check-updates');
+  await expect(auto).toContainText('every 6 hours');
+  // "Check now" changes the version line, never this one
+  await expect(editor.getByTestId('update-state')).not.toContainText('6 hours');
+  await auto.locator('label.switch').click();
+  await expect(auto).not.toContainText('6 hours');
+  await expect(auto).toContainText('Check now');
+  await auto.locator('label.switch').click();
+  await expect(auto).toContainText('every 6 hours');
+  await editor.getByTestId('tab-trays').click();
+});
+
 test('launcher: shortcut of a menu opens it as scope; sub menus with Tab; options from a script', async () => {
   await hook("tc.hotkeyFired('trays[1]')");
   await expect.poll(launcherVisible).toBe(true);

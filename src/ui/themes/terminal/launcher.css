@@ -91,7 +91,7 @@ button, input, select { font: inherit; color: inherit; }
   display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center;
   height: 44px; padding: 0 10px; border-radius: 0; cursor: default; position: relative;
 }
-.lx-row:not(.selected):hover { background: var(--panel-2); }
+.lx-list:not(.lx-arrows) .lx-row:not(.selected):hover { background: var(--panel-2); }
 /* inverted video */
 .lx-row.selected { background: var(--sel-bg); color: var(--sel-text); box-shadow: var(--halo); }
 .lx-row.selected::before {
@@ -199,7 +199,7 @@ select.lx-input option { background: var(--panel); color: var(--text); }
 .lx-btn { letter-spacing: 0.02em; color: var(--text); }
 .lx-btn:active { transform: translateY(1px); }
 .lx-btn:disabled { opacity: 0.45; cursor: default; border-style: dashed; }
-.lx-row:not(.selected):hover .lx-icon { border-color: var(--accent); }
+.lx-list:not(.lx-arrows) .lx-row:not(.selected):hover .lx-icon { border-color: var(--accent); }
 .lx-link:hover { text-decoration-style: solid; }
 .lx-form .lx-foot { padding: 7px 8px 7px 16px; }
 

@@ -299,7 +299,7 @@ export function SettingsView() {
               title={`Version ${i.version}`}
               desc={
                 <span class="update-state" data-state={u?.state ?? 'idle'} data-testid="update-state">
-                  {u?.state === 'available' ? `Version ${u.latest} is available` : u?.state === 'none' ? 'You have the latest version' : u?.state === 'error' ? `Check failed: ${u.error}` : u?.state === 'downloading' ? `Downloading… ${Math.round((u.progress ?? 0) * 100)}%` : 'Checked automatically every 6 hours'}
+                  {u?.state === 'available' ? `Version ${u.latest} is available` : u?.state === 'none' ? 'You have the latest version' : u?.state === 'error' ? `Check failed: ${u.error}` : u?.state === 'downloading' ? `Downloading… ${Math.round((u.progress ?? 0) * 100)}%` : 'Not checked yet'}
                 </span>
               }
             >
@@ -315,7 +315,11 @@ export function SettingsView() {
                 )}
               </div>
             </Setting>
-            <Setting title="Check for updates automatically">
+            <Setting
+              title="Check for updates automatically"
+              desc={s.checkUpdates ? 'Shortly after TrayCommand starts, then every 6 hours' : 'Off: use Check now to look for a new version'}
+              testId="setting-check-updates"
+            >
               <Switch checked={s.checkUpdates} onChange={(v) => set('checkUpdates', v)} />
             </Setting>
             <Setting title="Documentation and release notes">

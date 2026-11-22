@@ -81,7 +81,7 @@ option { background: var(--panel); color: var(--text); }
   height: 48px; padding: 0 10px; border-radius: var(--radius); cursor: default; position: relative;
   border: var(--bw) solid transparent; margin-bottom: 4px;
 }
-.lx-row:not(.selected):hover { border-color: var(--ink); background: var(--panel-2); }
+.lx-list:not(.lx-arrows) .lx-row:not(.selected):hover { border-color: var(--ink); background: var(--panel-2); }
 .lx-row.selected {
   background: var(--yellow); color: var(--on-color); border-color: var(--ink);
   box-shadow: var(--shadow-md); transform: translate(-1px, -1px);

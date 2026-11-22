@@ -2,6 +2,12 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.7.3 — launcher arrow keys
+
+- Launcher: with the mouse pointer resting over the list, the arrow keys no longer jump back to the row under the pointer each time the list scrolls. Only a real movement of the mouse selects a row.
+- Launcher: no more flash of the rows coming into view when the arrow keys scroll the list (the row under the pointer was selected for an instant, and highlighted as hovered).
+- Settings → Updates: **Check for updates automatically** says how often the check runs (shortly after start, then every 6 hours) only while it is on, and the text stays there after **Check now**.
+
 ## 2.7.2 — launcher without the shadow
 
 - Aurora, Phosphor and Neon HUD: the launcher, its forms and the alerts of schedules no longer have a soft shadow around them, which showed cut off at the edges of the window. The window is now exactly the panel, so it covers nothing beyond it. Brutal keeps its hard offset shadow. Forms and alerts move like the list, by their header or footer.

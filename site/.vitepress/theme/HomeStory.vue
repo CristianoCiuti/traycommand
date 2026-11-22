@@ -82,14 +82,39 @@ const trayUsed = ref(false); // the bubble over the tray goes for good once the 
 const userDriven = ref(false); // a click moved the story: the visitor's own pointer, no simulated one
 let drivenAt: number | null = null; // where that click sent the story (viewport heights)
 /* move the story to scene i at progress `at` (the easing in measure() animates the way there) */
+/*
+ * Forward inside the same scene the story plays on to the step (the steps in between are the
+ * point: the menu closes, the toggle turns on). Any other jump (back, another scene, from the
+ * first screen) would race through every scene in between: there the content fades out, the
+ * story lands on the step at once, and the content fades back in; the taskbar stays and the
+ * wallpaper glides.
+ */
+const fading = ref(false); // the content is faded out for a jump
+const gliding = ref(false); // the wallpaper eases to its new place after a jump
+let snapNext = false; // the next measure() lands on the scroll position without easing
+let jumpTimer: ReturnType<typeof setTimeout> | undefined;
 function goTo(i: number, at: number) {
   if (!story.value) return;
   const y = STARTS[i] + at * SEG[i];
-  const top = story.value.getBoundingClientRect().top + window.scrollY;
+  const scrollTop = () => (story.value ? story.value.getBoundingClientRect().top + window.scrollY : 0) + y * window.innerHeight;
   userDriven.value = true;
   drivenAt = y;
-  window.scrollTo({ top: top + y * window.innerHeight, behavior: 'instant' as ScrollBehavior });
-  onScroll();
+  const playOn = seg.value === i && shown !== null && y > shown;
+  if (playOn) {
+    window.scrollTo({ top: scrollTop(), behavior: 'instant' as ScrollBehavior });
+    onScroll();
+    return;
+  }
+  clearTimeout(jumpTimer);
+  fading.value = true;
+  gliding.value = true;
+  jumpTimer = setTimeout(() => {
+    snapNext = true;
+    window.scrollTo({ top: scrollTop(), behavior: 'instant' as ScrollBehavior });
+    onScroll();
+    requestAnimationFrame(() => requestAnimationFrame(() => { fading.value = false; }));
+    jumpTimer = setTimeout(() => (gliding.value = false), 700);
+  }, 160);
 }
 /* the story's steps for the clicks (progress inside the scene, see the timeline below) */
 const AT_MENU_CLOSED = 0.12;
@@ -286,7 +311,8 @@ function measure(now = performance.now()) {
     const target = clamp(-top / vh, 0, TOTAL - 1e-4);
     const dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 0;
     lastFrame = now;
-    shown = shown === null || dt === 0 ? target : shown + (target - shown) * (1 - Math.exp(-dt / TAU));
+    shown = shown === null || dt === 0 || snapNext ? target : shown + (target - shown) * (1 - Math.exp(-dt / TAU));
+    snapNext = false;
     if (Math.abs(target - shown) < 0.0005) shown = target;
     else raf = requestAnimationFrame(measure); // keep easing until it arrives
     if (shown === target) lastFrame = 0;
@@ -523,6 +549,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll);
   window.removeEventListener('resize', onResize);
   cancelAnimationFrame(raf);
+  clearTimeout(jumpTimer);
 });
 
 const captions = [
@@ -551,9 +578,9 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
     <!-- ================= the desktop ================= -->
     <section ref="story" class="hs-story" :style="reduced ? undefined : { height: storyHeight }">
       <div ref="stage" class="hs-stage">
-        <div class="hs-wall" aria-hidden="true" :style="reduced ? undefined : { transform: `translate3d(${(seg + t) * -1.2}%, ${(seg + t) * 0.6}%, 0) rotate(${(seg + t) * 1.5}deg)` }"></div>
+        <div class="hs-wall" :class="{ gliding }" aria-hidden="true" :style="reduced ? undefined : { transform: `translate3d(${(seg + t) * -1.2}%, ${(seg + t) * 0.6}%, 0) rotate(${(seg + t) * 1.5}deg)` }"></div>
 
-        <div class="hs-canvas" :style="{ '--k': k }">
+        <div class="hs-canvas" :class="{ fading }" :style="{ '--k': k }">
         <div class="hs-copy">
           <div class="hs-hero" :style="heroStyle">
             <h1>Your scripts, down by the clock.</h1>

@@ -461,3 +461,10 @@ button.hs-ti.locked:hover { background: none; }
   .hs-lbg span, .hs-lshots img { transition: none; }
 }
 .hs-reduced .hs-editor { transition: none !important; } /* still pictures: the editor just goes */
+
+/* a click's jump to another part of the story: everything but the taskbar fades out, the story
+   lands, it fades back in (filter, not opacity, which the windows set inline; none at rest so
+   the glass keeps its blur) */
+.hs-canvas > :not(.hs-taskbar) { transition: filter 0.25s ease-out; }
+.hs-canvas.fading > :not(.hs-taskbar) { filter: opacity(0); transition: filter 0.15s ease-in; }
+.hs-wall.gliding { transition: transform 0.6s ease; }

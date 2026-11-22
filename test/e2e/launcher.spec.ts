@@ -644,6 +644,10 @@ test('editor: a notification whose click runs a button; a shortcut that asks fir
   // the shortcut of "Deploy app" asks first, with its own texts
   await editor.getByTestId('tray-row').nth(0).click();
   await editor.getByTestId('card-hotkey').scrollIntoViewIfNeeded();
+  // a shortcut of its own (an earlier test may have removed it)
+  await editor.getByTestId('entry-hotkey').click();
+  await editor.keyboard.press('Control+Alt+Shift+F7');
+  await expect(editor.getByTestId('entry-hotkey')).toContainText('F7');
   await expect(editor.getByTestId('hotkey-confirm-text')).toHaveCount(0);
   await editor.getByTestId('hotkey-confirm').click();
   await editor.keyboard.press('Control+S');

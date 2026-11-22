@@ -83,11 +83,11 @@ const userDriven = ref(false); // a click moved the story: the visitor's own poi
 let drivenAt: number | null = null; // where that click sent the story (viewport heights)
 /* move the story to scene i at progress `at` (the easing in measure() animates the way there) */
 /*
- * Forward inside the same scene the story plays on to the step (the steps in between are the
- * point: the menu closes, the toggle turns on). Any other jump (back, another scene, from the
- * first screen) would race through every scene in between: there the content fades out, the
- * story lands on the step at once, and the content fades back in; the taskbar stays and the
- * wallpaper glides.
+ * Inside the same scene, forward or back, the story simply plays to the step (the steps in
+ * between are the point: the menu opens or closes, the toggle turns on). A jump to another scene
+ * (or from the first screen) would race through every scene in between: there the content fades
+ * out, the story lands on the step at once, and the content fades back in; the taskbar stays and
+ * the wallpaper glides.
  */
 const fading = ref(false); // the content is faded out for a jump
 const gliding = ref(false); // the wallpaper eases to its new place after a jump
@@ -99,7 +99,7 @@ function goTo(i: number, at: number) {
   const scrollTop = () => (story.value ? story.value.getBoundingClientRect().top + window.scrollY : 0) + y * window.innerHeight;
   userDriven.value = true;
   drivenAt = y;
-  const playOn = seg.value === i && shown !== null && y > shown;
+  const playOn = seg.value === i && shown !== null;
   if (playOn) {
     window.scrollTo({ top: scrollTop(), behavior: 'instant' as ScrollBehavior });
     onScroll();

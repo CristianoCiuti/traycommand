@@ -133,7 +133,7 @@ const heroOut = computed(() => (s.value < 0 ? 0 : s.value === 0 ? ease(ramp(0.05
 const heroStyle = computed(() => {
   const aside = heroCrowded.value && s.value <= 0 && (menuAlpha.value > 0.01 || toastAlpha.value > 0.01);
   const a = aside ? 0 : 1 - heroOut.value;
-  return { opacity: a, transform: `translateY(${heroOut.value * -40}px)`, visibility: a < 0.01 ? ('hidden' as const) : ('visible' as const), transition: s.value <= 0 ? 'opacity 0.25s, visibility 0.25s' : undefined };
+  return { opacity: a, translate: `0 ${heroShift.value}px`, transform: `translateY(${heroOut.value * -40}px)`, visibility: a < 0.01 ? ('hidden' as const) : ('visible' as const), transition: s.value <= 0 ? 'opacity 0.25s, visibility 0.25s' : undefined };
 });
 function caption(i: number) {
   let a = 0;
@@ -413,6 +413,7 @@ const edBox = ref<Record<string, string>>({});
 const edWidth = ref('100%');
 const edHeroBox = ref<Record<string, string> | null>(null);
 const edHeroWidth = ref('100%');
+const heroShift = ref(0); // how far the hero text comes down to line up with the editor beside it
 let edRatio = 1.5; // width / height of the editor picture, read once it has loaded
 function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | null, caps: HTMLElement[], area: HTMLElement, q: number) {
   const bar = canvas.querySelector<HTMLElement>('.hs-taskbar');
@@ -455,9 +456,18 @@ function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | n
   const h = best(under, side);
   if (h !== under) canvas.classList.remove('hero-wide');
   const hw = size(h);
+  heroShift.value = 0;
   if (hw < 200 || hw / edRatio < 120) {
     edHeroBox.value = null; // too little room: no editor on this first screen
     return;
+  }
+  // side by side: the editor sits in the middle of its room, so the text comes down to share its
+  // middle (never below the room); one above the other, the text stays at the top
+  if (h !== under) {
+    const textTop = copyTop;
+    const textH = heroBottomNow() - gap - textTop;
+    const want = h.top + h.h / 2 - (textTop + textH / 2);
+    heroShift.value = Math.round(clamp(want, 0, Math.max(0, roomBottom - (textTop + textH))));
   }
   edHeroBox.value = css(h);
   edHeroWidth.value = `${Math.floor(hw)}px`;

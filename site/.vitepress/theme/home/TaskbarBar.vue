@@ -5,7 +5,7 @@
  */
 import { onMounted, ref } from 'vue';
 
-defineProps<{ proxyOn: boolean; webOn: boolean; hoverP?: boolean; pressP?: boolean; menuShown?: boolean }>();
+defineProps<{ proxyOn: boolean; webOn: boolean; hoverP?: boolean; pressP?: boolean; menuShown?: boolean; pulse?: boolean }>();
 defineEmits<{ proxy: []; web: [] }>();
 
 const clock = ref('09:41');
@@ -20,7 +20,8 @@ onMounted(() => {
 <template>
   <div class="hs-taskbar">
     <div class="hs-tleft"><slot name="left" /></div>
-    <div class="hs-tray">
+    <div class="hs-tray" :class="{ pulse }">
+      <slot name="coach" />
       <span class="hs-anchor">
         <slot name="menu" />
         <button

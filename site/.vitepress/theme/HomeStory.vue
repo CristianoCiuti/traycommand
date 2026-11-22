@@ -9,8 +9,14 @@
  * the tray, keys get pressed, files drop into a folder, a countdown runs. Only one window
  * is on screen at a time. A progress bar in the taskbar shows where you are.
  *
+ * The desktop opens with the editor on it; the first scroll minimizes it into the tray icon,
+ * and it comes back in the last scene. A bubble over the tray says where to look.
+ *
+ * Size: everything but the wallpaper sits on a canvas scaled by k on large screens (see
+ * home.css), so the desktop fills big monitors instead of leaving a small column.
+ *
  * With reduced motion: nothing is pinned. The four scenes are plain sections, each with
- * a small desktop already in its final state.
+ * a small desktop already in its final state; the first screen shows the editor open.
  *
  * Clicks work in both: the Proxy icon opens its menu, the toggle flips, the Web server
  * icon flips. A click holds until the story moves to another scene.
@@ -31,7 +37,7 @@ const releases = 'https://github.com/CristianoCiuti/traycommand/releases/latest'
 const reduced = ref(false);
 const forced = ref(false);
 let mq: MediaQueryList | null = null;
-const onMq = () => { reduced.value = !!mq?.matches && !forced.value; nextTick(fitLayout); requestAnimationFrame(measure); };
+const onMq = () => { reduced.value = !!mq?.matches && !forced.value; nextTick(relayout); requestAnimationFrame(measure); };
 function setMotion(on: boolean) {
   forced.value = on;
   try { on ? sessionStorage.setItem('hs-motion', 'on') : sessionStorage.removeItem('hs-motion'); } catch { /* storage blocked */ }
@@ -47,6 +53,15 @@ const storyHeight = `${(TOTAL + 1) * 100}vh`;
 
 const story = ref<HTMLElement | null>(null);
 const stage = ref<HTMLElement | null>(null);
+const k = ref(1); // canvas scale (large screens)
+const lk = ref(1); // the same for the looks, when they fill one screen (not on phones)
+const stacked = ref(false); // narrow screen: text on top, windows under it
+const heroCrowded = ref(false); // small phone: the tray menu or the notification would cover the hero text
+const minOrigin = ref('100% 100%'); // where the editor shrinks to: the Proxy tray icon
+const coachLeft = ref('auto'); // where the bubble sits on the canvas: centred on the P
+const coachShape = ref(''); // its outline, body and point in one path (see fitLayout)
+let coachWidth = 0;
+let coachHeight = 0;
 const seg = ref(0);
 const t = ref(0);
 
@@ -59,7 +74,9 @@ const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 /* clicks: hold until the scene changes */
 const manual = reactive<{ proxy: boolean | null; web: boolean | null; menu: boolean | null; toast: boolean }>({ proxy: null, web: null, menu: null, toast: false });
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+const trayUsed = ref(false); // the bubble over the tray goes for good once the tray is used
 function clickProxyIcon() {
+  trayUsed.value = true;
   manual.menu = !(menuAlpha.value > 0.5);
 }
 function clickProxyEntry() {
@@ -70,17 +87,24 @@ function clickProxyEntry() {
   toastTimer = setTimeout(() => (manual.toast = false), 3200);
 }
 function clickWeb() {
+  trayUsed.value = true;
   manual.web = !webOn.value;
 }
 
 /* ---------- derived state ---------- */
 const s = computed(() => (reduced.value ? -1 : seg.value));
 
-const heroOut = computed(() => (s.value < 0 ? 0 : s.value === 0 ? ease(ramp(0.05, 0.6, t.value)) : 1));
+const heroOut = computed(() => (s.value < 0 ? 0 : s.value === 0 ? ease(ramp(0.05, 0.5, t.value)) : 1));
+/* the hero steps aside while the tray menu or the notification is up, when they would cover it */
+const heroStyle = computed(() => {
+  const aside = heroCrowded.value && s.value <= 0 && (menuAlpha.value > 0.01 || toastAlpha.value > 0.01);
+  const a = aside ? 0 : 1 - heroOut.value;
+  return { opacity: a, transform: `translateY(${heroOut.value * -40}px)`, visibility: a < 0.01 ? ('hidden' as const) : ('visible' as const), transition: s.value <= 0 ? 'opacity 0.25s, visibility 0.25s' : undefined };
+});
 function caption(i: number) {
   let a = 0;
   let dir = 1;
-  if (i === 1 && s.value === 0) a = ramp(0.45, 1, t.value); // comes in while the hero leaves
+  if (i === 1 && s.value === 0) a = ramp(0.62, 1, t.value); // comes in once the hero has left
   else if (s.value === i) {
     a = Math.min(i === 1 ? 1 : ramp(0, 0.08, t.value), i === 4 ? 1 : 1 - ramp(0.9, 1, t.value));
     dir = t.value < 0.5 ? 1 : -1;
@@ -108,12 +132,54 @@ const webOn = computed(() => manual.web ?? (s.value > 2 || (s.value === 2 && t.v
 const folderAlpha = computed(() => (s.value === 3 ? win(t.value, 0, 0.04, 0.32, 0.38) : 0));
 const files = computed(() => [0, 1, 2].map((k) => (s.value === 3 ? ease(ramp(0.04 + k * 0.07, 0.15 + k * 0.07, t.value)) : 0)));
 const filesIn = computed(() => files.value.filter((p) => p >= 1).length);
+/*
+ * The three files sit on an arc over the folder: the middle one on top, the two side ones a row
+ * lower and spread out, so none touches another (see .hs-folder for the sizes). They drop in this
+ * order: left, right, middle. A side file goes down first and only then slides to the middle, so
+ * it passes under the others, never over them; it lands on the folder icon's centre.
+ */
+const FILE_DX = 130; // sideways offset of the side files
+const FILE_ROW = 52; // how much lower the side files sit
+const FILE_LAND = 132; // top of a file when it lands on the folder icon's centre
+const FILE_SLOTS = [-1, 1, 0]; // drop order: left, right, middle
+function fileStyle(k: number, p: number) {
+  const side = FILE_SLOTS[k];
+  const x0 = side * FILE_DX;
+  const y0 = side === 0 ? 0 : FILE_ROW;
+  const down = ease(Math.min(1, p * 1.7)); // down first...
+  const across = ease(ramp(0.35, 1, p)); // ...then towards the middle
+  const x = x0 * (1 - across);
+  const y = y0 + (FILE_LAND - y0) * down;
+  return { transform: `translate(${x}px, ${y}px) scale(${1 - 0.5 * p})`, opacity: p >= 1 ? 0 : 1 - ramp(0.8, 1, p) };
+}
 const alertAlpha = computed(() => (s.value === 3 ? win(t.value, 0.34, 0.42, 0.95, 1) : 0));
 const seconds = computed(() => (s.value === 3 ? 12 * (1 - ramp(0.42, 0.9, t.value)) : 12));
 const alertPressed = computed(() => s.value === 3 && t.value >= 0.9);
 
-/* scene 4: the editor rises */
+/* the editor: a whole window floating where placeEditor() found the most room. Open on the first
+   screen (when there is room for it, phones included), minimized into the tray as the story
+   starts, back in scene 4. */
 const rise = computed(() => (s.value === 4 ? ease(ramp(0, 0.55, t.value)) : 0));
+const editorStyle = computed(() => {
+  const hidden = { visibility: 'hidden' as const, opacity: 0 };
+  // last scene: coming up a little as it appears
+  if (s.value === 4) return { ...edBox.value, '--ed-w': edWidth.value, transform: `translateY(${(1 - rise.value) * 48}px) scale(${0.96 + 0.04 * rise.value})`, opacity: Math.min(1, rise.value * 2), visibility: rise.value > 0 ? ('visible' as const) : ('hidden' as const) };
+  if (s.value > 0 || !edHeroBox.value) return hidden; // no room for it on the first screen
+  const at = { ...edHeroBox.value, '--ed-w': edHeroWidth.value, transformOrigin: minOrigin.value };
+  // the tray was used on the first screen: the editor goes into the tray, out of the way of
+  // the menu and the notification
+  if (trayUsed.value) return { ...at, transform: 'scale(0.05)', opacity: 0, visibility: 'hidden' as const, transition: 'transform 0.4s ease-in, opacity 0.3s 0.1s, visibility 0s 0.4s' };
+  if (s.value < 0) return at; // still pictures: simply open
+  const m = ease(ramp(0.04, 0.55, t.value));
+  return { ...at, transform: `scale(${1 - 0.95 * m})`, opacity: 1 - ramp(0.35, 0.55, t.value), visibility: m >= 1 ? ('hidden' as const) : ('visible' as const) };
+});
+
+/* the bubble over the tray, on the first screen only */
+/* never together with the menu or the notification: they use the same corner */
+const coachAlpha = computed(() => {
+  if (trayUsed.value || menuAlpha.value > 0.01 || toastAlpha.value > 0.01) return 0;
+  return s.value < 0 ? 1 : s.value === 0 ? 1 - ramp(0, 0.18, t.value) : 0;
+});
 
 /* progress in the taskbar */
 const chapters = ['Tray menu', 'Launcher', 'Schedules', 'Editor'];
@@ -131,19 +197,20 @@ function placePointer() {
   const icon = stage.value?.querySelector('.hs-ti-proxy')?.getBoundingClientRect();
   const row = stage.value?.querySelector('.hs-mrow.main')?.getBoundingClientRect();
   if (!st || !icon || !row || s.value < 0 || manual.menu !== null) { pointer.alpha = 0; return; }
-  const start = { x: st.width * 0.72, y: st.height * 0.42 };
-  const P = { x: icon.left - st.left + icon.width * 0.5, y: icon.top - st.top + icon.height * 0.5 };
-  const R = { x: row.left - st.left + row.width * 0.35, y: row.top - st.top + row.height * 0.5 };
+  const q = k.value; // the pointer lives on the canvas: screen pixels / k
+  const start = { x: (st.width * 0.72) / q, y: (st.height * 0.42) / q };
+  const P = { x: (icon.left - st.left + icon.width * 0.5) / q, y: (icon.top - st.top + icon.height * 0.5) / q };
+  const R = { x: (row.left - st.left + row.width * 0.35) / q, y: (row.top - st.top + row.height * 0.5) / q };
   let at = start;
   pointer.down = false;
   if (s.value === 0) {
-    pointer.alpha = ramp(0.35, 0.6, t.value);
-    const k = ease(ramp(0.35, 1, t.value)); // reaches the icon as the scene starts
-    at = { x: lerp(start.x, P.x, k), y: lerp(start.y, P.y, k) };
+    pointer.alpha = ramp(0.55, 0.7, t.value); // after the editor has gone into the tray
+    const m = ease(ramp(0.55, 1, t.value)); // reaches the icon as the scene starts
+    at = { x: lerp(start.x, P.x, m), y: lerp(start.y, P.y, m) };
   } else if (s.value === 1) {
     pointer.alpha = 1 - ramp(0.64, 0.72, t.value);
-    const k = ease(ramp(0.27, 0.44, t.value));
-    at = { x: lerp(P.x, R.x, k), y: lerp(P.y, R.y, k) };
+    const m = ease(ramp(0.27, 0.44, t.value));
+    at = { x: lerp(P.x, R.x, m), y: lerp(P.y, R.y, m) };
     pointer.down = (t.value > 0.14 && t.value < 0.19) || (t.value > 0.46 && t.value < 0.51);
   } else {
     pointer.alpha = 0;
@@ -190,9 +257,11 @@ function measure(now = performance.now()) {
     const y = shown;
     let i = SEG.length - 1;
     while (i > 0 && y < STARTS[i]) i--;
-    if (i !== seg.value) { manual.proxy = manual.web = manual.menu = null; manual.toast = false; }
+    const changed = i !== seg.value;
+    if (changed) { manual.proxy = manual.web = manual.menu = null; manual.toast = false; }
     seg.value = i;
     t.value = (y - STARTS[i]) / SEG[i];
+    if (changed && stacked.value) nextTick(fitLayout); // the room under the text depends on this scene's text
   }
   placePointer();
   const pinned = looksEl.value && getComputedStyle(looksEl.value.firstElementChild as Element).position === 'sticky';
@@ -205,49 +274,169 @@ function measure(now = performance.now()) {
   }
 }
 /*
- * Layout that depends on real sizes. On narrow screens the windows go under the captions:
- * --hs-captop is where the longest caption ends. Each window of the story then gets --fit,
- * the scale that makes it fit the room left (never above 1).
+ * Layout that depends on real sizes, in canvas pixels (screen pixels / k).
+ * k: large screens scale the canvas so the desktop fills them (1 up to 1440x880).
+ * Narrow screens: the windows go under the captions; --hs-captop is where the longest one ends.
+ * Each window of the story gets --fit, the scale that fills the room it has: never above 1 on
+ * a narrow screen, up to 1.4 beside the captions.
  */
 const STACKED = '(max-width: 639px), (max-width: 860px) and (min-height: 521px)'; // same as home.css
-function fitLayout() {
+function computeK() {
   const st = stage.value;
   if (!st) return;
+  const w = st.clientWidth;
+  const h = st.clientHeight;
+  k.value = w < 1000 ? 1 : clamp(Math.min(w / 1440, h / 880), 1, 1.75);
+}
+const offsetIn = (el: HTMLElement | null, root: HTMLElement) => {
+  let x = 0;
+  let y = 0;
+  for (let e: HTMLElement | null = el; e && e !== root; e = e.offsetParent as HTMLElement | null) { x += e.offsetLeft; y += e.offsetTop; }
+  return { x, y };
+};
+function fitLayout() {
+  const st = stage.value;
+  const canvas = st?.querySelector<HTMLElement>('.hs-canvas');
+  if (!st || !canvas) return;
+  const q = k.value;
+  stacked.value = window.matchMedia(STACKED).matches;
+  const icon = canvas.querySelector<HTMLElement>('.hs-ti-proxy');
+  // the tray bubble (on the canvas, not in the taskbar) is centred over the P, its point in the
+  // middle; near the edge of the screen it slides sideways to stay on it, the point stays on the P
+  if (icon) {
+    const p = icon.getBoundingClientRect();
+    const cv = canvas.getBoundingClientRect();
+    const pc = (p.left + p.width / 2 - cv.left) / q; // P centre, in canvas pixels
+    const coachEl = canvas.querySelector<HTMLElement>('.hs-coach');
+    const w = coachEl?.offsetWidth || coachWidth || 240;
+    const h = coachEl?.offsetHeight || coachHeight || 60;
+    coachWidth = w;
+    coachHeight = h;
+    const left = Math.round(clamp(pc - w / 2, 8, Math.max(8, canvas.clientWidth - w - 8)));
+    coachLeft.value = `${left}px`;
+    // one outline for body and point: a rounded rectangle (radius 12) with a 18x9 point on the P
+    const r = 12;
+    const ax = clamp(Math.round(pc - left), r + 9, w - r - 9);
+    coachShape.value = `path('M ${r} 0 H ${w - r} A ${r} ${r} 0 0 1 ${w} ${r} V ${h - r} A ${r} ${r} 0 0 1 ${w - r} ${h} `
+      + `H ${ax + 9} L ${ax} ${h + 9} L ${ax - 9} ${h} H ${r} A ${r} ${r} 0 0 1 0 ${h - r} V ${r} A ${r} ${r} 0 0 1 ${r} 0 Z')`;
+  }
   const copy = st.querySelector<HTMLElement>('.hs-copy');
   const caps = [...st.querySelectorAll<HTMLElement>('.hs-cap')];
   const tray = [st.querySelector<HTMLElement>('.hs-menu'), st.querySelector<HTMLElement>('.hs-toast-pos')];
-  if (window.matchMedia(STACKED).matches && copy && caps.length) {
+  if (stacked.value && copy && caps.length) {
     const stTop = st.getBoundingClientRect().top;
-    const capBottom = copy.getBoundingClientRect().top - stTop + Math.max(...caps.map((c) => c.offsetHeight)) + 16;
-    st.style.setProperty('--hs-captop', `${Math.round(capBottom)}px`);
+    // the windows live under the text of the scene on screen (the first scene's on the hero)
+    const cap = caps[clamp(seg.value - 1, 0, caps.length - 1)];
+    const capBottom = (copy.getBoundingClientRect().top - stTop) / q + cap.offsetHeight + 20;
+    canvas.style.setProperty('--hs-captop', `${Math.round(capBottom)}px`);
     // the tray menu and the notification rise from the taskbar: shrink them to stay under the text
-    const barTop = (st.querySelector<HTMLElement>('.hs-taskbar')?.getBoundingClientRect().top ?? 0) - stTop;
+    const barTop = ((st.querySelector<HTMLElement>('.hs-taskbar')?.getBoundingClientRect().top ?? 0) - stTop) / q;
     for (const el of tray) {
       if (!el?.offsetHeight) continue;
       el.style.setProperty('--fit', Math.min(1, (barTop - 14 - capBottom) / el.offsetHeight).toFixed(3));
     }
+    // on the first screen the hero text may leave too little room for them (small phones)
+    const hero = [...st.querySelectorAll<HTMLElement>('.hs-hero > *')].filter((e) => e.offsetHeight);
+    const heroBottom = (copy.getBoundingClientRect().top - stTop) / q + Math.max(0, ...hero.map((e) => e.offsetTop + e.offsetHeight));
+    heroCrowded.value = barTop - 14 - heroBottom < Math.max(0, ...tray.map((el) => el?.offsetHeight ?? 0));
   } else {
-    st.style.removeProperty('--hs-captop');
+    heroCrowded.value = false;
+    canvas.style.removeProperty('--hs-captop');
     // side by side: the menu and the notification stop before the text column (both shrink
     // from their right edge, which stays where it is)
     const capRight = copy && caps.length ? Math.max(...caps.map((c) => c.getBoundingClientRect().right)) : 0;
     for (const el of tray) {
       if (!el?.offsetWidth) continue;
-      el.style.setProperty('--fit', Math.min(1, (el.getBoundingClientRect().right - capRight - 16) / el.offsetWidth).toFixed(3));
+      el.style.setProperty('--fit', Math.min(1, ((el.getBoundingClientRect().right - capRight) / q - 16) / el.offsetWidth).toFixed(3));
     }
   }
   const area = st.querySelector<HTMLElement>('.hs-area');
   if (!area) return;
   const aw = area.clientWidth;
   const ah = area.clientHeight;
+  const grow = stacked.value ? 1 : 1.4;
   for (const el of [...area.children] as HTMLElement[]) {
     if (!el.offsetHeight) continue;
-    el.style.setProperty('--fit', Math.min(1, ah / el.offsetHeight, aw / el.offsetWidth).toFixed(3));
+    el.style.setProperty('--fit', Math.min(grow, ah / el.offsetHeight, aw / el.offsetWidth).toFixed(3));
+  }
+  placeEditor(st, canvas, copy, caps, area, q);
+}
+
+/*
+ * The editor: a whole window floating in the free room, as big as it can be, both on the first
+ * screen and in the last scene. Two candidate rooms each time: beside the text (the right
+ * column, like the other scenes) and under it (the full content width, like on a phone); the
+ * one that gives the bigger picture wins (a phone: always under). On the first screen the room
+ * ends above the tray bubble, and when it is too small (a small phone) there is no editor.
+ */
+type Room = { left: number; top: number; w: number; h: number };
+const edBox = ref<Record<string, string>>({});
+const edWidth = ref('100%');
+const edHeroBox = ref<Record<string, string> | null>(null);
+const edHeroWidth = ref('100%');
+let edRatio = 1.5; // width / height of the editor picture, read once it has loaded
+function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | null, caps: HTMLElement[], area: HTMLElement, q: number) {
+  const bar = canvas.querySelector<HTMLElement>('.hs-taskbar');
+  const cap = caps[caps.length - 1];
+  if (!copy || !bar) return;
+  const img = [...canvas.querySelectorAll<HTMLImageElement>('.hs-editor img')].find((i) => i.naturalWidth);
+  if (img) edRatio = img.naturalWidth / img.naturalHeight;
+  const gap = 20;
+  const contentLeft = copy.offsetLeft;
+  const contentRight = canvas.clientWidth - contentLeft;
+  const copyTop = (copy.getBoundingClientRect().top - st.getBoundingClientRect().top) / q;
+  const size = (b: Room) => Math.max(0, Math.min(b.w, b.h * edRatio));
+  const best = (below: Room, side: Room) => (stacked.value || size(below) > size(side) ? below : side);
+  const css = (b: Room) => ({ left: `${Math.round(b.left)}px`, top: `${Math.round(b.top)}px`, width: `${Math.round(b.w)}px`, height: `${Math.round(Math.max(0, b.h))}px` });
+
+  // last scene: the room ends above the taskbar
+  if (cap) {
+    const capBottom = copyTop + cap.offsetHeight + gap;
+    const b = best(
+      { left: contentLeft, top: capBottom, w: contentRight - contentLeft, h: bar.offsetTop - gap - capBottom },
+      { left: area.offsetLeft, top: area.offsetTop, w: area.clientWidth, h: area.clientHeight },
+    );
+    edBox.value = css(b);
+    edWidth.value = `${Math.floor(size(b))}px`;
+  }
+
+  // first screen: the room ends above the tray bubble. With the editor under the text, the text
+  // has no reason to keep to a column: it takes the full width (hero-wide), so that option is
+  // measured with the wide text; beside the text, the text keeps its column.
+  const roomBottom = bar.offsetTop - 18 - (coachHeight || 60) - gap;
+  const heroBottomNow = () => {
+    const hero = [...st.querySelectorAll<HTMLElement>('.hs-hero > *')].filter((e) => e.offsetHeight);
+    return copyTop + Math.max(0, ...hero.map((e) => e.offsetTop + e.offsetHeight)) + gap;
+  };
+  canvas.classList.remove('hero-wide');
+  const side: Room = { left: area.offsetLeft, top: area.offsetTop, w: area.clientWidth, h: roomBottom - area.offsetTop };
+  canvas.classList.add('hero-wide');
+  const wideBottom = heroBottomNow();
+  const under: Room = { left: contentLeft, top: wideBottom, w: contentRight - contentLeft, h: roomBottom - wideBottom };
+  const h = best(under, side);
+  if (h !== under) canvas.classList.remove('hero-wide');
+  const hw = size(h);
+  if (hw < 200 || hw / edRatio < 120) {
+    edHeroBox.value = null; // too little room: no editor on this first screen
+    return;
+  }
+  edHeroBox.value = css(h);
+  edHeroWidth.value = `${Math.floor(hw)}px`;
+  // it minimizes into the Proxy icon: the transform origin is the icon's centre, from its room
+  const icon = canvas.querySelector<HTMLElement>('.hs-ti-proxy');
+  if (icon) {
+    const i = offsetIn(icon, canvas);
+    minOrigin.value = `${Math.round(i.x + icon.offsetWidth / 2 - h.left)}px ${Math.round(i.y + icon.offsetHeight / 2 - h.top)}px`;
   }
 }
+function relayout() {
+  computeK();
+  const lc = looksEl.value?.querySelector<HTMLElement>('.hs-lcanvas');
+  lk.value = lc && getComputedStyle(lc).position === 'absolute' ? k.value : 1;
+  nextTick(() => { fitLayout(); onScroll(); }); // k must be on the canvas before measuring
+}
 function onResize() {
-  fitLayout();
-  onScroll();
+  relayout();
 }
 
 function onScroll() {
@@ -265,8 +454,8 @@ onMounted(() => {
   mq.addEventListener('change', onMq);
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onResize);
-  nextTick(fitLayout);
-  document.fonts?.ready.then(fitLayout); // the captions' height depends on the font
+  nextTick(relayout);
+  document.fonts?.ready.then(relayout); // the captions' height depends on the font
   requestAnimationFrame(measure);
 });
 onBeforeUnmount(() => {
@@ -305,8 +494,9 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
       <div ref="stage" class="hs-stage">
         <div class="hs-wall" aria-hidden="true" :style="reduced ? undefined : { transform: `translate3d(${(seg + t) * -1.2}%, ${(seg + t) * 0.6}%, 0) rotate(${(seg + t) * 1.5}deg)` }"></div>
 
+        <div class="hs-canvas" :style="{ '--k': k }">
         <div class="hs-copy">
-          <div class="hs-hero" :style="{ opacity: 1 - heroOut, transform: `translateY(${heroOut * -40}px)`, visibility: heroOut > 0.99 ? 'hidden' : 'visible' }">
+          <div class="hs-hero" :style="heroStyle">
             <img class="hs-appicon" :src="withBase('/icons/icon-aurora.png')" alt="" width="72" height="72" />
             <h1>Your scripts, down by the clock.</h1>
             <p>TrayCommand puts your shell commands in the system tray. Click to run them. Toggles check whether the proxy, the VPN or the dev server is on, and show it.</p>
@@ -335,7 +525,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
             <LauncherWin :query="query" :web-on="webOn" :enter="enterDown" :style="fade(launcherAlpha, `scale(${0.96 + 0.04 * launcherAlpha})`)" />
 
             <div class="hs-folder" :style="fade(folderAlpha)">
-              <span v-for="(p, k) in files" :key="k" class="hs-file" :style="{ transform: `translate(${(k - 1) * 70 * (1 - p)}px, ${-170 * (1 - p)}px) scale(${1 - 0.5 * p})`, opacity: p >= 1 ? 0 : 1 }">
+              <span v-for="(p, k) in files" :key="k" class="hs-file" :style="fileStyle(k, p)">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /></svg>
                 <small>invoice-04{{ 12 + k }}.pdf</small>
               </span>
@@ -348,19 +538,22 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
             <AlertWin :seconds="seconds" :pressed="alertPressed" :style="fade(alertAlpha, `translateY(${(1 - Math.min(1, alertAlpha * 1.5)) * 20}px)`)" />
           </div>
 
-          <div class="hs-editor" :style="{ transform: `translateY(${(1 - rise) * 105}%) scale(${0.94 + 0.06 * rise})`, opacity: Math.min(1, rise * 4), visibility: rise > 0 ? 'visible' : 'hidden' }" aria-hidden="true">
-            <img class="only-light" :src="src('aurora-editor')" alt="" />
-            <img class="only-dark" :src="srcDark('aurora-editor')" alt="" />
-          </div>
-
           <svg class="hs-pointer" :class="{ down: pointer.down }" :style="{ transform: `translate(${pointer.x}px, ${pointer.y}px)`, opacity: pointer.alpha }" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
             <path d="M5 3l14 8-6.2 1.6L10 19z" fill="#fff" stroke="#1b1934" stroke-width="1.5" stroke-linejoin="round" />
           </svg>
         </template>
 
+        <div class="hs-editor floating" :style="editorStyle" aria-hidden="true">
+          <img class="only-light" :src="src('aurora-editor')" alt="" @load="relayout" />
+          <img class="only-dark" :src="srcDark('aurora-editor')" alt="" @load="relayout" />
+        </div>
+
         <ToastWin class="hs-toast-pos" :on="proxyOn" :style="fade(toastAlpha, `translateX(${(1 - toastAlpha) * 24}px)`)" />
 
-        <TaskbarBar :proxy-on="proxyOn" :web-on="webOn" :hover-p="s === 1 && t < 0.27" :press-p="pointer.down && t < 0.3" :menu-shown="menuAlpha > 0.5" @proxy="clickProxyIcon" @web="clickWeb">
+        <!-- on the canvas, not inside the taskbar: the taskbar's own glass would stop its blur -->
+        <div v-if="coachAlpha > 0.01" class="hs-coach" :style="{ opacity: coachAlpha, left: coachLeft, '--shape': coachShape || undefined }" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>
+
+        <TaskbarBar :proxy-on="proxyOn" :web-on="webOn" :hover-p="s === 1 && t < 0.27" :press-p="pointer.down && t < 0.3" :menu-shown="menuAlpha > 0.5" :pulse="coachAlpha > 0.5" @proxy="clickProxyIcon" @web="clickWeb">
           <template #menu>
             <TrayMenu :proxy-on="proxyOn" :hover="rowHover" :style="fade(menuAlpha, `translateY(${(1 - menuAlpha) * 8}px)`)" @toggle="clickProxyEntry" />
           </template>
@@ -371,19 +564,23 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
                 <span class="lbl">{{ c }}</span>
               </button>
             </nav>
-            <span v-else class="hs-hint">Try the icons down here</span>
-            <button v-if="forced && !reduced" class="hs-stillbtn" @click="setMotion(false)"><span class="long">Show still pictures</span><span class="short">Still</span></button>
+            <!-- one switch, always here: play the story, or back to still pictures -->
+            <button v-if="reduced" class="hs-stillbtn" title="Your system asks for less motion, so the story is shown as still pictures below" @click="setMotion(true)">
+              <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor" /></svg>
+              <span class="long">Play the story</span><span class="short">Play</span>
+            </button>
+            <button v-else-if="forced" class="hs-stillbtn" @click="setMotion(false)">
+              <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><rect x="5" y="5" width="5" height="14" rx="1" fill="currentColor" /><rect x="14" y="5" width="5" height="14" rx="1" fill="currentColor" /></svg>
+              <span class="long">Show still pictures</span><span class="short">Still</span>
+            </button>
           </template>
         </TaskbarBar>
+        </div>
       </div>
     </section>
 
     <!-- ================= reduced motion: the same scenes, still ================= -->
     <section v-if="reduced" class="hs-stills">
-      <p class="hs-motion">
-        Your system asks for less motion, so the story is shown as still pictures.
-        <button @click="setMotion(true)">Show it animated</button>
-      </p>
       <div v-for="(c, i) in captions" :key="i" class="hs-still">
         <div class="hs-stilltext">
           <h2>{{ c.title }}</h2>
@@ -416,6 +613,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
         <div class="hs-lbg" aria-hidden="true">
           <span v-for="(l, i) in looks" :key="l.id" :class="[`bg-${l.id}`, { in: look === i }]"></span>
         </div>
+        <div class="hs-lcanvas" :style="{ '--k': lk }">
         <div class="hs-lstage">
           <div class="hs-ltext">
             <h2>Same app, four looks.</h2>
@@ -434,6 +632,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
               <img class="only-dark" :class="{ in: look === i }" :src="srcDark(`look-${l.id}`)" :alt="`TrayCommand in the ${l.name} look, dark`" loading="lazy" />
             </template>
           </div>
+        </div>
         </div>
       </div>
     </section>

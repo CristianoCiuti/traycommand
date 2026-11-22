@@ -18,6 +18,10 @@ export interface AppState {
   schedulesPaused?: boolean;
   /** Title bar colours last shown by the editor (so that it opens with them). */
   chrome?: { bg: string; fg: string };
+  /** macOS: look whose icon was last set on TrayCommand.app in Finder. */
+  bundleIcon?: string;
+  /** macOS: the TrayCommand menu bar icon is the monochrome symbol (template image) instead of the look's icon. */
+  monochromeMenuBar?: boolean;
 }
 
 export class AppStateStore {

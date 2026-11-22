@@ -51,6 +51,7 @@ const api: TrayCommandApi = {
   hotkeys: invoke('hotkeys') as TrayCommandApi['hotkeys'],
   onHotkeys: subscribe('hotkeys'),
   openLauncher: invoke('launcher:open') as TrayCommandApi['openLauncher'],
+  resetLauncherPosition: invoke('launcher:resetPosition') as TrayCommandApi['resetLauncherPosition'],
   recordingHotkey: (on) => ipcRenderer.send('hotkeys:recording', on),
   schedulesPaused: invoke('schedules:paused') as TrayCommandApi['schedulesPaused'],
   setSchedulesPaused: invoke('schedules:setPaused') as TrayCommandApi['setSchedulesPaused'],

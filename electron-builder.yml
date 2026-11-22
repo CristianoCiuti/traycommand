@@ -37,7 +37,10 @@ linux:
 mac:
   icon: build/icon.png
   category: public.app-category.utilities
-  identity: null
+  # ad-hoc signature (no Apple Developer ID): macOS delivers notifications only to signed apps
+  identity: '-'
+  hardenedRuntime: false
+  gatekeeperAssess: false
   target:
     - target: zip
       arch: [universal]

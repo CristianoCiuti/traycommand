@@ -481,6 +481,7 @@ const edHeroWidth = ref('100%');
 const heroShift = ref(0); // how far the hero text comes down to line up with the editor beside it
 const heroWide = ref(false); // the hero text takes the full width (the editor is under it)
 let edRatio = 1.5; // width / height of the editor picture, read once it has loaded
+let svhProbe: HTMLElement | null = null; // 100svh tall: the screen with a phone's browser bar showing
 function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | null, caps: HTMLElement[], area: HTMLElement, q: number) {
   const bar = canvas.querySelector<HTMLElement>('.hs-taskbar');
   const cap = caps[caps.length - 1];
@@ -491,6 +492,11 @@ function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | n
   const contentLeft = copy.offsetLeft;
   const contentRight = canvas.clientWidth - contentLeft;
   const copyTop = (copy.getBoundingClientRect().top - st.getBoundingClientRect().top) / q;
+  // A phone's browser bar comes and goes as the page scrolls and the desktop (100dvh) grows and
+  // shrinks with it. The editor is measured as if the bar were there (the shortest the screen
+  // gets) and keeps its top: it does not appear, disappear, grow or move as the bar goes; the
+  // room the bar leaves stays under it. Desktops: no difference.
+  const slack = Math.max(0, st.clientHeight - (svhProbe?.offsetHeight || st.clientHeight)) / q;
   const size = (b: Room) => Math.max(0, Math.min(b.w, b.h * edRatio));
   const best = (below: Room, side: Room) => (stacked.value || size(below) > size(side) ? below : side);
   const css = (b: Room) => ({ left: `${Math.round(b.left)}px`, top: `${Math.round(b.top)}px`, width: `${Math.round(b.w)}px`, height: `${Math.round(Math.max(0, b.h))}px` });
@@ -499,8 +505,8 @@ function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | n
   if (cap) {
     const capBottom = copyTop + cap.offsetHeight + gap;
     const b = best(
-      { left: contentLeft, top: capBottom, w: contentRight - contentLeft, h: bar.offsetTop - gap - capBottom },
-      { left: area.offsetLeft, top: area.offsetTop, w: area.clientWidth, h: area.clientHeight },
+      { left: contentLeft, top: capBottom, w: contentRight - contentLeft, h: bar.offsetTop - gap - capBottom - slack },
+      { left: area.offsetLeft, top: area.offsetTop, w: area.clientWidth, h: area.clientHeight - slack },
     );
     edBox.value = css(b);
     edWidth.value = `${Math.floor(size(b))}px`;
@@ -509,7 +515,7 @@ function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | n
   // first screen: the room ends above the tray bubble. With the editor under the text, the text
   // has no reason to keep to a column: it takes the full width (hero-wide), so that option is
   // measured with the wide text; beside the text, the text keeps its column.
-  const roomBottom = bar.offsetTop - 18 - (coachHeight || 60) - gap;
+  const roomBottom = bar.offsetTop - 18 - (coachHeight || 60) - gap - slack;
   const heroBottomNow = () => {
     const hero = [...st.querySelectorAll<HTMLElement>('.hs-hero > *')].filter((e) => e.offsetHeight);
     return copyTop + Math.max(0, ...hero.map((e) => e.offsetTop + e.offsetHeight)) + gap;
@@ -584,6 +590,10 @@ function onScroll() {
 }
 
 onMounted(() => {
+  svhProbe = document.createElement('div');
+  svhProbe.setAttribute('aria-hidden', 'true');
+  svhProbe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:100vh;height:100svh;visibility:hidden;pointer-events:none';
+  document.body.append(svhProbe);
   mq = window.matchMedia('(prefers-reduced-motion: reduce)');
   let stored = false;
   try { stored = sessionStorage.getItem('hs-motion') === 'on'; } catch { /* storage blocked */ }
@@ -601,6 +611,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll);
   window.removeEventListener('resize', onResize);
   cancelAnimationFrame(raf);
+  svhProbe?.remove();
+  svhProbe = null;
   clearTimeout(jumpTimer);
 });
 

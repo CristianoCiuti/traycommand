@@ -2,6 +2,11 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.7.1 — launcher search bar
+
+- The launcher shortcut is back at the end of the search bar in Aurora, Brutal and Neon HUD (it sat in the middle).
+- Phosphor: the text typed in the launcher can be selected with the mouse again (the search bar, which moves the window since 2.7.0, covered it).
+
 ## 2.7.0 — the launcher can be moved, macOS fixes
 
 - The launcher can be moved: drag it by its search bar, the header of a form or its footer. It opens again where you left it (back in the centre if that screen is gone). **Settings → Launcher position → Reset position** brings it back to the centre.

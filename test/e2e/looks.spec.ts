@@ -58,6 +58,8 @@ test.beforeAll(async () => {
   const cfg = JSON.parse(fs.readFileSync(path.join(work, 'config.json'), 'utf8'));
   const server = cfg.trays.find((t: { id: string }) => t.id === 'server');
   server.hotkey = 'Ctrl+Alt+W';
+  // shown at the end of the launcher search bar
+  cfg.settings.launcherHotkey = 'Ctrl+Alt+Shift+F10';
   server.schedules = [
     {
       watch: { path: '${env:USERPROFILE}\\Scans', files: ['*.pdf'], events: ['add'] },
@@ -150,6 +152,20 @@ for (const look of LOOKS) {
     await hook('await tc.launcher.open()');
     await expect.poll(launcherVisible).toBe(true);
     await launcher.getByTestId('launcher-input').fill('se');
+    // the launcher shortcut sits at the end of the search bar, the field takes the room before it
+    const bar = await launcher.evaluate(() => {
+      const box = (el: Element | null) => el?.getBoundingClientRect();
+      const search = box(document.querySelector('.lx-search'))!;
+      const keys = box(document.querySelector('.lx-search .keys'))!;
+      const field = box(document.querySelector('.lx-line'))!;
+      // nothing over the typed text may be a window drag area, or the mouse cannot select it
+      const region = (el: Element) => getComputedStyle(el).getPropertyValue('-webkit-app-region') || (getComputedStyle(el) as unknown as Record<string, string>).webkitAppRegion;
+      const overText = [...document.querySelectorAll('.lx-line, .lx-line *')].map(region);
+      return { gap: search.right - keys.right, fieldEnd: field.right, keysStart: keys.left, overText };
+    });
+    expect(bar.gap, 'shortcut at the end of the bar').toBeLessThan(40);
+    expect(bar.keysStart - bar.fieldEnd, 'field up to the shortcut').toBeLessThan(30);
+    expect(bar.overText.every((r) => r === 'no-drag'), `drag areas over the text: ${bar.overText}`).toBe(true);
     await shot(launcher, look, '03-launcher');
     await launcher.keyboard.press('Escape');
     await launcher.keyboard.press('Escape');

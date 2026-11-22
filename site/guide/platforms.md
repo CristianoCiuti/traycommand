@@ -56,12 +56,13 @@ followed by a separator and the normal menu.
 ## macOS
 
 - When a tray has a **menu and no action**, a click opens the menu. When it has an action, a click runs it and right click (or <kbd>Ctrl</kbd>+click) opens the menu.
-- TrayCommand does not show a Dock icon.
+- TrayCommand does not show a Dock icon. Its menu bar icon and its icon in Finder, Launchpad and notifications follow the [look](./editor) in use.
+- The first notification asks whether TrayCommand may send notifications: allow it, or turn them on later in **System Settings → Notifications → TrayCommand**.
 - Admin actions show the standard administrator password dialog.
 - Data folder: `~/Library/Application Support/TrayCommand`.
 
 ::: warning Unsigned app
-TrayCommand is not signed with an Apple Developer ID, so Gatekeeper blocks the first start. Right-click `TrayCommand.app` → **Open** → **Open**, or run:
+TrayCommand is signed ad hoc, not with an Apple Developer ID, so Gatekeeper blocks the first start. Right-click `TrayCommand.app` → **Open** → **Open**, or run:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/TrayCommand.app

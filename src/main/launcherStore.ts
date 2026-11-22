@@ -7,6 +7,8 @@ interface Data {
   usage: Record<string, { count: number; last: number }>;
   /** Last values typed for the inputs, per "entry:kind". Passwords are never stored. */
   inputs: Record<string, Record<string, string>>;
+  /** Where the person moved the launcher (top-left corner of its window); centred when unset. */
+  position?: { x: number; y: number };
 }
 
 const DAY = 24 * 3600 * 1000;
@@ -19,7 +21,8 @@ export class LauncherStore implements InputMemory {
   constructor(private readonly file: string) {
     try {
       const raw = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')) as Partial<Data>;
-      this.data = { usage: raw.usage ?? {}, inputs: raw.inputs ?? {} };
+      const pos = raw.position;
+      this.data = { usage: raw.usage ?? {}, inputs: raw.inputs ?? {}, ...(pos && Number.isFinite(pos.x) && Number.isFinite(pos.y) ? { position: { x: pos.x, y: pos.y } } : {}) };
     } catch {
       /* first run or unreadable: start empty */
     }
@@ -31,6 +34,16 @@ export class LauncherStore implements InputMemory {
 
   set(key: string, values: Record<string, string>) {
     this.data.inputs[key] = values;
+    this.persist();
+  }
+
+  get position() {
+    return this.data.position;
+  }
+
+  setPosition(position: { x: number; y: number } | undefined) {
+    if (position) this.data.position = { x: Math.round(position.x), y: Math.round(position.y) };
+    else delete this.data.position;
     this.persist();
   }
 

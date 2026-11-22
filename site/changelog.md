@@ -2,6 +2,12 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.7.0 — the launcher can be moved, macOS fixes
+
+- The launcher can be moved: drag it by its search bar, the header of a form or its footer. It opens again where you left it (back in the centre if that screen is gone).
+- macOS: notifications arrive (the app is now signed ad hoc; macOS asks once whether TrayCommand may send them).
+- macOS: the menu bar icon is the TrayCommand icon of the look in use, no longer a generic terminal symbol; the app icon in Finder, Launchpad and notifications follows the look too.
+
 ## 2.6.6 — the editor opens in its look
 
 - With a look other than Aurora, opening the editor window could show the Aurora background with a loader for a moment; the window now opens straight in the look chosen, from its very first frame.

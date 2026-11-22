@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, screen, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
 import type { LauncherShow, PromptRequest } from '../shared/api';
+import { launcherOrigin } from './launcherPlace';
 
 export interface LauncherHooks {
   /** Data for the list (built fresh at every opening: the engine is in memory, this is fast). */
@@ -8,6 +9,9 @@ export interface LauncherHooks {
   run: (key: string, alternate: boolean) => { ok: boolean; message?: string; keepOpen?: boolean };
   options: (promptId: number, name: string) => Promise<{ options?: string[]; error?: string }>;
   edit: (key: string) => void;
+  /** Where the person last moved the launcher (top-left corner of the window); centred when undefined. */
+  position?: () => { x: number; y: number } | undefined;
+  setPosition?: (position: { x: number; y: number } | undefined) => void;
 }
 
 const WIDTH = 680;
@@ -35,6 +39,9 @@ export class Launcher {
   private shownAt = 0;
   /** The look in use. */
   private style = 'aurora';
+  /** Last position set by the app: a move to anywhere else was made by the person. */
+  private placed?: { x: number; y: number };
+  private moveTimer?: NodeJS.Timeout;
 
   constructor(
     private readonly hooks: LauncherHooks,
@@ -95,7 +102,8 @@ export class Launcher {
       frame: false,
       transparent: true,
       resizable: false,
-      movable: false,
+      // moved by dragging its search bar, form header or footer (where it goes is remembered)
+      movable: true,
       minimizable: false,
       maximizable: false,
       fullscreenable: false,
@@ -122,6 +130,10 @@ export class Launcher {
     win.on('blur', () => {
       if (this.mode === 'list' && Date.now() - this.shownAt > 150) this.hide();
     });
+    win.on('move', () => {
+      clearTimeout(this.moveTimer);
+      this.moveTimer = setTimeout(() => this.moved(), 250);
+    });
     win.on('closed', () => {
       this.win = undefined;
       this.loaded = undefined;
@@ -136,13 +148,26 @@ export class Launcher {
     return this.mode !== 'hidden';
   }
 
-  /** Window bounds centred on the primary display. */
+  /** Window bounds: where the person moved it (kept on a screen), else centred on the primary display. */
   private place() {
-    if (!this.win) return;
-    const area = screen.getPrimaryDisplay().workArea;
-    const x = Math.round(area.x + (area.width - WIDTH) / 2);
-    const y = Math.round(area.y + Math.max(16, (area.height - MAX_HEIGHT) / 2));
+    if (!this.win || this.win.isDestroyed()) return;
+    const { x, y } = launcherOrigin(
+      this.hooks.position?.(),
+      { width: WIDTH, height: this.height, maxHeight: MAX_HEIGHT },
+      screen.getAllDisplays().map((d) => d.workArea),
+      screen.getPrimaryDisplay().workArea,
+    );
+    this.placed = { x, y };
     this.win.setBounds({ x, y, width: WIDTH, height: this.height });
+  }
+
+  /** The window was moved: remember where, unless the move was the app placing it. */
+  private moved() {
+    if (!this.win || this.win.isDestroyed()) return;
+    const { x, y } = this.win.getBounds();
+    if (this.placed && Math.abs(this.placed.x - x) <= 1 && Math.abs(this.placed.y - y) <= 1) return;
+    this.placed = { x, y };
+    this.hooks.setPosition?.({ x, y });
   }
 
   private async reveal() {

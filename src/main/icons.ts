@@ -51,13 +51,9 @@ export function appIconFile(style = iconStyle): string {
   return fs.existsSync(own) ? own : assetPath('icon.png');
 }
 
+/** Icon of the look in use, also in the macOS menu bar (in colour, like on Windows and Linux). */
 export function appIcon(size: number): NativeImage {
-  // macOS: a monochrome template image in the menu bar, whatever the look
-  if (process.platform !== 'darwin') return sizedIcon(appIconFile(), size) ?? nativeImage.createEmpty();
-  const name = 'trayTemplate.png';
-  const icon = sizedIcon(assetPath(name), size) ?? nativeImage.createEmpty();
-  if (process.platform === 'darwin') icon.setTemplateImage(true);
-  return icon;
+  return sizedIcon(appIconFile(), size) ?? nativeImage.createEmpty();
 }
 
 export function iconDataUrl(file: string): string | undefined {

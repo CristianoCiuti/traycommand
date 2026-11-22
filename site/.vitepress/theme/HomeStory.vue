@@ -89,7 +89,7 @@ let drivenAt: number | null = null; // where that click sent the story (viewport
  * out, the story lands on the step at once, and the content fades back in; the taskbar stays and
  * the wallpaper glides.
  */
-const fading = ref(false); // the content is faded out for a jump
+const fading = ref(false); // the veil is up for a jump
 const gliding = ref(false); // the wallpaper eases to its new place after a jump
 let snapNext = false; // the next measure() lands on the scroll position without easing
 let jumpTimer: ReturnType<typeof setTimeout> | undefined;
@@ -602,6 +602,7 @@ const quiet = [
   { title: 'Export and import', text: 'Share trays, schedules and variables as a zip with their icons. On import, decide about what is already there.', link: '/guide/sharing' },
   { title: 'Windows, Linux, macOS', text: 'PowerShell, cmd, bash, zsh, sh or your own shell. One configuration file for every PC.', link: '/guide/platforms' },
 ];
+const wallStyle = computed(() => (reduced.value ? undefined : { transform: `translate3d(${(seg.value + t.value) * -1.2}%, ${(seg.value + t.value) * 0.6}%, 0) rotate(${(seg.value + t.value) * 1.5}deg)` }));
 const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('visible' as const) : ('hidden' as const), transform: extra || undefined });
 </script>
 
@@ -610,9 +611,9 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
     <!-- ================= the desktop ================= -->
     <section ref="story" class="hs-story" :style="reduced ? undefined : { height: storyHeight }">
       <div ref="stage" class="hs-stage">
-        <div class="hs-wall" :class="{ gliding }" aria-hidden="true" :style="reduced ? undefined : { transform: `translate3d(${(seg + t) * -1.2}%, ${(seg + t) * 0.6}%, 0) rotate(${(seg + t) * 1.5}deg)` }"></div>
+        <div class="hs-wall" :class="{ gliding }" aria-hidden="true" :style="wallStyle"></div>
 
-        <div class="hs-canvas" :class="{ fading, 'hero-wide': heroWide }" :style="{ '--k': k }">
+        <div class="hs-canvas" :class="{ 'hero-wide': heroWide }" :style="{ '--k': k }">
         <div class="hs-copy">
           <div class="hs-hero" :style="heroStyle">
             <h1>Your scripts, down by the clock.</h1>
@@ -669,6 +670,9 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
         </div>
 
         <ToastWin class="hs-toast-pos" :on="proxyOn" :style="fade(toastAlpha, `translateX(${(1 - toastAlpha) * 24}px)`)" />
+
+        <!-- a jump: a copy of the wallpaper covers the content for an instant, under the taskbar -->
+        <div class="hs-veil" :class="{ on: fading }" aria-hidden="true"><div class="hs-wall" :class="{ gliding }" :style="wallStyle"></div></div>
 
         <!-- on the canvas, not inside the taskbar: the taskbar's own glass would stop its blur -->
         <div v-if="coachAlpha > 0.01" class="hs-coach" :style="{ opacity: coachAlpha, left: coachLeft, '--shape': coachShape || undefined }" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>

@@ -479,6 +479,7 @@ const edWidth = ref('100%');
 const edHeroBox = ref<Record<string, string> | null>(null);
 const edHeroWidth = ref('100%');
 const heroShift = ref(0); // how far the hero text comes down to line up with the editor beside it
+const heroWide = ref(false); // the hero text takes the full width (the editor is under it)
 let edRatio = 1.5; // width / height of the editor picture, read once it has loaded
 function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | null, caps: HTMLElement[], area: HTMLElement, q: number) {
   const bar = canvas.querySelector<HTMLElement>('.hs-taskbar');
@@ -520,6 +521,9 @@ function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | n
   const under: Room = { left: contentLeft, top: wideBottom, w: contentRight - contentLeft, h: roomBottom - wideBottom };
   const h = best(under, side);
   if (h !== under) canvas.classList.remove('hero-wide');
+  // the choice also goes to the template: Vue owns the canvas's class list (the jump fade sets
+  // `fading` on it) and would otherwise drop a class set here at its next update
+  heroWide.value = h === under;
   const hw = size(h);
   heroShift.value = 0;
   if (hw < 200 || hw / edRatio < 120) {
@@ -608,7 +612,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
       <div ref="stage" class="hs-stage">
         <div class="hs-wall" :class="{ gliding }" aria-hidden="true" :style="reduced ? undefined : { transform: `translate3d(${(seg + t) * -1.2}%, ${(seg + t) * 0.6}%, 0) rotate(${(seg + t) * 1.5}deg)` }"></div>
 
-        <div class="hs-canvas" :class="{ fading }" :style="{ '--k': k }">
+        <div class="hs-canvas" :class="{ fading, 'hero-wide': heroWide }" :style="{ '--k': k }">
         <div class="hs-copy">
           <div class="hs-hero" :style="heroStyle">
             <h1>Your scripts, down by the clock.</h1>

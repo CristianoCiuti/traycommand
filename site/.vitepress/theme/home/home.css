@@ -407,8 +407,14 @@ button.hs-ti.locked:hover { background: none; }
   .hs-anchor { position: static; }
   .hs-menu { right: 0; width: min(290px, calc(100cqw - 24px)); }
   .hs-progress .lbl { display: none; }
-  .hs-progress { width: 100%; } /* without labels the bars need a width of their own */
-  .hs-progress button { padding: 12px 2px; min-width: 18px; }
+  .hs-progress { width: 100%; gap: 4px; } /* without labels the bars need a width of their own */
+  .hs-progress button { padding: 12px 2px; min-width: 6px; } /* they shrink rather than slide under the button */
+}
+/* the narrowest phones: the play/still switch shows its icon only and the clock only the time,
+   so the progress bars keep a usable width */
+@media (max-width: 360px) {
+  .hs-stillbtn .short, .hs-stillbtn .long { display: none !important; }
+  .hs-clock span + span { display: none; }
   .hs-still, .hs-lstage { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .hs-frame { min-height: 380px; padding: 20px 16px 64px; }
   .hs-frame-menu { right: 16px; }

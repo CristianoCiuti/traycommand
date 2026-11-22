@@ -80,14 +80,14 @@ const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 const manual = reactive<{ proxy: boolean | null; web: boolean | null; menu: boolean | null; toast: boolean }>({ proxy: null, web: null, menu: null, toast: false });
 const trayUsed = ref(false); // the bubble over the tray goes for good once the tray is used
 const userDriven = ref(false); // a click moved the story: the visitor's own pointer, no simulated one
-let jumpTarget: number | null = null; // where that click sent the story (viewport heights)
+let drivenAt: number | null = null; // where that click sent the story (viewport heights)
 /* move the story to scene i at progress `at` (the easing in measure() animates the way there) */
 function goTo(i: number, at: number) {
   if (!story.value) return;
   const y = STARTS[i] + at * SEG[i];
   const top = story.value.getBoundingClientRect().top + window.scrollY;
   userDriven.value = true;
-  jumpTarget = y;
+  drivenAt = y;
   window.scrollTo({ top: top + y * window.innerHeight, behavior: 'instant' as ScrollBehavior });
   onScroll();
 }
@@ -298,10 +298,9 @@ function measure(now = performance.now()) {
     seg.value = i;
     t.value = (y - STARTS[i]) / SEG[i];
     if (changed && stacked.value) nextTick(fitLayout); // the room under the text depends on this scene's text
-    // a click's jump is over when the story got there, or when the visitor scrolled elsewhere;
-    // scrolling back before scene 1 brings the simulated pointer back
-    if (jumpTarget !== null && (Math.abs(target - jumpTarget) > 0.02 || Math.abs(y - jumpTarget) < 0.005)) jumpTarget = null;
-    if (userDriven.value && jumpTarget === null && i === 0 && t.value < 0.55) userDriven.value = false;
+    // after a click the simulated pointer stays away only until the visitor scrolls again: then
+    // the story plays on from there, pointer included (open menu -> it clicks the toggle)
+    if (userDriven.value && drivenAt !== null && Math.abs(target - drivenAt) > 0.01) { userDriven.value = false; drivenAt = null; }
   }
   placePointer();
   const pinned = looksEl.value && getComputedStyle(looksEl.value.firstElementChild as Element).position === 'sticky';
@@ -643,7 +642,6 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
           <div class="hs-minibar">
             <span class="hs-ti"><span class="hs-tile teal">P</span><span class="hs-dot" :class="{ on: i === 0 || i === 1 }"></span></span>
             <span class="hs-ti"><span class="hs-tile green">S</span><span class="hs-dot" :class="{ on: i === 1 }"></span></span>
-            <span class="hs-ti"><span class="hs-tile blue">{}</span></span>
           </div>
         </div>
       </div>

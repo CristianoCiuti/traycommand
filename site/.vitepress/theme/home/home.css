@@ -198,7 +198,7 @@ html:has(.hs), html:has(.hs) body { overflow-x: clip; }
 .hs-editor.floating { right: auto; bottom: auto; display: flex; align-items: center; justify-content: center; transform-origin: center; }
 .hs-editor.floating img { width: var(--ed-w); max-width: 100%; height: auto; max-height: none; border-radius: 16px; border-bottom: 1px solid var(--hs-border); }
 
-.hs-pointer { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; margin: -3px 0 0 -5px; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35)); }
+.hs-pointer { position: absolute; left: 0; top: 0; z-index: 8; pointer-events: none; margin: -3px 0 0 -5px; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35)); }
 .hs-pointer path { transition: transform 0.08s; transform-origin: 5px 3px; }
 .hs-pointer.down path { transform: scale(0.85); }
 
@@ -226,7 +226,7 @@ html:has(.hs), html:has(.hs) body { overflow-x: clip; }
 /* the taskbar: frosted like Windows 11, with a thin aurora line on top so it reads as the
    place where things happen */
 .hs-taskbar {
-  position: absolute; left: 0; right: 0; bottom: 0; height: var(--hs-bar-h); z-index: 4; display: flex; align-items: center; gap: 16px; padding: 0 14px 0 var(--hs-side);
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--hs-bar-h); z-index: 7; display: flex; align-items: center; gap: 16px; padding: 0 14px 0 var(--hs-side);
   background: var(--hs-bar); box-shadow: 0 -14px 40px -18px rgb(20 10 70 / 0.45);
   backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%);
 }
@@ -462,11 +462,16 @@ button.hs-ti.locked:hover { background: none; }
 }
 .hs-reduced .hs-editor { transition: none !important; } /* still pictures: the editor just goes */
 
-/* a click's jump to another part of the story: everything but the taskbar fades out, the story
-   lands, it fades back in (filter, not opacity, which the windows set inline; none at rest so
-   the glass keeps its blur) */
-/* the durations are !important: with reduced motion VitePress sets every transition to 0s with
-   !important, and these only run in the animated story, which the visitor chose to play */
-.hs-canvas > :not(.hs-taskbar) { transition: filter 0.25s ease-out; transition-duration: 0.25s !important; }
-.hs-canvas.fading > :not(.hs-taskbar) { filter: opacity(0); transition: filter 0.15s ease-in; transition-duration: 0.15s !important; }
+/* a jump to another part of the story: a veil with a copy of the wallpaper comes up over the
+   content (under the taskbar), the story lands, the veil goes. Nothing on the content itself
+   changes: a filter or an opacity on it would change how the frosted glass blurs, and Safari
+   showed that as a flash at both ends of the fade.
+   The durations are !important: with reduced motion VitePress sets every transition to 0s with
+   !important, and these only run in the animated story, which the visitor chose to play. */
+.hs-veil {
+  position: absolute; inset: 0; z-index: 6; overflow: hidden; overflow: clip; isolation: isolate; pointer-events: none;
+  background: var(--hs-bg); opacity: 0; visibility: hidden;
+  transition: opacity 0.25s ease-out, visibility 0s 0.25s; transition-duration: 0.25s, 0s !important; transition-delay: 0s, 0.25s !important;
+}
+.hs-veil.on { opacity: 1; visibility: visible; transition: opacity 0.15s ease-in; transition-duration: 0.15s !important; transition-delay: 0s !important; }
 .hs-wall.gliding { transition: transform 0.6s ease; transition-duration: 0.6s !important; }

@@ -58,6 +58,7 @@ const lk = ref(1); // the same for the looks, when they fill one screen (not on 
 const stacked = ref(false); // narrow screen: text on top, windows under it
 const heroCrowded = ref(false); // small phone: the tray menu or the notification would cover the hero text
 const minOrigin = ref('100% 100%'); // where the editor shrinks to: the Proxy tray icon
+const coachArrow = ref('100px'); // where the arrow of the tray bubble sits: over the P
 const seg = ref(0);
 const t = ref(0);
 
@@ -277,15 +278,25 @@ function fitLayout() {
   const q = k.value;
   stacked.value = window.matchMedia(STACKED).matches;
   // the editor minimizes toward the Proxy icon; measured from the editor's bottom right corner,
-  // which stays put while its picture loads (its top does not)
+  // which stays put while its picture loads (its top does not). It minimizes from the first
+  // screen, where it is lifted above the tray bubble: its bottom is the taskbar top - --hs-lift.
   const ed = canvas.querySelector<HTMLElement>('.hs-editor');
   const icon = canvas.querySelector<HTMLElement>('.hs-ti-proxy');
-  if (ed && icon) {
+  const bar = canvas.querySelector<HTMLElement>('.hs-taskbar');
+  if (ed && icon && bar) {
     const e = offsetIn(ed, canvas);
     const i = offsetIn(icon, canvas);
+    const lift = parseFloat(getComputedStyle(canvas).getPropertyValue('--hs-lift')) || 0;
     const dx = Math.round(i.x + icon.offsetWidth / 2 - (e.x + ed.offsetWidth));
-    const dy = Math.round(i.y + icon.offsetHeight / 2 - (e.y + ed.offsetHeight));
+    const dy = Math.round(i.y + icon.offsetHeight / 2 - (bar.offsetTop - lift));
     minOrigin.value = `calc(100% + ${dx}px) calc(100% + ${dy}px)`;
+  }
+  // the arrow of the tray bubble points at the P (the bubble is aligned to the tray's right edge)
+  const trayEl = canvas.querySelector<HTMLElement>('.hs-tray');
+  if (trayEl && icon) {
+    const t = trayEl.getBoundingClientRect();
+    const p = icon.getBoundingClientRect();
+    coachArrow.value = `${Math.round((t.right - (p.left + p.width / 2)) / q - 6)}px`;
   }
   const copy = st.querySelector<HTMLElement>('.hs-copy');
   const caps = [...st.querySelectorAll<HTMLElement>('.hs-cap')];
@@ -441,7 +452,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
           </svg>
         </template>
 
-        <div class="hs-editor" :style="editorStyle" aria-hidden="true">
+        <div class="hs-editor" :class="{ lifted: s !== 4 }" :style="editorStyle" aria-hidden="true">
           <img class="only-light" :src="src('aurora-editor')" alt="" />
           <img class="only-dark" :src="srcDark('aurora-editor')" alt="" />
         </div>
@@ -450,7 +461,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
 
         <TaskbarBar :proxy-on="proxyOn" :web-on="webOn" :hover-p="s === 1 && t < 0.27" :press-p="pointer.down && t < 0.3" :menu-shown="menuAlpha > 0.5" :pulse="coachAlpha > 0.5" @proxy="clickProxyIcon" @web="clickWeb">
           <template #coach>
-            <div v-if="coachAlpha > 0.01" class="hs-coach hs-glass" :style="{ opacity: coachAlpha }" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>
+            <div v-if="coachAlpha > 0.01" class="hs-coach hs-glass" :style="{ opacity: coachAlpha, '--arrow': coachArrow }" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>
           </template>
           <template #menu>
             <TrayMenu :proxy-on="proxyOn" :hover="rowHover" :style="fade(menuAlpha, `translateY(${(1 - menuAlpha) * 8}px)`)" @toggle="clickProxyEntry" />

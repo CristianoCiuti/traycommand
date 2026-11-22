@@ -59,6 +59,8 @@ const stacked = ref(false); // narrow screen: text on top, windows under it
 const heroCrowded = ref(false); // small phone: the tray menu or the notification would cover the hero text
 const minOrigin = ref('100% 100%'); // where the editor shrinks to: the Proxy tray icon
 const coachArrow = ref('100px'); // where the arrow of the tray bubble sits: over the P
+const coachShift = ref('0px'); // how far the bubble moves left from the tray's right edge
+let coachWidth = 0;
 const seg = ref(0);
 const t = ref(0);
 
@@ -291,12 +293,19 @@ function fitLayout() {
     const dy = Math.round(i.y + icon.offsetHeight / 2 - (bar.offsetTop - lift));
     minOrigin.value = `calc(100% + ${dx}px) calc(100% + ${dy}px)`;
   }
-  // the arrow of the tray bubble points at the P (the bubble is aligned to the tray's right edge)
+  // the tray bubble sits over the P: its right edge 30px right of the P's centre, so its arrow
+  // (inside it, near the right) points at the P; it slides back only to stay on the screen
   const trayEl = canvas.querySelector<HTMLElement>('.hs-tray');
   if (trayEl && icon) {
     const t = trayEl.getBoundingClientRect();
     const p = icon.getBoundingClientRect();
-    coachArrow.value = `${Math.round((t.right - (p.left + p.width / 2)) / q - 6)}px`;
+    const dist = (t.right - (p.left + p.width / 2)) / q; // tray right edge -> P centre
+    const w = canvas.querySelector<HTMLElement>('.hs-coach')?.offsetWidth || coachWidth || 240;
+    coachWidth = w;
+    const trayRight = (t.right - canvas.getBoundingClientRect().left) / q; // in canvas pixels
+    const shift = clamp(dist - 30, 0, Math.max(0, trayRight - w - 8));
+    coachShift.value = `${Math.round(shift)}px`;
+    coachArrow.value = `${Math.round(dist - shift - 6)}px`;
   }
   const copy = st.querySelector<HTMLElement>('.hs-copy');
   const caps = [...st.querySelectorAll<HTMLElement>('.hs-cap')];
@@ -461,7 +470,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
 
         <TaskbarBar :proxy-on="proxyOn" :web-on="webOn" :hover-p="s === 1 && t < 0.27" :press-p="pointer.down && t < 0.3" :menu-shown="menuAlpha > 0.5" :pulse="coachAlpha > 0.5" @proxy="clickProxyIcon" @web="clickWeb">
           <template #coach>
-            <div v-if="coachAlpha > 0.01" class="hs-coach hs-glass" :style="{ opacity: coachAlpha, '--arrow': coachArrow }" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>
+            <div v-if="coachAlpha > 0.01" class="hs-coach hs-glass" :style="{ opacity: coachAlpha, '--arrow': coachArrow, right: coachShift }" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>
           </template>
           <template #menu>
             <TrayMenu :proxy-on="proxyOn" :hover="rowHover" :style="fade(menuAlpha, `translateY(${(1 - menuAlpha) * 8}px)`)" @toggle="clickProxyEntry" />

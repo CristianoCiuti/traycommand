@@ -2,6 +2,10 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.6.6 — the editor opens in its look
+
+- With a look other than Aurora, opening the editor window could show the Aurora background with a loader for a moment; the window now opens straight in the look chosen, from its very first frame.
+
 ## 2.6.5 — skill for AI agents up to date
 
 - The TrayCommand skill for Claude Code and opencode now lists every check the validator does (alerts and their buttons, time limits, default choice) and its warnings, gives the right shortest alert timeout (5 seconds) and is picked by agents also for checks, alerts, looks and export/import. Installed skills update with the app.

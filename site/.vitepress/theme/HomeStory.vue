@@ -505,7 +505,10 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
             <LauncherWin :query="query" :web-on="webOn" :enter="enterDown" :style="fade(launcherAlpha, `scale(${0.96 + 0.04 * launcherAlpha})`)" />
 
             <div class="hs-folder" :style="fade(folderAlpha)">
-              <span v-for="(p, k) in files" :key="k" class="hs-file" :style="{ transform: `translate(${(k - 1) * 70 * (1 - p)}px, ${-170 * (1 - p)}px) scale(${1 - 0.5 * p})`, opacity: p >= 1 ? 0 : 1 }">
+              <!-- a column of three files, 48px apart; the lowest drops into the folder first, so a
+                   falling file never crosses another one (the folder's centre is 180px below the
+                   column's top, see .hs-folder; a file is 40px tall, so its top goes to 160px) -->
+              <span v-for="(p, k) in files" :key="k" class="hs-file" :style="{ top: `${(2 - k) * 48}px`, transform: `translateY(${p * (160 - (2 - k) * 48)}px) scale(${1 - 0.5 * p})`, opacity: p >= 1 ? 0 : 1 - ramp(0.8, 1, p) }">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /></svg>
                 <small>invoice-04{{ 12 + k }}.pdf</small>
               </span>

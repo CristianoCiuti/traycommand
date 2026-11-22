@@ -228,15 +228,27 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 .hs-sys { display: flex; gap: 12px; padding: 0 12px; color: var(--hs-text-2); }
 .hs-clock { display: flex; flex-direction: column; align-items: flex-end; font-size: 13px; line-height: 1.35; padding: 0 6px; font-variant-numeric: tabular-nums; }
 
-/* first screen: a bubble over the tray says where to look, its arrow on the P (--arrow, measured
-   in HomeStory.vue), and the icons breathe. The editor of the first screen is lifted by --hs-lift
-   to leave it room. */
+/* first screen: a glass bubble over the tray says where to look, centred on the P (left, set in
+   HomeStory.vue) with its point on it (--arrow), and the icons breathe. The editor of the first
+   screen is lifted by --hs-lift to leave it room.
+   The bubble lives on the canvas, not inside the taskbar: the taskbar's own glass would stop any
+   blur inside it. Body and point are ONE pane of glass (::before): a single layer cut to the
+   outline of the rounded bubble and its point together (--shape, a path built in HomeStory.vue
+   from the bubble's real size), so one tint and one blur, and nothing where they meet. */
 .hs-coach {
-  position: absolute; right: 0; bottom: calc(100% + 16px); width: max-content; max-width: 260px; padding: 10px 14px; border-radius: 12px; z-index: 2; pointer-events: none;
-  font: 600 14px/1.35 var(--hs-font); color: var(--hs-text); box-shadow: inset 0 1px 0 var(--hs-edge), var(--hs-shadow);
+  --sheen: rgb(255 255 255 / 0.45);
+  position: absolute; bottom: calc(var(--hs-bar-h) + 18px); width: max-content; max-width: 260px; padding: 10px 14px; z-index: 5; pointer-events: none;
+  font: 600 14px/1.35 var(--hs-font); color: var(--hs-text);
 }
+.dark .hs-coach { --sheen: rgb(255 255 255 / 0.07); }
 .hs-coach small { display: block; font-weight: 400; font-size: 12.5px; color: var(--hs-text-2); }
-.hs-coach::after { content: ''; position: absolute; right: var(--arrow, 100px); bottom: -7px; width: 12px; height: 12px; rotate: 45deg; background: inherit; border-right: 1px solid var(--hs-border); border-bottom: 1px solid var(--hs-border); }
+.hs-coach::before {
+  content: ''; position: absolute; z-index: -1; inset: 0 0 -9px 0; /* 9px below: the point */
+  clip-path: var(--shape, inset(0 0 9px 0 round 12px));
+  background: linear-gradient(180deg, var(--sheen), transparent 40%), var(--hs-panel);
+  box-shadow: inset 0 1px 0 var(--hs-edge);
+  backdrop-filter: blur(22px) saturate(170%); -webkit-backdrop-filter: blur(22px) saturate(170%);
+}
 .hs-tray.pulse .hs-ti:not(.hs-sys)::after { content: ''; position: absolute; inset: 4px; border-radius: 10px; box-shadow: 0 0 0 0 var(--hs-glow); animation: hs-breathe 2.4s ease-out infinite; pointer-events: none; }
 @keyframes hs-breathe { 0% { box-shadow: 0 0 0 0 var(--hs-glow); } 70%, 100% { box-shadow: 0 0 0 10px transparent; } }
 

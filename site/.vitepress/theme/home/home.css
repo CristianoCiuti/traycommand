@@ -92,7 +92,6 @@
 .hs-copy { position: absolute; left: var(--hs-side); top: calc(var(--hs-nav) + clamp(16px, 7cqh, 72px)); width: var(--hs-herow); }
 /* the editor of the first screen sits under the text (placeEditor): the text takes the full width */
 .hs-canvas.hero-wide { --hs-herow: calc(100cqw - 2 * var(--hs-side)); }
-.hs-appicon { width: clamp(44px, 8cqh, 72px); height: clamp(44px, 8cqh, 72px); margin-bottom: clamp(10px, 2.2cqh, 20px); filter: drop-shadow(0 14px 30px var(--hs-glow)); }
 .hs h1 {
   font: 700 clamp(28px, min(6.2cqw, 9cqh, calc(var(--hs-herow) / 6.6)), 86px)/0.98 var(--hs-display); letter-spacing: -0.035em; margin: 0 0 clamp(12px, 2.4cqh, 22px); text-wrap: balance;
   background: var(--hs-title); -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -389,7 +388,6 @@ button.hs-ti.locked:hover { background: none; }
   .hs-copy { top: calc(var(--hs-nav) + 16px); width: calc(100cqw - 32px); }
   /* the hero scales with the height too, so the subtitle always fits */
   .hs h1 { font-size: clamp(32px, min(11cqw, 7.5cqh), 56px); }
-  .hs-appicon { width: clamp(40px, 7cqh, 56px); height: clamp(40px, 7cqh, 56px); margin-bottom: clamp(8px, 1.6cqh, 14px); }
   .hs-hero p { font-size: clamp(15px, 2.2cqh, 16.5px); margin-bottom: clamp(12px, 2.4cqh, 20px); }
   .hs-cap { width: auto; right: 0; }
   .hs-cap h2 { font-size: clamp(26px, 7.5cqw, 36px); }
@@ -429,10 +427,10 @@ button.hs-ti.locked:hover { background: none; }
   .hs-stillbtn .short, .hs-stillbtn .long { display: none !important; }
   .hs-clock span + span { display: none; }
 }
-/* very short screens (a phone held sideways): drop the icon and the small print, never the
+/* very short screens (a phone held sideways): drop the small print, never the
    subtitle; the captions get a little tighter */
 @media (max-height: 520px) {
-  .hs-appicon, .hs-fine { display: none; }
+  .hs-fine { display: none; }
   .hs-hero p { font-size: 14.5px; line-height: 1.4; margin-bottom: 12px; }
   .hs-btn { padding: 11px 18px; font-size: 15px; }
   .hs-cap h2 { font-size: 24px; margin-bottom: 8px; }

@@ -535,7 +535,6 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
         <div class="hs-canvas" :style="{ '--k': k }">
         <div class="hs-copy">
           <div class="hs-hero" :style="heroStyle">
-            <img class="hs-appicon" :src="withBase('/icons/icon-aurora.png')" alt="" width="72" height="72" />
             <h1>Your scripts, down by the clock.</h1>
             <p>TrayCommand puts your shell commands in the system tray. Click to run them. Toggles check whether the proxy, the VPN or the dev server is on, and show it.</p>
             <div class="hs-actions">

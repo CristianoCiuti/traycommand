@@ -2,6 +2,11 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.7.2 — launcher without the shadow
+
+- Aurora, Phosphor and Neon HUD: the launcher, its forms and the alerts of schedules no longer have a soft shadow around them, which showed cut off at the edges of the window. The window is now exactly the panel, so it covers nothing beyond it. Brutal keeps its hard offset shadow. Forms and alerts move like the list, by their header or footer.
+- Docs: why macOS and Linux have no "Start as administrator without prompt", and how to run a few chosen commands without a password there (a `sudoers` rule and `sudo -n`).
+
 ## 2.7.1 — launcher search bar
 
 - The launcher shortcut is back at the end of the search bar in Aurora, Brutal and Neon HUD (it sat in the middle).

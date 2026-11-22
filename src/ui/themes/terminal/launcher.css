@@ -15,7 +15,8 @@ button, input, select { font: inherit; color: inherit; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 /* room around the card for its shadow; the window is sized to this element */
-.lx-root { padding: 14px 16px 22px; }
+/* the window is exactly the panel: no shadow around it (a transparent window cuts it, and covers what is under it) */
+.lx-root { padding: 0; }
 .lx-anim { animation: lx-in 0.16s cubic-bezier(0.2, 0.7, 0.3, 1); transform-origin: 50% 30%; }
 @keyframes lx-in {
   0% { opacity: 0; transform: scaleY(0.94); filter: brightness(1.35); }
@@ -27,7 +28,6 @@ button, input, select { font: inherit; color: inherit; }
   background: var(--ticks), var(--panel);
   border: 1px solid var(--border-strong);
   border-radius: 0;
-  box-shadow: 6px 6px 0 rgb(17 36 26 / 0.22);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -41,7 +41,7 @@ button, input, select { font: inherit; color: inherit; }
   opacity: 0.6;
 }
 @media (prefers-color-scheme: dark) {
-  .lx { border-color: #2f6e4b; box-shadow: 0 0 0 1px rgb(56 242 154 / 0.06), 0 0 28px rgb(56 242 154 / 0.12), 6px 6px 0 rgb(0 0 0 / 0.6); }
+  .lx { border-color: #2f6e4b; }
 }
 
 /* ---------- search: the prompt line ---------- */

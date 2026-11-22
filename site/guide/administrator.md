@@ -72,3 +72,20 @@ If TrayCommand is no longer available (for example it was quarantined), remove t
 Unregister-ScheduledTask -TaskPath '\TrayCommand\' -TaskName 'StartElevated' -Confirm:$false
 Remove-Item -Recurse -Force 'C:\Program Files\TrayCommand'
 ```
+
+### macOS and Linux
+
+There is no such option on macOS and Linux. A graphical app cannot simply start as `root` there: it would need a privileged helper (a launch daemon on macOS) that runs anything it is told as `root`, a much bigger risk than the Windows task. So an action marked `"admin": true` asks for the password every time.
+
+To run **a few specific commands** without a password, allow just those commands with a `sudoers` rule, then call them with `sudo -n` in a normal action (without `"admin": true`). Edit the rule with `sudo visudo -f /etc/sudoers.d/traycommand`, for example:
+
+```
+# your user name, then the exact commands allowed without a password
+me ALL=(root) NOPASSWD: /bin/launchctl kickstart -k system/com.example.agent, /usr/sbin/dscacheutil -flushcache
+```
+
+```json
+{ "label": "Flush DNS", "action": { "run": "sudo -n /usr/sbin/dscacheutil -flushcache", "notify": true } }
+```
+
+`-n` makes `sudo` fail at once instead of waiting for a password that nobody can type, if the command is not in the rule. List full paths and exact arguments: a rule that allows a shell or an editor allows everything.

@@ -32,6 +32,33 @@ const shot = async (p: Page, look: string, name: string) => {
   await p.screenshot({ path: path.join(shotsRoot, look, `${name}.png`) });
 };
 const launcherVisible = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('launcher.html'))?.isVisible() ?? false);
+
+/**
+ * The launcher window (list, form or alert) is exactly its panel: no shadow cut by the window edges,
+ * nothing covered around it (Brutal keeps its hard offset shadow). Its header and footer move the window.
+ */
+async function panelFits(look: string) {
+  const fit = await launcher.evaluate(() => {
+    // layout size (not the box on screen, which the opening animation scales for a moment)
+    const lx = document.querySelector('.lx:not([style*="display: none"])') as HTMLElement;
+    const shadow = getComputedStyle(lx).boxShadow;
+    const region = (sel: string) => {
+      const el = lx.querySelector(sel);
+      return el ? getComputedStyle(el).getPropertyValue('-webkit-app-region') || (getComputedStyle(el) as unknown as Record<string, string>).webkitAppRegion : 'drag';
+    };
+    return {
+      w: window.innerWidth, h: window.innerHeight, lw: lx.offsetWidth, lh: lx.offsetHeight,
+      outer: shadow.split(/,(?![^(]*\))/).filter((s) => s !== 'none' && !s.includes('inset')),
+      head: region('.lx-head'), foot: region('.lx-foot'), search: region('.lx-search'),
+    };
+  });
+  if (look !== 'brutal') {
+    expect(Math.abs(fit.w - fit.lw), `window as wide as the panel ${JSON.stringify(fit)}`).toBeLessThanOrEqual(2);
+    expect(Math.abs(fit.h - fit.lh), `window as tall as the panel ${JSON.stringify(fit)}`).toBeLessThanOrEqual(2);
+    expect(fit.outer, 'no shadow outside the panel').toEqual([]);
+  }
+  expect([fit.head, fit.foot, fit.search], 'header, footer and search bar move the window').toEqual(['drag', 'drag', 'drag']);
+}
 const savedChrome = () => {
   try {
     return JSON.parse(fs.readFileSync(path.join(work, 'data', 'state.json'), 'utf8')).chrome as { bg: string; fg: string } | undefined;
@@ -166,6 +193,7 @@ for (const look of LOOKS) {
     expect(bar.gap, 'shortcut at the end of the bar').toBeLessThan(40);
     expect(bar.keysStart - bar.fieldEnd, 'field up to the shortcut').toBeLessThan(30);
     expect(bar.overText.every((r) => r === 'no-drag'), `drag areas over the text: ${bar.overText}`).toBe(true);
+    await panelFits(look);
     await shot(launcher, look, '03-launcher');
     await launcher.keyboard.press('Escape');
     await launcher.keyboard.press('Escape');
@@ -177,6 +205,7 @@ for (const look of LOOKS) {
     `);
     await expect.poll(launcherVisible).toBe(true);
     await expect(launcher.getByTestId('launcher-alert')).toHaveAttribute('data-armed', 'true');
+    await panelFits(look);
     await shot(launcher, look, '04-alert');
     await launcher.getByTestId('launcher-alert-choice-2').click();
     await expect.poll(launcherVisible).toBe(false);

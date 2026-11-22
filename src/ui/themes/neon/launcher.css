@@ -32,9 +32,10 @@ button, input, select { font: inherit; color: inherit; }
 }
 
 /* room around the card for its glow; the window is sized to this element */
-.lx-root { padding: 14px 16px 22px; }
-.lx-anim { animation: lx-in 0.12s ease-out; filter: drop-shadow(0 14px 26px rgb(11 20 51 / 0.28)) drop-shadow(0 2px 4px rgb(11 20 51 / 0.12)); }
-@keyframes lx-in { from { opacity: 0; transform: translateY(-4px) scale(0.99); } }
+/* the window is exactly the panel: no shadow around it (a transparent window cuts it, and covers what is under it) */
+.lx-root { padding: 0; }
+.lx-anim { animation: lx-in 0.12s ease-out; }
+@keyframes lx-in { from { opacity: 0; transform: scale(0.99); } }
 
 .lx {
   --c: 16px;
@@ -69,7 +70,6 @@ button, input, select { font: inherit; color: inherit; }
 }
 
 @media (prefers-color-scheme: dark) {
-  .lx-anim { filter: drop-shadow(0 0 1px rgb(0 229 255 / 0.9)) drop-shadow(0 0 14px rgb(0 229 255 / 0.28)) drop-shadow(0 18px 30px rgb(0 0 0 / 0.55)); }
   .lx {
     --fill:
       linear-gradient(rgb(110 140 255 / 0.05) 1px, transparent 1px) 0 0 / 24px 24px,

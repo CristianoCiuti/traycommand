@@ -656,7 +656,8 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
         <div class="hs-lcanvas" :style="{ '--k': lk }">
         <div class="hs-lstage">
           <div class="hs-ltext">
-            <h2>Same app, four looks.</h2>
+            <!-- two lines in every look: each look has its own heading face and width -->
+            <h2><span>Same app,</span> <span>four looks.</span></h2>
             <p>Each look restyles the editor, the launcher and the app icon, light or dark. Aurora is home. The others are in Settings, under Look.</p>
             <div class="hs-lpick" role="radiogroup" aria-label="Look">
               <button v-for="(l, i) in looks" :key="l.id" role="radio" :aria-checked="look === i" @click="pickLook(i)">

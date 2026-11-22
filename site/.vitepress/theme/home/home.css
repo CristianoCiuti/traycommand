@@ -96,6 +96,9 @@
 .hs h1 {
   font: 700 clamp(28px, min(6.2cqw, 9cqh, calc(var(--hs-herow) / 6.6)), 86px)/0.98 var(--hs-display); letter-spacing: -0.035em; margin: 0 0 clamp(12px, 2.4cqh, 22px); text-wrap: balance;
   background: var(--hs-title); -webkit-background-clip: text; background-clip: text; color: transparent;
+  /* the gradient only paints inside the box: with this tight leading the tails of the last line
+     (y, p, g) hang below it, so the box reaches under them; the margin gives that room back */
+  padding-bottom: 0.14em; margin-bottom: max(0px, calc(clamp(12px, 2.4cqh, 22px) - 0.14em));
 }
 .hs-hero p { font-size: clamp(17px, 1.5cqw, 20px); line-height: 1.5; color: var(--hs-text-2); margin: 0 0 clamp(16px, 3cqh, 28px); max-width: 32em; }
 .hs-actions { display: flex; gap: 12px; flex-wrap: wrap; }

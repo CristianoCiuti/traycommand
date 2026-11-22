@@ -399,6 +399,16 @@ function fitLayout() {
     el.style.setProperty('--fit', Math.min(grow, ah / el.offsetHeight, aw / el.offsetWidth).toFixed(3));
   }
   placeEditor(st, canvas, copy, caps, area, q);
+  // side by side, each scene's text sits on the middle of the window beside it (the windows are
+  // centred in the area); one above the other, the text stays at the top
+  const bar = canvas.querySelector<HTMLElement>('.hs-taskbar');
+  caps.forEach((cap, i) => {
+    const editorBelow = i === caps.length - 1 && parseInt(edBox.value.top ?? '0', 10) !== area.offsetTop;
+    if (stacked.value || !copy || !bar || editorBelow) { cap.style.top = ''; return; }
+    const mid = area.offsetTop + area.clientHeight / 2 - copy.offsetTop;
+    const lowest = bar.offsetTop - 20 - copy.offsetTop - cap.offsetHeight;
+    cap.style.top = `${Math.round(clamp(mid - cap.offsetHeight / 2, 0, Math.max(0, lowest)))}px`;
+  });
 }
 
 /*

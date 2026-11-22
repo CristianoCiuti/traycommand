@@ -156,9 +156,13 @@
 .hs-pill.on { background: var(--hs-ok-soft); color: var(--hs-ok); }
 .hs-pill.on::before { box-shadow: 0 0 8px var(--hs-ok-glow); }
 
-/* the files start in a column at the top (3 x 40px, 48px apart: 136px), inside the folder's own
-   box so the scene's fitting counts them; the folder icon's centre is 180px below the top */
-.hs-folder { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--hs-text-2); width: 320px; padding-top: 148px; }
+/* the files start on an arc at the top (fileStyle in HomeStory.vue: middle on top, sides 52px
+   lower and 130px out), inside the folder's own box so the scene's fitting counts them; the
+   folder icon's centre is 152px below the top (a 40px file lands with its top at 132px) */
+.hs-folder { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--hs-text-2); width: 480px; padding-top: 120px; }
+/* wider than a phone's room: centred on its own middle (not pinned to the left), so --fit shrinks
+   it in place */
+.hs-area > .hs-folder { left: 50%; right: auto; translate: -50% -50%; }
 .hs-file { position: absolute; top: 0; left: 0; right: 0; margin: 0 auto; width: max-content; height: 40px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 10px; background: var(--hs-panel); border: 1px solid var(--hs-border); box-shadow: inset 0 1px 0 var(--hs-edge), var(--hs-shadow); color: var(--hs-text); }
 .hs-file small { font: 12px var(--hs-mono); }
 .hs-bigfolder { position: relative; margin-top: 0; color: var(--hs-accent); filter: drop-shadow(0 10px 24px var(--hs-glow)); }

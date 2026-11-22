@@ -132,6 +132,26 @@ const webOn = computed(() => manual.web ?? (s.value > 2 || (s.value === 2 && t.v
 const folderAlpha = computed(() => (s.value === 3 ? win(t.value, 0, 0.04, 0.32, 0.38) : 0));
 const files = computed(() => [0, 1, 2].map((k) => (s.value === 3 ? ease(ramp(0.04 + k * 0.07, 0.15 + k * 0.07, t.value)) : 0)));
 const filesIn = computed(() => files.value.filter((p) => p >= 1).length);
+/*
+ * The three files sit on an arc over the folder: the middle one on top, the two side ones a row
+ * lower and spread out, so none touches another (see .hs-folder for the sizes). They drop in this
+ * order: left, right, middle. A side file goes down first and only then slides to the middle, so
+ * it passes under the others, never over them; it lands on the folder icon's centre.
+ */
+const FILE_DX = 130; // sideways offset of the side files
+const FILE_ROW = 52; // how much lower the side files sit
+const FILE_LAND = 132; // top of a file when it lands on the folder icon's centre
+const FILE_SLOTS = [-1, 1, 0]; // drop order: left, right, middle
+function fileStyle(k: number, p: number) {
+  const side = FILE_SLOTS[k];
+  const x0 = side * FILE_DX;
+  const y0 = side === 0 ? 0 : FILE_ROW;
+  const down = ease(Math.min(1, p * 1.7)); // down first...
+  const across = ease(ramp(0.35, 1, p)); // ...then towards the middle
+  const x = x0 * (1 - across);
+  const y = y0 + (FILE_LAND - y0) * down;
+  return { transform: `translate(${x}px, ${y}px) scale(${1 - 0.5 * p})`, opacity: p >= 1 ? 0 : 1 - ramp(0.8, 1, p) };
+}
 const alertAlpha = computed(() => (s.value === 3 ? win(t.value, 0.34, 0.42, 0.95, 1) : 0));
 const seconds = computed(() => (s.value === 3 ? 12 * (1 - ramp(0.42, 0.9, t.value)) : 12));
 const alertPressed = computed(() => s.value === 3 && t.value >= 0.9);
@@ -505,10 +525,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
             <LauncherWin :query="query" :web-on="webOn" :enter="enterDown" :style="fade(launcherAlpha, `scale(${0.96 + 0.04 * launcherAlpha})`)" />
 
             <div class="hs-folder" :style="fade(folderAlpha)">
-              <!-- a column of three files, 48px apart; the lowest drops into the folder first, so a
-                   falling file never crosses another one (the folder's centre is 180px below the
-                   column's top, see .hs-folder; a file is 40px tall, so its top goes to 160px) -->
-              <span v-for="(p, k) in files" :key="k" class="hs-file" :style="{ top: `${(2 - k) * 48}px`, transform: `translateY(${p * (160 - (2 - k) * 48)}px) scale(${1 - 0.5 * p})`, opacity: p >= 1 ? 0 : 1 - ramp(0.8, 1, p) }">
+              <span v-for="(p, k) in files" :key="k" class="hs-file" :style="fileStyle(k, p)">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /></svg>
                 <small>invoice-04{{ 12 + k }}.pdf</small>
               </span>

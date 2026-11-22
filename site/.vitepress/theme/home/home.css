@@ -81,7 +81,6 @@
   transform: scale(var(--k, 1)); transform-origin: 0 0;
   --hs-nav: calc(var(--vp-nav-height) / var(--k, 1));
   --hs-bar-h: 60px;
-  --hs-lift: 92px; /* the tray bubble (about 60px) and the gaps around it */
   --hs-maxw: clamp(1240px, calc(100cqw - 200px), 1720px);       /* the content column */
   --hs-side: max(24px, calc((100cqw - var(--hs-maxw)) / 2 + 24px));
   --hs-capw: min(clamp(440px, 28cqw, 560px), 36cqw);              /* captions, on the left */
@@ -91,6 +90,8 @@
 }
 
 .hs-copy { position: absolute; left: var(--hs-side); top: calc(var(--hs-nav) + clamp(16px, 7cqh, 72px)); width: var(--hs-herow); }
+/* the editor of the first screen sits under the text (placeEditor): the text takes the full width */
+.hs-canvas.hero-wide { --hs-herow: calc(100cqw - 2 * var(--hs-side)); }
 .hs-appicon { width: clamp(44px, 8cqh, 72px); height: clamp(44px, 8cqh, 72px); margin-bottom: clamp(10px, 2.2cqh, 20px); filter: drop-shadow(0 14px 30px var(--hs-glow)); }
 .hs h1 {
   font: 700 clamp(28px, min(6.2cqw, 9cqh, calc(var(--hs-herow) / 6.6)), 86px)/0.98 var(--hs-display); letter-spacing: -0.035em; margin: 0 0 clamp(12px, 2.4cqh, 22px); text-wrap: balance;
@@ -180,9 +181,10 @@
   display: block; width: 100%; border-radius: 16px 16px 0 0; border: 1px solid var(--hs-border); border-bottom: 0; box-shadow: var(--hs-shadow);
   max-height: calc(100cqh - var(--hs-nav) - var(--hs-bar-h) - 24px); object-fit: cover; object-position: top left; /* never under the nav */
 }
-/* on the first screen it floats above the tray bubble, as a whole window */
-.hs-editor.lifted { bottom: calc(var(--hs-bar-h) + var(--hs-lift)); }
-.hs-editor.lifted img { border-radius: 16px; border-bottom: 1px solid var(--hs-border); max-height: calc(100cqh - var(--hs-nav) - var(--hs-bar-h) - var(--hs-lift) - 24px); }
+/* a whole window floating in the room chosen by placeEditor() (left, top, width, height and
+   --ed-w set inline), centred in it: on the first screen (above the tray bubble) and in the last scene */
+.hs-editor.floating { right: auto; bottom: auto; display: flex; align-items: center; justify-content: center; transform-origin: center; }
+.hs-editor.floating img { width: var(--ed-w); max-width: 100%; height: auto; max-height: none; border-radius: 16px; border-bottom: 1px solid var(--hs-border); }
 
 .hs-pointer { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; margin: -3px 0 0 -5px; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35)); }
 .hs-pointer path { transition: transform 0.08s; transform-origin: 5px 3px; }
@@ -230,7 +232,7 @@ button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
 
 /* first screen: a glass bubble over the tray says where to look, centred on the P (left, set in
    HomeStory.vue) with its point on it (--arrow), and the icons breathe. The editor of the first
-   screen is lifted by --hs-lift to leave it room.
+   screen keeps clear of it (placeEditor).
    The bubble lives on the canvas, not inside the taskbar: the taskbar's own glass would stop any
    blur inside it. Body and point are ONE pane of glass (::before): a single layer cut to the
    outline of the rounded bubble and its point together (--shape, a path built in HomeStory.vue

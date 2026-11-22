@@ -136,22 +136,22 @@ const alertAlpha = computed(() => (s.value === 3 ? win(t.value, 0.34, 0.42, 0.95
 const seconds = computed(() => (s.value === 3 ? 12 * (1 - ramp(0.42, 0.9, t.value)) : 12));
 const alertPressed = computed(() => s.value === 3 && t.value >= 0.9);
 
-/* the editor: open on the first screen, minimized into the tray as the story starts, rising
-   again in scene 4. On a phone the first screen has no room for it. */
+/* the editor: a whole window floating where placeEditor() found the most room. Open on the first
+   screen (when there is room for it, phones included), minimized into the tray as the story
+   starts, back in scene 4. */
 const rise = computed(() => (s.value === 4 ? ease(ramp(0, 0.55, t.value)) : 0));
 const editorStyle = computed(() => {
   const hidden = { visibility: 'hidden' as const, opacity: 0 };
-  if (s.value === 4) return { transform: `translateY(${(1 - rise.value) * 105}%) scale(${0.94 + 0.06 * rise.value})`, opacity: Math.min(1, rise.value * 4), visibility: rise.value > 0 ? ('visible' as const) : ('hidden' as const) };
-  if (stacked.value) return hidden;
+  // last scene: coming up a little as it appears
+  if (s.value === 4) return { ...edBox.value, '--ed-w': edWidth.value, transform: `translateY(${(1 - rise.value) * 48}px) scale(${0.96 + 0.04 * rise.value})`, opacity: Math.min(1, rise.value * 2), visibility: rise.value > 0 ? ('visible' as const) : ('hidden' as const) };
+  if (s.value > 0 || !edHeroBox.value) return hidden; // no room for it on the first screen
+  const at = { ...edHeroBox.value, '--ed-w': edHeroWidth.value, transformOrigin: minOrigin.value };
   // the tray was used on the first screen: the editor goes into the tray, out of the way of
   // the menu and the notification
-  if (trayUsed.value && s.value <= 0) return { transformOrigin: minOrigin.value, transform: 'scale(0.05)', opacity: 0, visibility: 'hidden' as const, transition: 'transform 0.4s ease-in, opacity 0.3s 0.1s, visibility 0s 0.4s' };
-  if (s.value < 0) return {}; // still pictures: simply open
-  if (s.value === 0) {
-    const m = ease(ramp(0.04, 0.55, t.value));
-    return { transformOrigin: minOrigin.value, transform: `scale(${1 - 0.95 * m})`, opacity: 1 - ramp(0.35, 0.55, t.value), visibility: m >= 1 ? ('hidden' as const) : ('visible' as const) };
-  }
-  return hidden;
+  if (trayUsed.value) return { ...at, transform: 'scale(0.05)', opacity: 0, visibility: 'hidden' as const, transition: 'transform 0.4s ease-in, opacity 0.3s 0.1s, visibility 0s 0.4s' };
+  if (s.value < 0) return at; // still pictures: simply open
+  const m = ease(ramp(0.04, 0.55, t.value));
+  return { ...at, transform: `scale(${1 - 0.95 * m})`, opacity: 1 - ramp(0.35, 0.55, t.value), visibility: m >= 1 ? ('hidden' as const) : ('visible' as const) };
 });
 
 /* the bubble over the tray, on the first screen only */
@@ -280,20 +280,7 @@ function fitLayout() {
   if (!st || !canvas) return;
   const q = k.value;
   stacked.value = window.matchMedia(STACKED).matches;
-  // the editor minimizes toward the Proxy icon; measured from the editor's bottom right corner,
-  // which stays put while its picture loads (its top does not). It minimizes from the first
-  // screen, where it is lifted above the tray bubble: its bottom is the taskbar top - --hs-lift.
-  const ed = canvas.querySelector<HTMLElement>('.hs-editor');
   const icon = canvas.querySelector<HTMLElement>('.hs-ti-proxy');
-  const bar = canvas.querySelector<HTMLElement>('.hs-taskbar');
-  if (ed && icon && bar) {
-    const e = offsetIn(ed, canvas);
-    const i = offsetIn(icon, canvas);
-    const lift = parseFloat(getComputedStyle(canvas).getPropertyValue('--hs-lift')) || 0;
-    const dx = Math.round(i.x + icon.offsetWidth / 2 - (e.x + ed.offsetWidth));
-    const dy = Math.round(i.y + icon.offsetHeight / 2 - (bar.offsetTop - lift));
-    minOrigin.value = `calc(100% + ${dx}px) calc(100% + ${dy}px)`;
-  }
   // the tray bubble (on the canvas, not in the taskbar) is centred over the P, its point in the
   // middle; near the edge of the screen it slides sideways to stay on it, the point stays on the P
   if (icon) {
@@ -351,6 +338,75 @@ function fitLayout() {
   for (const el of [...area.children] as HTMLElement[]) {
     if (!el.offsetHeight) continue;
     el.style.setProperty('--fit', Math.min(grow, ah / el.offsetHeight, aw / el.offsetWidth).toFixed(3));
+  }
+  placeEditor(st, canvas, copy, caps, area, q);
+}
+
+/*
+ * The editor: a whole window floating in the free room, as big as it can be, both on the first
+ * screen and in the last scene. Two candidate rooms each time: beside the text (the right
+ * column, like the other scenes) and under it (the full content width, like on a phone); the
+ * one that gives the bigger picture wins (a phone: always under). On the first screen the room
+ * ends above the tray bubble, and when it is too small (a small phone) there is no editor.
+ */
+type Room = { left: number; top: number; w: number; h: number };
+const edBox = ref<Record<string, string>>({});
+const edWidth = ref('100%');
+const edHeroBox = ref<Record<string, string> | null>(null);
+const edHeroWidth = ref('100%');
+let edRatio = 1.5; // width / height of the editor picture, read once it has loaded
+function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | null, caps: HTMLElement[], area: HTMLElement, q: number) {
+  const bar = canvas.querySelector<HTMLElement>('.hs-taskbar');
+  const cap = caps[caps.length - 1];
+  if (!copy || !bar) return;
+  const img = [...canvas.querySelectorAll<HTMLImageElement>('.hs-editor img')].find((i) => i.naturalWidth);
+  if (img) edRatio = img.naturalWidth / img.naturalHeight;
+  const gap = 20;
+  const contentLeft = copy.offsetLeft;
+  const contentRight = canvas.clientWidth - contentLeft;
+  const copyTop = (copy.getBoundingClientRect().top - st.getBoundingClientRect().top) / q;
+  const size = (b: Room) => Math.max(0, Math.min(b.w, b.h * edRatio));
+  const best = (below: Room, side: Room) => (stacked.value || size(below) > size(side) ? below : side);
+  const css = (b: Room) => ({ left: `${Math.round(b.left)}px`, top: `${Math.round(b.top)}px`, width: `${Math.round(b.w)}px`, height: `${Math.round(Math.max(0, b.h))}px` });
+
+  // last scene: the room ends above the taskbar
+  if (cap) {
+    const capBottom = copyTop + cap.offsetHeight + gap;
+    const b = best(
+      { left: contentLeft, top: capBottom, w: contentRight - contentLeft, h: bar.offsetTop - gap - capBottom },
+      { left: area.offsetLeft, top: area.offsetTop, w: area.clientWidth, h: area.clientHeight },
+    );
+    edBox.value = css(b);
+    edWidth.value = `${Math.floor(size(b))}px`;
+  }
+
+  // first screen: the room ends above the tray bubble. With the editor under the text, the text
+  // has no reason to keep to a column: it takes the full width (hero-wide), so that option is
+  // measured with the wide text; beside the text, the text keeps its column.
+  const roomBottom = bar.offsetTop - 18 - (coachHeight || 60) - gap;
+  const heroBottomNow = () => {
+    const hero = [...st.querySelectorAll<HTMLElement>('.hs-hero > *')].filter((e) => e.offsetHeight);
+    return copyTop + Math.max(0, ...hero.map((e) => e.offsetTop + e.offsetHeight)) + gap;
+  };
+  canvas.classList.remove('hero-wide');
+  const side: Room = { left: area.offsetLeft, top: area.offsetTop, w: area.clientWidth, h: roomBottom - area.offsetTop };
+  canvas.classList.add('hero-wide');
+  const wideBottom = heroBottomNow();
+  const under: Room = { left: contentLeft, top: wideBottom, w: contentRight - contentLeft, h: roomBottom - wideBottom };
+  const h = best(under, side);
+  if (h !== under) canvas.classList.remove('hero-wide');
+  const hw = size(h);
+  if (hw < 200 || hw / edRatio < 120) {
+    edHeroBox.value = null; // too little room: no editor on this first screen
+    return;
+  }
+  edHeroBox.value = css(h);
+  edHeroWidth.value = `${Math.floor(hw)}px`;
+  // it minimizes into the Proxy icon: the transform origin is the icon's centre, from its room
+  const icon = canvas.querySelector<HTMLElement>('.hs-ti-proxy');
+  if (icon) {
+    const i = offsetIn(icon, canvas);
+    minOrigin.value = `${Math.round(i.x + icon.offsetWidth / 2 - h.left)}px ${Math.round(i.y + icon.offsetHeight / 2 - h.top)}px`;
   }
 }
 function relayout() {
@@ -467,9 +523,9 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
           </svg>
         </template>
 
-        <div class="hs-editor" :class="{ lifted: s !== 4 }" :style="editorStyle" aria-hidden="true">
-          <img class="only-light" :src="src('aurora-editor')" alt="" />
-          <img class="only-dark" :src="srcDark('aurora-editor')" alt="" />
+        <div class="hs-editor floating" :style="editorStyle" aria-hidden="true">
+          <img class="only-light" :src="src('aurora-editor')" alt="" @load="relayout" />
+          <img class="only-dark" :src="srcDark('aurora-editor')" alt="" @load="relayout" />
         </div>
 
         <ToastWin class="hs-toast-pos" :on="proxyOn" :style="fade(toastAlpha, `translateX(${(1 - toastAlpha) * 24}px)`)" />

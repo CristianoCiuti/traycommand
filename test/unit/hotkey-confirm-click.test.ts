@@ -83,6 +83,10 @@ describe('hotkeyConfirm: engine', () => {
     const { engine, deps } = setup([{ id: 'a', label: 'A', action: 'x', hotkeyConfirm: true }], { prompt: async () => Promise.reject(new Error('boom')) });
     expect(await engine.confirmHotkey(engine.get('a')!, 'on')).toBe(false);
     expect(deps.notify).toHaveBeenCalledWith('A', expect.stringContaining('boom'), 'error');
+    // something thrown that is not an Error
+    const other = setup([{ id: 'a', label: 'A', action: 'x', hotkeyConfirm: true }], { prompt: async () => Promise.reject('plain') });
+    expect(await other.engine.confirmHotkey(other.engine.get('a')!, 'on')).toBe(false);
+    expect(other.deps.notify).toHaveBeenCalledWith('A', expect.stringContaining('plain'), 'error');
   });
 });
 
@@ -141,6 +145,8 @@ describe('alert.click', () => {
     const a = { style: 'notification' as const, text: 'x', click: 'B', choices: [{ label: 'A', run: 'self' }, { label: 'B', run: 'self' }] };
     expect(clickIndex(a)).toBe(1);
     expect(clickIndex({ text: 'x' })).toBe(-1);
+    expect(clickIndex({ text: 'x', click: 'A' })).toBe(-1);
+    expect(patchAlert({ style: 'notification', text: 'x', click: 'A' }, {}).click).toBeUndefined();
     expect(renameChoice(a, 1, 'B2').click).toBe('B2');
     expect(renameChoice(a, 0, 'A2').click).toBe('B');
     expect(removeChoice(a, 0)).toMatchObject({ click: 'B' });

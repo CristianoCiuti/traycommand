@@ -148,6 +148,20 @@ test('launcher: the arrow keys scroll the list under a resting pointer without t
         if (t.getAttribute('aria-selected') === 'true') w.picked.push(t.dataset.index!);
       }
     }).observe(el, { subtree: true, attributes: true, attributeFilter: ['aria-selected'] });
+    // at every frame, just before it is drawn: the selected row is inside the visible part of the list
+    const v = window as unknown as { hidden: string[]; watch: boolean };
+    v.hidden = [];
+    v.watch = true;
+    const frame = () => {
+      const row = el.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (row) {
+        const r = row.getBoundingClientRect();
+        const l = el.getBoundingClientRect();
+        if (r.top < l.top - 1 || r.bottom > l.bottom + 1) v.hidden.push(row.dataset.index!);
+      }
+      if (v.watch) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
   });
   const count = await rows.count();
   const down = Math.min(count - 2, 14);
@@ -167,6 +181,12 @@ test('launcher: the arrow keys scroll the list under a resting pointer without t
   const picked = await launcher.evaluate(() => (window as unknown as { picked: string[] }).picked);
   const expected = [...Array.from({ length: down }, (_, i) => String(2 + i)), ...Array.from({ length: down }, (_, i) => String(down - i))];
   expect(picked).toEqual(expected);
+  const hidden = await launcher.evaluate(() => {
+    const v = window as unknown as { hidden: string[]; watch: boolean };
+    v.watch = false;
+    return v.hidden;
+  });
+  expect(hidden, 'frames drawn with the selected row out of view').toEqual([]);
   // moving the pointer again gives it the selection back
   await launcher.mouse.move(box.x + 60, box.y + box.height / 2, { steps: 3 });
   await expect(list).not.toHaveClass(/lx-arrows/);

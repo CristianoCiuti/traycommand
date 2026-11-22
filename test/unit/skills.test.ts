@@ -14,7 +14,7 @@ function env(o: Partial<SkillEnv> = {}): SkillEnv {
     platform: process.platform,
     source,
     version: '9.9.9',
-    values: { TRAYCOMMAND_VERSION: '9.9.9', TRAYCOMMAND_SH: '"/opt/tc"', TRAYCOMMAND_PS: "& '/opt/tc'" },
+    values: { TRAYCOMMAND_SH: '"/opt/tc"', TRAYCOMMAND_PS: "& '/opt/tc'" },
     ...o,
   };
 }
@@ -70,12 +70,21 @@ describe('install, status and plan', () => {
 
   it('a newer rendering is outdated; edited files are modified', () => {
     installSkill(env(), 'claude');
-    const newer = env({ version: '10.0.0', values: { ...env().values, TRAYCOMMAND_VERSION: '10.0.0' } });
+    // the app moved: the commands in the skill change
+    const newer = env({ version: '10.0.0', values: { ...env().values, TRAYCOMMAND_SH: '"/opt/tc2"' } });
     expect(skillStatus(newer).find((s) => s.id === 'claude')!.state).toBe('outdated');
     fs.appendFileSync(path.join(home, '.claude', 'skills', 'traycommand', 'SKILL.md'), '\nmy notes\n');
     expect(skillStatus(newer).find((s) => s.id === 'claude')!.state).toBe('modified');
     installSkill(newer, 'claude');
     expect(skillStatus(newer).find((s) => s.id === 'claude')!.state).toBe('current');
+  });
+
+  it('a new app version with the same skill is current: nothing to update, nothing to announce', () => {
+    installSkill(env(), 'claude');
+    const next = env({ version: '9.9.10' });
+    expect(skillStatus(next).find((s) => s.id === 'claude')!.state).toBe('current');
+    expect(planSkills(skillStatus(next), { auto: true, declined: [] }).autoUpdate).toEqual([]);
+    expect(fs.readFileSync(path.join(home, '.claude', 'skills', 'traycommand', 'SKILL.md'), 'utf8')).not.toMatch(/9\.9\.9/);
   });
 
   it('reinstalling replaces the whole folder and uninstall removes only it', () => {
@@ -104,11 +113,11 @@ describe('install, status and plan', () => {
     });
     try {
       for (let i = 0; i < 5; i++) {
-        installSkill(env({ version: `1.0.${i}`, values: { ...env().values, TRAYCOMMAND_VERSION: `1.0.${i}` } }), 'opencode');
+        installSkill(env({ version: `1.0.${i}`, values: { ...env().values, TRAYCOMMAND_SH: `"/opt/tc${i}"` } }), 'opencode');
         await new Promise((r) => setTimeout(r, 50)); // let the watcher open the files
       }
       expect(open.length).toBeGreaterThan(0);
-      expect(skillStatus(env({ version: '1.0.4', values: { ...env().values, TRAYCOMMAND_VERSION: '1.0.4' } })).find((s) => s.id === 'opencode')!.state).toBe('current');
+      expect(skillStatus(env({ version: '1.0.4', values: { ...env().values, TRAYCOMMAND_SH: '"/opt/tc4"' } })).find((s) => s.id === 'opencode')!.state).toBe('current');
       expect(fs.readdirSync(skills)).toEqual(['traycommand']);
     } finally {
       watcher.close();

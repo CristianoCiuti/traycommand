@@ -495,7 +495,6 @@ function skillEnv(): SkillEnv {
     source: skillSource(),
     version: app.getVersion(),
     values: {
-      TRAYCOMMAND_VERSION: app.getVersion(),
       TRAYCOMMAND_SH: parts.map((p) => `"${slash(p)}"`).join(' '),
       TRAYCOMMAND_PS: `& ${parts.map((p) => `'${p.replace(/'/g, "''")}'`).join(' ')}`,
     },
@@ -564,15 +563,13 @@ function startupSkills(windowShown: boolean) {
     const status = skillStatus(e, rendered);
     const plan = planSkills(status, { auto: skillsAuto(), declined: state.get().skills?.declined ?? [] });
     for (const id of plan.autoUpdate) installSkill(e, id, rendered);
-    if (plan.autoUpdate.length) {
-      const names = plan.autoUpdate.map((id) => status.find((s) => s.id === id)!.label).join(' and ');
-      notify('TrayCommand', `TrayCommand skill updated for ${names}`);
-    }
+    // only when the skill really changed: the rendering carries no version number, so a new
+    // release with the same skill leaves the installed one current and says nothing
+    if (plan.autoUpdate.length) notify('TrayCommand', 'The TrayCommand skill for AI assistants has been updated');
     const offer = skillsInfo().offer;
     if (offer.length && !windowShown && state.get().skills?.notifiedVersion !== app.getVersion()) {
       state.update({ skills: { ...state.get().skills, notifiedVersion: app.getVersion() } });
-      const names = offer.map((id) => status.find((s) => s.id === id)!.label).join(' and ');
-      notify('TrayCommand', `${names} found: install the TrayCommand skill to create and change trays by asking the AI. Click to set it up.`, 'info', '/settings');
+      notify('TrayCommand', 'An AI assistant was found on this PC: install the TrayCommand skill to create and change trays by asking it. Click to set it up.', 'info', '/settings');
     }
   } catch (error) {
     skillsError = `Cannot update the skill: ${(error as Error).message}`;

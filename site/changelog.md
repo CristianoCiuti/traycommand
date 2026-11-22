@@ -2,6 +2,11 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.7.4 — no flash in the launcher, quieter skill updates
+
+- Launcher: no more flash when the arrow keys go past the first or last visible row. The list now scrolls in the same frame in which the selection moves, so the selected row is never drawn out of view for an instant.
+- The skill for AI assistants is updated, and the notification shown, only when the skill really changes, not at every new version of TrayCommand. The notifications about the skill no longer name a specific assistant. The first start of 2.7.4 still updates it once, as the version number is no longer written in it.
+
 ## 2.7.3 — launcher arrow keys
 
 - Launcher: with the mouse pointer resting over the list, the arrow keys no longer jump back to the row under the pointer each time the list scrolls. Only a real movement of the mouse selects a row.

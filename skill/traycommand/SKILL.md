@@ -5,7 +5,7 @@ description: Create, change, hide or remove TrayCommand tray icons and menus. Tr
 
 # TrayCommand
 
-TrayCommand (version {{TRAYCOMMAND_VERSION}}) is a desktop app that shows one or more icons in the system tray. Each icon (a **tray**) and each entry of its menu runs a shell script on click. An entry with a `state` is a **toggle**: a check script runs periodically and decides whether it is ON or OFF, and the icon or check mark follows it.
+TrayCommand is a desktop app that shows one or more icons in the system tray. Each icon (a **tray**) and each entry of its menu runs a shell script on click. An entry with a `state` is a **toggle**: a check script runs periodically and decides whether it is ON or OFF, and the icon or check mark follows it.
 
 Everything is defined in **one JSON file**. The running app watches this file and applies changes as soon as it is saved: there is nothing to restart. Your job is to edit that file correctly.
 

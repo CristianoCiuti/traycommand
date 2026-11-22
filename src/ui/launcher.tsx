@@ -110,7 +110,9 @@ function List(props: {
   useEffect(() => {
     if (!props.hidden) input.current?.focus();
   }, [data, scope, props.hidden]);
-  useEffect(() => {
+  // before the frame is drawn: otherwise one frame shows the selection on a row still out of
+  // view (no row selected on screen), then the scrolled list, a flash at every page change
+  useLayoutEffect(() => {
     const el = listRef.current?.querySelector<HTMLElement>(`[data-index="${selected}"]`);
     el?.scrollIntoView({ block: 'nearest' });
   }, [selected, rows]);

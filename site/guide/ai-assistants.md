@@ -33,6 +33,8 @@ The skill ships with TrayCommand and contains the paths of this PC (the TrayComm
 - **Update automatically** (default, `"skillUpdates": "auto"` in [settings](../reference/#settings)): the skill is replaced at the next start, with a notification;
 - **Ask me first** (`"ask"`): the bar at the top of the editor proposes the update.
 
+A new version of TrayCommand whose skill is the same as the installed one changes nothing and shows no notification.
+
 If you edited the skill files yourself, TrayCommand never replaces them silently: it asks first and tells you that your changes will be lost.
 
 Removing the skill from **Settings** also stops TrayCommand from proposing it again for that agent; **Install** brings it back.

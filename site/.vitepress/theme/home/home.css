@@ -69,6 +69,10 @@ html:has(.hs), html:has(.hs) body { overflow-x: clip; }
 .hs-story { position: relative; margin-top: calc(var(--vp-nav-height) * -1); }
 .hs-stage { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow: hidden; overflow: clip; isolation: isolate; background: var(--hs-bg); }
 .hs-reduced .hs-stage { position: relative; }
+/* set by placeStage() in HomeStory.vue: fixed while the story plays, at the bottom of its section
+   after it (sticky without Safari's missed frame) */
+.hs-stage.pinned { position: fixed; top: 0; left: 0; right: 0; }
+.hs-stage.past { position: absolute; top: auto; bottom: 0; left: 0; right: 0; }
 .hs-wall {
   position: absolute; inset: -18%; z-index: -1; will-change: transform;
   background:

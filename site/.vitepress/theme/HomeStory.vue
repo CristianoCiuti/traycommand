@@ -93,6 +93,27 @@ const fading = ref(false); // the content is faded out for a jump
 const gliding = ref(false); // the wallpaper eases to its new place after a jump
 let snapNext = false; // the next measure() lands on the scroll position without easing
 let jumpTimer: ReturnType<typeof setTimeout> | undefined;
+/*
+ * The same for any sudden jump of the scroll that is not ours: the TrayCommand link in the nav
+ * (VitePress scrolls to the top at once), the Home and End keys, a click in the scrollbar's
+ * track. The wheel and dragging move in small steps and are left alone.
+ */
+const JUMP = 0.6; // viewport heights in one go
+let lastTarget: number | null = null;
+let holding = false; // the story keeps showing where it was while the content fades out
+function holdForJump() {
+  holding = true;
+  fading.value = true;
+  gliding.value = true;
+  clearTimeout(jumpTimer);
+  jumpTimer = setTimeout(() => {
+    holding = false;
+    snapNext = true;
+    onScroll();
+    requestAnimationFrame(() => requestAnimationFrame(() => { fading.value = false; }));
+    jumpTimer = setTimeout(() => (gliding.value = false), 700);
+  }, 160);
+}
 function goTo(i: number, at: number) {
   if (!story.value) return;
   const y = STARTS[i] + at * SEG[i];
@@ -110,6 +131,7 @@ function goTo(i: number, at: number) {
   gliding.value = true;
   jumpTimer = setTimeout(() => {
     snapNext = true;
+    lastTarget = y; // our own jump: not one for measure() to catch
     window.scrollTo({ top: scrollTop(), behavior: 'instant' as ScrollBehavior });
     onScroll();
     requestAnimationFrame(() => requestAnimationFrame(() => { fading.value = false; }));
@@ -309,13 +331,19 @@ function measure(now = performance.now()) {
   if (!reduced.value && story.value) {
     const top = story.value.getBoundingClientRect().top;
     const target = clamp(-top / vh, 0, TOTAL - 1e-4);
-    const dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 0;
-    lastFrame = now;
-    shown = shown === null || dt === 0 || snapNext ? target : shown + (target - shown) * (1 - Math.exp(-dt / TAU));
-    snapNext = false;
-    if (Math.abs(target - shown) < 0.0005) shown = target;
-    else raf = requestAnimationFrame(measure); // keep easing until it arrives
-    if (shown === target) lastFrame = 0;
+    if (lastTarget !== null && shown !== null && !holding && !fading.value && Math.abs(target - lastTarget) > JUMP) holdForJump();
+    lastTarget = target;
+    if (holding) {
+      lastFrame = 0; // stays where it was; holdForJump() lands it once the content is out of sight
+    } else {
+      const dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 0;
+      lastFrame = now;
+      shown = shown === null || dt === 0 || snapNext ? target : shown + (target - shown) * (1 - Math.exp(-dt / TAU));
+      snapNext = false;
+      if (Math.abs(target - shown) < 0.0005) shown = target;
+      else raf = requestAnimationFrame(measure); // keep easing until it arrives
+      if (shown === target) lastFrame = 0;
+    }
     const y = shown;
     let i = SEG.length - 1;
     while (i > 0 && y < STARTS[i]) i--;

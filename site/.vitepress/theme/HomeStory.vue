@@ -316,8 +316,8 @@ function measure(now = performance.now()) {
  * Layout that depends on real sizes, in canvas pixels (screen pixels / k).
  * k: large screens scale the canvas so the desktop fills them (1 up to 1440x880).
  * Narrow screens: the windows go under the captions; --hs-captop is where the longest one ends.
- * Each window of the story gets --fit, the scale that fills the room it has: never above 1 on
- * a narrow screen, up to 1.4 beside the captions.
+ * Each window of the story gets --fit, the scale that fills the room it has: up to 1.35 under
+ * the captions, up to 1.4 beside them.
  */
 const STACKED = '(max-width: 639px), (max-width: 860px) and (min-height: 521px)'; // same as home.css
 function computeK() {
@@ -393,7 +393,8 @@ function fitLayout() {
   if (!area) return;
   const aw = area.clientWidth;
   const ah = area.clientHeight;
-  const grow = stacked.value ? 1 : 1.4;
+  // the windows grow into the room they have (a phone's width already holds them back)
+  const grow = stacked.value ? 1.35 : 1.4;
   for (const el of [...area.children] as HTMLElement[]) {
     if (!el.offsetHeight) continue;
     el.style.setProperty('--fit', Math.min(grow, ah / el.offsetHeight, aw / el.offsetWidth).toFixed(3));

@@ -510,6 +510,45 @@ test('alert as a notification: its click shows the choices', async () => {
   await expect.poll(() => read('alert.txt')).toBe('note');
 });
 
+test('alert as a notification whose click runs a choice directly', async () => {
+  fs.rmSync(path.join(out, 'alert.txt'), { force: true });
+  await hook(`
+    tc.lastAlert = tc.engine.fireSchedule(tc.engine.get('tools'), { every: '1h', alert: { style: 'notification', text: 'Click me', click: 'Save', choices: [
+      { label: 'Hello', run: 'hello' }, { label: 'Save', action: 'Set-Content -Path "$env:TC_OUT/alert.txt" -Value direct' } ] } }, {});
+  `);
+  await expect.poll(async () => hook<number>('return tc.alerts.notifications.size')).toBe(1);
+  await hook('for (const n of tc.alerts.notifications.values()) n.emit("click")');
+  await expect.poll(() => read('alert.txt')).toBe('direct');
+  expect(await launcherVisible()).toBe(false); // no window with the choices
+});
+
+test('shortcut with a confirmation: its own texts, Esc cancels, the button runs', async () => {
+  fs.rmSync(path.join(out, 'hello.txt'), { force: true });
+  const key = await hook<string>("const e = tc.engine.get('hello'); e.entry.hotkeyConfirm = { text: 'Say it ${NOPE}?', button: 'Say it' }; return e.key");
+  try {
+    await hook(`tc.hotkeyFired('${key}')`);
+    await expect.poll(launcherVisible).toBe(true);
+    const box = launcher.getByTestId('launcher-alert');
+    await expect(box).toHaveAttribute('data-armed', 'true');
+    await expect(launcher.getByTestId('launcher-alert-title')).toHaveText('Say hello');
+    await expect(launcher.getByTestId('launcher-alert-text')).toContainText('Say it');
+    await expect(launcher.getByTestId('launcher-alert-choice-0')).toHaveText('Say it');
+    await shot(launcher, '31-hotkey-confirm');
+    await launcher.keyboard.press('Escape');
+    await expect.poll(launcherVisible).toBe(false);
+    await launcher.waitForTimeout(800);
+    expect(read('hello.txt')).toBeUndefined();
+
+    await hook(`tc.hotkeyFired('${key}')`);
+    await expect(box).toHaveAttribute('data-armed', 'true');
+    await launcher.keyboard.press('Enter');
+    await expect.poll(() => read('hello.txt')).toBe('hello');
+    await expect.poll(launcherVisible).toBe(false);
+  } finally {
+    await hook("delete tc.engine.get('hello').entry.hotkeyConfirm");
+  }
+});
+
 test('alert over the open launcher: back to the list after it; Space runs a button once', async () => {
   fs.rmSync(path.join(out, 'space.txt'), { force: true });
   await hook('await tc.launcher.open()');
@@ -582,4 +621,40 @@ test('editor: only if a check passes, and an alert with buttons', async () => {
   const again = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8')).trays[2].schedules[i];
   expect(again.alert.timeout).toBe('605s');
   expect(again.alert.default).toBe('Archive');
+});
+
+test('editor: a notification whose click runs a button; a shortcut that asks first', async () => {
+  const i = (JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8')).trays[2].schedules as unknown[]).length - 1;
+  // the click choice is offered only for notifications
+  await expect(editor.getByTestId(`alert-click-${i}`)).toHaveCount(0);
+  await editor.getByTestId(`alert-style-${i}`).selectOption('notification');
+  await editor.getByTestId(`alert-click-${i}`).selectOption('Archive');
+  await editor.getByTestId(`schedule-alert-${i}`).screenshot({ path: path.join(shots, '32-editor-alert-click.png') });
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  let saved = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8'));
+  expect(saved.trays[2].schedules[i].alert).toMatchObject({ style: 'notification', click: 'Archive' });
+  // back to a window: the click choice goes away
+  await editor.getByTestId(`alert-style-${i}`).selectOption('window');
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  saved = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8'));
+  expect(saved.trays[2].schedules[i].alert.click).toBeUndefined();
+
+  // the shortcut of "Deploy app" asks first, with its own texts
+  await editor.getByTestId('tray-row').nth(0).click();
+  await editor.getByTestId('card-hotkey').scrollIntoViewIfNeeded();
+  await expect(editor.getByTestId('hotkey-confirm-text')).toHaveCount(0);
+  await editor.getByTestId('hotkey-confirm').click();
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  saved = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8'));
+  expect(saved.trays[0].hotkeyConfirm).toBe(true);
+  await editor.getByTestId('hotkey-confirm-text').fill('Deploy now?');
+  await editor.getByTestId('hotkey-confirm-button').fill('Deploy');
+  await editor.getByTestId('card-hotkey').screenshot({ path: path.join(shots, '33-editor-hotkey-confirm.png') });
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  saved = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8'));
+  expect(saved.trays[0].hotkeyConfirm).toEqual({ text: 'Deploy now?', button: 'Deploy' });
 });

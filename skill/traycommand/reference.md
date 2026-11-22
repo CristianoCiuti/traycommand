@@ -50,6 +50,7 @@ Do not change settings unless the user explicitly asks. In particular never turn
 | `rightAction` | action | Right click. Without it right click opens the menu. |
 | `state` | state | Makes it a toggle. |
 | `hotkey` | shortcut | Global keyboard shortcut = click. Without `action`: opens the launcher on the menu. |
+| `hotkeyConfirm` | `true` \| `{ "text"?, "button"? }` | Shortcut only: ask first (Enter runs, Esc cancels). Defaults: "Run “<label>”?" / "Run" ("Turn on/off" for toggles); `text` allows `${VAR}`. Default: no confirmation. Clicks, launcher, schedules never ask it. |
 | `schedules` | array of schedule | Automatic runs. |
 | `menu` | array of entries / separators | The menu. |
 
@@ -143,6 +144,7 @@ Schedules do not run while the entry (or a parent) is `disabled`; `hidden` entri
 | `choices` | array (max 4) | — | `{ "label": "...", "run": "self" }` (what the schedule runs), `{ "label", "run": "<id>[:on|off|right]" }` or `{ "label", "action": <action> }`. Exactly one of run/action; unique labels. No choices = information only (OK). |
 | `timeout` | string | — | `"5s"`…`"1d"`: close if unanswered. |
 | `default` | string | — | Label of the choice run at timeout (unattended: never asks). |
+| `click` | string | — | `style: "notification"` only: label of the choice run directly by a click on the notification (no window with the buttons). |
 
 A chosen action gets the event values and, being chosen by a person, can ask its `inputs` and `confirm`; it waits for a run of the entry still going. `"self"` is decided at answer time (hidden when there is nothing to run). Timed schedules: while a window alert is open, new runs are skipped; a newer notification replaces the older one. Folder watches: one alert per file, queued, never blocking the next files. With alert, the entry's own action is needed only if a choice uses `"self"`. Buttons pointing to an action the target lacks get a warning.
 
@@ -170,6 +172,6 @@ Keys joined by `+`: modifiers `Ctrl`, `Alt`, `Shift`, `Win` (`Super`/`Meta`/`Cmd
 
 ## Checks done by the validator
 
-Unique ids; every ref in `before` / `parallel` / `after` / `enabledWhen` exists; `on` / `off` / `pattern` are valid regexes; `settings.appMenu` is `"own"` or a tray id; shortcuts valid and unique (also against `settings.launcherHotkey`); input names unique per action, `select` with `options` or `optionsCommand`; schedules with exactly one of `cron`/`every`/`startup`/`watch`, valid expression / interval (≥ 5 s) / folder / patterns / settle (≤ 1 h) / time window, something to run; `if` with a check command and valid `on`/`off` regexes; `alert` with a text or choices, at most 4 choices with unique labels, each with exactly one of `run`/`action`, `run` = `"self"` or an existing id (`:on`/`:off`/`:right` allowed), `timeout` between 5 s and 1 day, `default` = a choice label.
+Unique ids; every ref in `before` / `parallel` / `after` / `enabledWhen` exists; `on` / `off` / `pattern` are valid regexes; `settings.appMenu` is `"own"` or a tray id; shortcuts valid and unique (also against `settings.launcherHotkey`); input names unique per action, `select` with `options` or `optionsCommand`; schedules with exactly one of `cron`/`every`/`startup`/`watch`, valid expression / interval (≥ 5 s) / folder / patterns / settle (≤ 1 h) / time window, something to run; `if` with a check command and valid `on`/`off` regexes; `alert` with a text or choices, at most 4 choices with unique labels, each with exactly one of `run`/`action`, `run` = `"self"` or an existing id (`:on`/`:off`/`:right` allowed), `timeout` between 5 s and 1 day, `default` and `click` = a choice label (`click` with a window style or `hotkeyConfirm` without `hotkey`: warning).
 
 Warnings (the file is valid, but check them): `offAction` without `state`; schedule `values` for unknown inputs; `run: "on"`/`"off"` on an entry without `state`; an alert `default` without `timeout` (never used); a button whose target has no such action (`"b:off"` on an entry without `offAction`); admin actions while `settings.allowAdminCommands` is off; icon files that do not exist.

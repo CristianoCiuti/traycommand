@@ -357,6 +357,35 @@ export class Engine {
     return true;
   }
 
+  /**
+   * Asks before a keyboard shortcut runs the entry, when the entry wants it (hotkeyConfirm).
+   * Resolves true when the run can go ahead.
+   */
+  async confirmHotkey(entry: RuntimeEntry, kind: ActionKind): Promise<boolean> {
+    const confirm = entry.entry.hotkeyConfirm;
+    if (!confirm || !this.deps.prompt) return true;
+    const custom = typeof confirm === 'object' ? confirm : {};
+    const label = this.label(entry);
+    const verb = kind === 'off' ? 'Turn off' : kind === 'on' && entry.entry.state ? 'Turn on' : 'Run';
+    const button = custom.button?.trim() ? this.expandText(custom.button) : verb;
+    const text = custom.text?.trim() ? this.expandText(custom.text) : `${verb} “${label}”?`;
+    try {
+      const answer = await this.deps.prompt({
+        id: ++this.promptId,
+        title: label,
+        subtitle: this.pathLabel(entry) || undefined,
+        icon: this.iconFor(entry),
+        fields: [],
+        submitLabel: button,
+        alert: { text, choices: [button] },
+      });
+      return answer?.choice === '0';
+    } catch (error) {
+      this.deps.notify(label, `${DEFAULT_TEXT.failed}: the confirmation could not be shown: ${error instanceof Error ? error.message : String(error)}`, 'error');
+      return false;
+    }
+  }
+
   /** User-initiated action: respects disabled/busy state. */
   async trigger(entry: RuntimeEntry, kind: ActionKind, options: TriggerOptions = {}) {
     if (!this.isEnabled(entry)) {
@@ -854,6 +883,7 @@ export class Engine {
     const alert = schedule.alert!;
     const seconds = alert.timeout !== undefined ? parseInterval(alert.timeout) : undefined;
     const defaultIndex = alert.default !== undefined ? choices.findIndex((c) => c.label === alert.default) : -1;
+    const clickIndex = alert.style === 'notification' && alert.click !== undefined ? choices.findIndex((c) => c.label === alert.click) : -1;
     const request: AlertRequest = {
       id,
       style: alert.style ?? 'window',
@@ -864,6 +894,7 @@ export class Engine {
       choices: choices.map((c) => this.expandText(c.label, values)),
       defaultChoice: defaultIndex >= 0 ? defaultIndex : undefined,
       deadline: seconds ? Date.now() + seconds * 1000 : undefined,
+      clickChoice: clickIndex >= 0 ? clickIndex : undefined,
     };
     let timer: NodeJS.Timeout | undefined;
     let answer: number | 'timeout' | undefined;

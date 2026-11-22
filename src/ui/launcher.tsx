@@ -654,7 +654,7 @@ function AlertView(props: { request: PromptRequest & { fromList: boolean } }) {
           </span>
         )}
         <span>
-          <kbd>Enter</kbd> {labels.length > 1 ? 'run' : 'OK'}
+          <kbd>Enter</kbd> {a.choices.length ? 'run' : 'OK'}
         </span>
         <span>
           <kbd>Esc</kbd> {a.choices.length ? 'dismiss' : 'close'}

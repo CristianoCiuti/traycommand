@@ -283,8 +283,11 @@ function hotkeyFired(key: string) {
     notify(engine.label(e), unavailable(e), 'warning');
     return;
   }
-  launcherStore.bump(usageKey(e));
-  void engine.trigger(e, kind, { source: 'hotkey' });
+  void (async () => {
+    if (!(await engine.confirmHotkey(e, kind))) return;
+    launcherStore.bump(usageKey(e));
+    await engine.trigger(e, kind, { source: 'hotkey' });
+  })();
 }
 
 function applyHotkeys(config: Config) {

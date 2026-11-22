@@ -30,6 +30,7 @@ function Rows(props: { path: number[]; nodes: MenuNode[] }) {
         if (isSeparator(n)) return;
         if (n.id) n.id = uniqueId(c, n.id);
         delete n.hotkey; // a shortcut can belong to one entry only
+        delete n.hotkeyConfirm;
         n.menu?.forEach(strip);
       };
       strip(copy);

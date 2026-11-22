@@ -2,6 +2,12 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.8.0 — shortcuts that ask first, notifications that run on click
+
+- Keyboard shortcuts can ask before running: **Ask before running** under the shortcut in the editor (`hotkeyConfirm` in the file). The question and the text of the confirm button can be your own; <kbd>Enter</kbd> runs, <kbd>Esc</kbd> cancels. Off by default, and only the shortcut asks: clicks, the launcher and schedules run as before.
+- Alerts of schedules shown as a notification: **Clicking the notification** can run one of the buttons directly, without opening the window with the choices (`click` in the alert). The notification says what the click does.
+- Alerts: the key hint of an alert with a single button says *Enter run* instead of *Enter OK*.
+
 ## 2.7.4 — no flash in the launcher, quieter skill updates
 
 - Launcher: no more flash when the arrow keys go past the first or last visible row. The list now scrolls in the same frame in which the selection moves, so the selected row is never drawn out of view for an instant.

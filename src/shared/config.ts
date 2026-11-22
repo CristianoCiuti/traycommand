@@ -169,6 +169,10 @@ export const AlertSchema = z
     choices: z.array(ChoiceSchema).optional().describe('Up to 4 buttons. Without choices the alert only informs.'),
     timeout: z.string().optional().describe('Close the alert if nobody answers within this time, e.g. "2m".'),
     default: z.string().optional().describe('Label of the choice run when the timeout expires (otherwise nothing runs).'),
+    click: z
+      .string()
+      .optional()
+      .describe('Notifications only: label of the choice run directly when the notification is clicked, without showing the choices.'),
   })
   .strict()
   .describe('Show an alert instead of running directly: a message, and buttons to choose what to run.');
@@ -195,6 +199,19 @@ export const ScheduleSchema = z
   .describe('When to run the entry automatically. Exactly one of cron, every, startup or watch, optionally limited to a time window (between, days).');
 export type Schedule = z.infer<typeof ScheduleSchema>;
 
+export const HotkeyConfirmSchema = z
+  .union([
+    z.boolean(),
+    z
+      .object({
+        text: z.string().optional().describe('The question. ${VARIABLES} allowed. Default: "Run “<label>”?" ("Turn on/off …" for toggles).'),
+        button: z.string().optional().describe('Text of the confirm button. Default: "Run" ("Turn on" / "Turn off" for toggles).'),
+      })
+      .strict(),
+  ])
+  .describe('Ask before the keyboard shortcut runs the entry: true = default texts, or custom texts. Clicks, the launcher and schedules do not ask. Default: no confirmation.');
+export type HotkeyConfirm = z.infer<typeof HotkeyConfirmSchema>;
+
 const entryBase = {
   id: id.optional(),
   label: z.string().describe('Text shown in the menu (tooltip for a tray).'),
@@ -210,6 +227,7 @@ const entryBase = {
   offAction: ActionInputSchema.optional().describe('Toggles only: run on click while ON.'),
   state: StateSchema.optional(),
   hotkey: z.string().optional().describe('Global keyboard shortcut, e.g. "Ctrl+Alt+V": works like a click from any application. On an entry with only a menu it opens the launcher on that menu.'),
+  hotkeyConfirm: HotkeyConfirmSchema.optional(),
   schedules: z.array(ScheduleSchema).optional().describe('Run the entry automatically (cron, interval, at startup, when files change).'),
 };
 
@@ -224,6 +242,7 @@ export interface MenuEntry {
   offAction?: ActionInput;
   state?: State;
   hotkey?: string;
+  hotkeyConfirm?: HotkeyConfirm;
   schedules?: Schedule[];
   menu?: MenuNode[];
 }
@@ -360,6 +379,7 @@ export function parseConfig(raw: unknown): ParseResult {
       }
     }
     checkHotkey(entry.hotkey, `${path}.hotkey`);
+    if (entry.hotkeyConfirm && !entry.hotkey) warnings.push({ path: `${path}.hotkeyConfirm`, message: 'Used only together with hotkey' });
     checkInputs(entry as MenuEntry & { rightAction?: ActionInput }, path);
     entry.schedules?.forEach((schedule, i) => checkSchedule(entry as MenuEntry & { rightAction?: ActionInput }, schedule, `${path}.schedules[${i}]`));
     entry.menu?.forEach((child, i) => visit(child, `${path}.menu[${i}]`));
@@ -444,6 +464,10 @@ export function parseConfig(raw: unknown): ParseResult {
     if (alert.default !== undefined) {
       if (!choices.some((c) => c.label === alert.default)) issues.push({ path: `${path}.default`, message: `No choice is called "${alert.default}"` });
       else if (alert.timeout === undefined) warnings.push({ path: `${path}.default`, message: 'The default choice is used only with a timeout' });
+    }
+    if (alert.click !== undefined) {
+      if (!choices.some((c) => c.label === alert.click)) issues.push({ path: `${path}.click`, message: `No choice is called "${alert.click}"` });
+      else if (alert.style !== 'notification') warnings.push({ path: `${path}.click`, message: 'The click choice is used only with style "notification"' });
     }
   };
   const checkSchedule = (entry: MenuEntry & { rightAction?: ActionInput }, schedule: Schedule, path: string) => {

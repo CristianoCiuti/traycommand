@@ -788,6 +788,7 @@ export function planImport(current: Config, pack: Pack, choices: ImportChoices, 
     if (c === launcher) {
       hotkeys.push({ key, label: f.node.label, hotkey: f.node.hotkey, holder: 'the launcher', launcher: true, winner: 'existing' });
       delete f.node.hotkey;
+      delete f.node.hotkeyConfirm;
       continue;
     }
     const holder = holders.get(c);
@@ -797,9 +798,12 @@ export function planImport(current: Config, pack: Pack, choices: ImportChoices, 
     }
     const winner = choices.hotkeys[key] ?? 'existing';
     hotkeys.push({ key, label: f.node.label, hotkey: f.node.hotkey, holder: holder.label, holderImported: imported.has(holder), launcher: false, winner });
-    if (winner === 'existing') delete f.node.hotkey;
-    else {
+    if (winner === 'existing') {
+      delete f.node.hotkey;
+      delete f.node.hotkeyConfirm;
+    } else {
       delete holder.hotkey;
+      delete holder.hotkeyConfirm;
       holders.set(c, f.node);
     }
   }

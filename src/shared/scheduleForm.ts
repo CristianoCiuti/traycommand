@@ -206,6 +206,8 @@ export function patchAlert(a: Alert, patch: Partial<Alert>): Alert {
   if (next.choices && !next.choices.length) delete next.choices;
   // the default must stay one of the choices (an empty label while it is being retyped is still that button)
   if (next.default === undefined || !(next.choices ?? []).some((c) => c.label === next.default)) delete next.default;
+  // the click choice: only for notifications, and only one of the choices
+  if (next.click === undefined || next.style !== 'notification' || !(next.choices ?? []).some((c) => c.label === next.click)) delete next.click;
   return next;
 }
 
@@ -233,23 +235,39 @@ export function defaultIndex(a: Alert): number {
   return a.default === undefined ? -1 : (a.choices ?? []).findIndex((c) => c.label === a.default);
 }
 
+/** Index of the button run by a click on the notification, -1 = none (the click shows the buttons). */
+export function clickIndex(a: Alert): number {
+  return a.click === undefined ? -1 : (a.choices ?? []).findIndex((c) => c.label === a.click);
+}
+
+/** The button a label refers to while button `index` is renamed: with two buttons of that label, the one not being renamed. */
+function referenced(choices: Choice[], label: string | undefined, index: number): number {
+  const matches = label === undefined ? [] : choices.map((c, i) => (c.label === label ? i : -1)).filter((i) => i >= 0);
+  return matches.find((i) => i !== index) ?? matches[0] ?? -1;
+}
+
 /**
- * The alert after renaming a button: the default stays on the same button, whatever the labels pass through.
+ * The alert after renaming a button: the default and the click choice stay on the same button, whatever the labels pass through.
  * While two buttons have the default's label (one is being retyped), the default is the one not being renamed.
  */
 export function renameChoice(a: Alert, index: number, label: string): Alert {
   const old = a.choices ?? [];
-  const matches = a.default === undefined ? [] : old.map((c, i) => (c.label === a.default ? i : -1)).filter((i) => i >= 0);
-  const d = matches.find((i) => i !== index) ?? matches[0] ?? -1;
+  const d = referenced(old, a.default, index);
+  const k = referenced(old, a.click, index);
   const choices = old.map((c, i) => (i === index ? { ...c, label } : c));
-  return patchAlert(a, { choices, default: d >= 0 ? choices[d]!.label : undefined });
+  return patchAlert(a, { choices, default: d >= 0 ? choices[d]!.label : undefined, click: k >= 0 ? choices[k]!.label : undefined });
 }
 
-/** The alert without one of its buttons (the default goes with it, or stays on its button). */
+/** The alert without one of its buttons (the default and the click choice go with it, or stay on their button). */
 export function removeChoice(a: Alert, index: number): Alert {
   const d = defaultIndex(a);
+  const k = clickIndex(a);
   const choices = (a.choices ?? []).filter((_, i) => i !== index);
-  return patchAlert(a, { choices, default: d >= 0 && d !== index ? a.choices![d]!.label : undefined });
+  return patchAlert(a, {
+    choices,
+    default: d >= 0 && d !== index ? a.choices![d]!.label : undefined,
+    click: k >= 0 && k !== index ? a.choices![k]!.label : undefined,
+  });
 }
 
 /** The timeout in the largest whole unit: "2m" → 2 minutes, "1h30m" → 90 minutes, "1d" → 24 hours; invalid → undefined. */

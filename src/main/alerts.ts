@@ -32,12 +32,16 @@ export class Alerts {
     if (request.style === 'window') return this.window(request);
     return new Promise((resolve) => {
       const hasChoices = request.choices.length > 0;
-      const body = [request.text, hasChoices ? `Click to choose: ${request.choices.join(' · ')}` : undefined].filter(Boolean).join('\n');
+      // a click on the notification can run one of the choices directly, without the window
+      const direct = request.clickChoice !== undefined && request.clickChoice < request.choices.length ? request.clickChoice : undefined;
+      const hint = direct !== undefined ? `Click: ${request.choices[direct]}` : hasChoices ? `Click to choose: ${request.choices.join(' · ')}` : undefined;
+      const body = [request.text, hint].filter(Boolean).join('\n');
       const shown = this.deps.notification({
         title: request.title,
         body,
         onClick: () => {
           if (!this.notifications.delete(request.id)) return; // already answered or closed
+          if (direct !== undefined) return resolve(direct);
           this.answering.add(request.id);
           void this.window(request)
             .then(resolve)

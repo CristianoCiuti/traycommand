@@ -104,6 +104,8 @@ export interface AlertRequest {
   choices: string[];
   defaultChoice?: number;
   deadline?: number;
+  /** Notifications: index of the choice run directly by a click on the notification. */
+  clickChoice?: number;
 }
 
 /** An entry as listed in the launcher. */

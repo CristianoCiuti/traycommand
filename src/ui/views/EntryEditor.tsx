@@ -30,6 +30,40 @@ function Breadcrumbs(props: { path: number[] }) {
   );
 }
 
+/** "Ask before running": a confirmation before the shortcut runs the entry, with its own texts. */
+function HotkeyConfirmEditor(props: { entry: AnyEntry; setKey: <K extends keyof Tray>(key: K, value: Tray[K] | undefined) => void }) {
+  const { entry, setKey } = props;
+  const c = entry.hotkeyConfirm;
+  const custom = typeof c === 'object' ? c : {};
+  const change = (patch: { text?: string; button?: string }) => {
+    const next = { ...custom, ...patch };
+    if (!next.text) delete next.text;
+    if (!next.button) delete next.button;
+    setKey('hotkeyConfirm', (Object.keys(next).length ? next : true) as never);
+  };
+  return (
+    <div class="card-body">
+      <Switch
+        checked={!!c}
+        onChange={(v) => setKey('hotkeyConfirm', (v || undefined) as never)}
+        label="Ask before running"
+        hint={c ? undefined : 'The shortcut shows a confirmation first; clicks and the launcher do not ask'}
+        testId="hotkey-confirm"
+      />
+      {c && (
+        <div class="grid2">
+          <Field label="Question" hint="${VARIABLES} allowed">
+            <input class="input" value={custom.text ?? ''} placeholder={`${entry.state ? 'Turn on/off' : 'Run'} “${entry.label}”?`} onInput={(e) => change({ text: (e.currentTarget as HTMLInputElement).value })} data-testid="hotkey-confirm-text" />
+          </Field>
+          <Field label="Confirm button">
+            <input class="input" value={custom.button ?? ''} placeholder={entry.state ? 'Turn on / Turn off' : 'Run'} onInput={(e) => change({ button: (e.currentTarget as HTMLInputElement).value })} data-testid="hotkey-confirm-button" />
+          </Field>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EntryEditor(props: { path: number[] }) {
   const path = props.path;
   const entry = entryAt(draft.value, path);
@@ -60,6 +94,7 @@ export function EntryEditor(props: { path: number[] }) {
         const e = n as AnyEntry;
         if (e.id) e.id = uniqueId(c, e.id);
         delete e.hotkey; // a shortcut can belong to one entry only
+        delete e.hotkeyConfirm;
         e.menu?.forEach(renumber);
       };
       renumber(copy);
@@ -165,9 +200,26 @@ export function EntryEditor(props: { path: number[] }) {
         title="Keyboard shortcut"
         icon={<Keyboard size={16} />}
         desc={entry.action ? 'Works from any application, like a click' : entry.menu?.length ? 'Opens the launcher on this menu' : 'Add an action or a menu first'}
-        actions={<HotkeyInput value={entry.hotkey} onChange={(v) => setKey('hotkey', v as never)} statusPath={statusKey(path)} testId="entry-hotkey" />}
+        actions={
+          <HotkeyInput
+            value={entry.hotkey}
+            onChange={(v) =>
+              set((e) => {
+                if (v) e.hotkey = v;
+                else {
+                  delete e.hotkey;
+                  delete e.hotkeyConfirm; // asked only by the shortcut
+                }
+              })
+            }
+            statusPath={statusKey(path)}
+            testId="entry-hotkey"
+          />
+        }
         testId="card-hotkey"
-      />
+      >
+        {entry.hotkey && (entry.action || entry.hotkeyConfirm) && <HotkeyConfirmEditor entry={entry} setKey={setKey} />}
+      </Card>
 
       <Card
         title="Schedule"

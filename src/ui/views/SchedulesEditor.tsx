@@ -318,7 +318,7 @@ function AlertEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: n
             <Field label="Show as">
               <select class="select" value={a.style ?? 'window'} onChange={(e) => patch({ style: (e.currentTarget as HTMLSelectElement).value as Alert['style'] })} data-testid={`alert-style-${props.i}`}>
                 <option value="window">A window over the other windows</option>
-                <option value="notification">A notification (click it to choose)</option>
+                <option value="notification">A notification</option>
               </select>
             </Field>
             <Field label="Title">
@@ -395,6 +395,18 @@ function AlertEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: n
               </div>
             </div>
           </div>
+          {a.style === 'notification' && choices.length > 0 && (
+            <div class="grid2">
+              <Field label="Clicking the notification" hint={a.click !== undefined ? 'Runs the button directly: the buttons are not shown.' : 'Shows the buttons in a window over the others.'}>
+                <select class="select" value={a.click ?? ''} onChange={(e) => patch({ click: (e.currentTarget as HTMLSelectElement).value || undefined })} data-testid={`alert-click-${props.i}`}>
+                  <option value="">shows the buttons</option>
+                  {choices.map((c) => (
+                    <option value={c.label}>runs “{c.label}”</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          )}
           <div class="watch-options">
             <span class="inline">
               <span class="hint">If nobody answers within</span>

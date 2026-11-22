@@ -165,7 +165,7 @@ Instead of running directly, a schedule can show an **alert**: a message, and bu
 
 | Property | Default | Meaning |
 | --- | --- | --- |
-| `style` | `"window"` | `"window"`: over all the other windows, ready for the keyboard. `"notification"`: a system notification; clicking it shows the same window with the buttons. |
+| `style` | `"window"` | `"window"`: over all the other windows, ready for the keyboard. `"notification"`: a system notification; clicking it shows the same window with the buttons (or runs the `click` button directly). |
 | `title` | the label of the entry | `${VALUES}` allowed. |
 | `text` | — | The message. `${TC_FILE_NAME}` and the other values allowed. |
 | `choices` | — | Up to 4 buttons. Without buttons the alert only informs (an **OK** button). |
@@ -174,6 +174,7 @@ Instead of running directly, a schedule can show an **alert**: a message, and bu
 | `choices[].action` | — | A command of its own, like any [action](../reference/#actions) (a string or an object with `run`, `inputs`, `confirm`…). |
 | `timeout` | — | Close the alert if nobody answers within this time: `"30s"`, `"10m"`, `"1h"` (5 seconds to 1 day). |
 | `default` | — | The label of the choice run when the time is up. Without it nothing runs. |
+| `click` | — | Notifications only: the label of the choice run directly when the notification is clicked, without the window with the buttons. |
 
 How it behaves:
 
@@ -188,9 +189,29 @@ How it behaves:
 - `if` runs before the alert: the alert appears only if the check passes.
 - Saving the configuration closes the alerts on screen; nothing runs.
 
-In the editor: **Show an alert first** under the schedule. The buttons can run the entry itself, another entry (chosen from a list) or a command.
+In the editor: **Show an alert first** under the schedule. With **Show as: A notification**, **Clicking the notification** chooses whether the click shows the buttons or runs one of them directly.
+
+The buttons can run the entry itself, another entry (chosen from a list) or a command.
 
 ![An alert in the editor](/screens/editor-alert.png)
+
+### A notification that runs something when clicked
+
+With `click`, the notification is a shortcut: clicking it runs that button at once. Left alone, nothing runs (with a `timeout` and a `default`, the default runs when the time is up).
+
+```json
+"schedules": [{
+  "cron": "0 18 * * 1-5",
+  "alert": {
+    "style": "notification",
+    "text": "Time to send the daily report",
+    "choices": [{ "label": "Open the report", "action": "Start-Process D:\\Reports\\daily.xlsx" }],
+    "click": "Open the report"
+  }
+}]
+```
+
+The notification says what the click does (*Click: Open the report*). As with the buttons, the run is chosen by a person: it can ask for values and confirmations.
 
 ### Just a notification or a message
 

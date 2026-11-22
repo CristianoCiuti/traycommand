@@ -33,12 +33,16 @@ Any tray or menu entry can have its own global shortcut: open it in the editor, 
 - On an entry with an action, the shortcut works like a click (a toggle switches).
 - On a tray or sub menu without an action, it opens the launcher on that menu: a shortcut for a whole group of commands.
 - If the action [asks for values](./inputs), the form opens first.
+- **Ask before running** (under the shortcut in the editor) shows a confirmation first, so that a key pressed by mistake runs nothing: <kbd>Enter</kbd> runs, <kbd>Esc</kbd> cancels. Write your own question and text of the button, or leave them empty for *Run “Deploy”?* / **Run** (*Turn on* / *Turn off* for a toggle). Off by default; clicks, the launcher and schedules never ask it.
 
 In the configuration file:
 
 ```json
 { "id": "vpn", "label": "VPN", "hotkey": "Ctrl+Alt+V", "action": "…" }
+{ "id": "reset", "label": "Reset DB", "hotkey": "Ctrl+Alt+R", "hotkeyConfirm": { "text": "Reset the local database?", "button": "Reset" }, "action": "…" }
 ```
+
+`"hotkeyConfirm": true` asks with the default texts; `text` (`${VARIABLES}` allowed) and `button` replace them. It is separate from the `confirm` of the [action](../reference/#actions), which asks on every run started by a person.
 
 Shortcuts are written as keys joined by `+`: modifiers `Ctrl`, `Alt`, `Shift`, `Win` (Windows key, `Cmd` on macOS) or `CommandOrControl`, plus one key: a letter, a digit, `F1`–`F24`, `Space`, `Enter`, `Tab`, `Up`/`Down`/`Left`/`Right`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, punctuation, `num0`–`num9`. At least one of `Ctrl`, `Alt` or `Win` is needed, so that a shortcut never blocks normal typing (function keys can be used alone).
 

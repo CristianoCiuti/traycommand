@@ -5,7 +5,7 @@
  */
 import { onMounted, ref } from 'vue';
 
-defineProps<{ proxyOn: boolean; webOn: boolean; hoverP?: boolean; pressP?: boolean; menuShown?: boolean; pulse?: boolean }>();
+defineProps<{ proxyOn: boolean; webOn: boolean; hoverP?: boolean; pressP?: boolean; menuShown?: boolean; pulse?: boolean; proxyLocked?: boolean }>();
 defineEmits<{ proxy: []; web: [] }>();
 
 const clock = ref('09:41');
@@ -26,7 +26,8 @@ onMounted(() => {
         <slot name="menu" />
         <button
           class="hs-ti hs-ti-proxy"
-          :class="{ hover: hoverP, down: pressP }"
+          :class="{ hover: hoverP, down: pressP, locked: proxyLocked }"
+          :aria-disabled="proxyLocked || undefined"
           aria-label="Proxy tray icon"
           :aria-expanded="!!menuShown"
           @click="$emit('proxy')"

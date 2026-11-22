@@ -230,6 +230,9 @@
 .hs-ti { position: relative; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 10px; border: 0; background: none; cursor: pointer; padding: 0; }
 .hs-ti .hs-tile { width: 30px; height: 30px; border-radius: 8px; font-size: 13px; }
 button.hs-ti:hover, .hs-ti.hover { background: var(--hs-panel-2); }
+/* the P while scene 1's notification is up: it does nothing, so it does not look clickable */
+button.hs-ti.locked { cursor: default; }
+button.hs-ti.locked:hover { background: none; }
 .hs-ti.down { background: var(--hs-accent-soft); }
 .hs-dot { position: absolute; right: 6px; bottom: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--hs-off); border: 2px solid var(--hs-bg); }
 .hs-dot.on { background: #22c58b; box-shadow: 0 0 10px var(--hs-ok-glow); }

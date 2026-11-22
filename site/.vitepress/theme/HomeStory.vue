@@ -18,8 +18,12 @@
  * With reduced motion: nothing is pinned. The four scenes are plain sections, each with
  * a small desktop already in its final state; the first screen shows the editor open.
  *
- * Clicks work in both: the Proxy icon opens its menu, the toggle flips, the Web server
- * icon flips. A click holds until the story moves to another scene.
+ * Clicks on the tray: in the animated story they move the story to the step they stand for
+ * (the P to the open menu, the menu entry to the toggle turned on and its notification, the
+ * S to the launcher turning the web server on), so what is on screen is always a step of the
+ * story and the tray windows never overlap; the P does nothing while the notification is up.
+ * In the still pictures they act on the spot: the P opens its menu, the entry flips the toggle
+ * and shows the notification until the menu opens again, the S flips. One tray window at a time.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { withBase } from 'vitepress';
@@ -71,24 +75,54 @@ const ease = (x: number) => x * x * (3 - 2 * x);
 const win = (x: number, a: number, b: number, c: number, d: number) => Math.min(ramp(a, b, x), 1 - ramp(c, d, x));
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
-/* clicks: hold until the scene changes */
+/* ---------- clicks on the tray ---------- */
+/* still pictures only: what the clicks changed on the spot */
 const manual = reactive<{ proxy: boolean | null; web: boolean | null; menu: boolean | null; toast: boolean }>({ proxy: null, web: null, menu: null, toast: false });
-let toastTimer: ReturnType<typeof setTimeout> | undefined;
 const trayUsed = ref(false); // the bubble over the tray goes for good once the tray is used
+const userDriven = ref(false); // a click moved the story: the visitor's own pointer, no simulated one
+let jumpTarget: number | null = null; // where that click sent the story (viewport heights)
+/* move the story to scene i at progress `at` (the easing in measure() animates the way there) */
+function goTo(i: number, at: number) {
+  if (!story.value) return;
+  const y = STARTS[i] + at * SEG[i];
+  const top = story.value.getBoundingClientRect().top + window.scrollY;
+  userDriven.value = true;
+  jumpTarget = y;
+  window.scrollTo({ top: top + y * window.innerHeight, behavior: 'instant' as ScrollBehavior });
+  onScroll();
+}
+/* the story's steps for the clicks (progress inside the scene, see the timeline below) */
+const AT_MENU_CLOSED = 0.12;
+const AT_MENU_OPEN = 0.32;
+const AT_TOGGLED = 0.68; // proxy on, menu closed, notification up
+const AT_WEB_ON = 0.72; // scene 2: the launcher has turned the web server on
 function clickProxyIcon() {
   trayUsed.value = true;
-  manual.menu = !(menuAlpha.value > 0.5);
+  if (s.value < 0) {
+    const open = !(menuAlpha.value > 0.5);
+    manual.menu = open;
+    if (open) manual.toast = false; // one tray window at a time
+    return;
+  }
+  if (proxyLocked.value) return; // the visitor has just been through the P
+  goTo(1, menuAlpha.value > 0.5 ? AT_MENU_CLOSED : AT_MENU_OPEN);
 }
 function clickProxyEntry() {
-  manual.proxy = !proxyOn.value;
-  manual.menu = false;
-  manual.toast = true;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (manual.toast = false), 3200);
+  if (s.value < 0) {
+    manual.proxy = !proxyOn.value;
+    manual.menu = false;
+    manual.toast = true; // stays until the menu opens again
+    return;
+  }
+  goTo(1, AT_TOGGLED);
 }
 function clickWeb() {
   trayUsed.value = true;
-  manual.web = !webOn.value;
+  if (s.value < 0) {
+    manual.web = !webOn.value;
+    return;
+  }
+  goTo(2, AT_WEB_ON);
 }
 
 /* ---------- derived state ---------- */
@@ -117,7 +151,9 @@ const menuDerived = computed(() => (s.value === 1 ? win(t.value, 0.18, 0.25, 0.5
 const menuAlpha = computed(() => (manual.menu === null ? menuDerived.value : manual.menu ? 1 : 0));
 const proxyOn = computed(() => manual.proxy ?? (s.value > 1 || (s.value === 1 && t.value >= 0.5)));
 const toastAlpha = computed(() => Math.max(s.value === 1 ? win(t.value, 0.6, 0.67, 0.93, 0.99) : 0, manual.toast ? 1 : 0));
-const rowHover = computed(() => s.value === 1 && t.value > 0.4 && t.value < 0.56);
+const rowHover = computed(() => !userDriven.value && s.value === 1 && t.value > 0.4 && t.value < 0.56);
+/* while the notification of scene 1 is up the P does nothing: no menu over the notification */
+const proxyLocked = computed(() => s.value === 1 && toastAlpha.value > 0.01);
 
 /* scene 2: keys, launcher, typing, Enter */
 /* the keys are gone before the launcher shows: on a phone both sit in the same place */
@@ -166,9 +202,9 @@ const editorStyle = computed(() => {
   if (s.value === 4) return { ...edBox.value, '--ed-w': edWidth.value, transform: `translateY(${(1 - rise.value) * 48}px) scale(${0.96 + 0.04 * rise.value})`, opacity: Math.min(1, rise.value * 2), visibility: rise.value > 0 ? ('visible' as const) : ('hidden' as const) };
   if (s.value > 0 || !edHeroBox.value) return hidden; // no room for it on the first screen
   const at = { ...edHeroBox.value, '--ed-w': edHeroWidth.value, transformOrigin: minOrigin.value };
-  // the tray was used on the first screen: the editor goes into the tray, out of the way of
-  // the menu and the notification
-  if (trayUsed.value) return { ...at, transform: 'scale(0.05)', opacity: 0, visibility: 'hidden' as const, transition: 'transform 0.4s ease-in, opacity 0.3s 0.1s, visibility 0s 0.4s' };
+  // still pictures, the tray was used: the editor goes into the tray, out of the way of the menu
+  // and the notification (in the story a click moves on to scene 1 instead)
+  if (trayUsed.value && s.value < 0) return { ...at, transform: 'scale(0.05)', opacity: 0, visibility: 'hidden' as const, transition: 'transform 0.4s ease-in, opacity 0.3s 0.1s, visibility 0s 0.4s' };
   if (s.value < 0) return at; // still pictures: simply open
   const m = ease(ramp(0.04, 0.55, t.value));
   return { ...at, transform: `scale(${1 - 0.95 * m})`, opacity: 1 - ramp(0.35, 0.55, t.value), visibility: m >= 1 ? ('hidden' as const) : ('visible' as const) };
@@ -196,7 +232,7 @@ function placePointer() {
   const st = stage.value?.getBoundingClientRect();
   const icon = stage.value?.querySelector('.hs-ti-proxy')?.getBoundingClientRect();
   const row = stage.value?.querySelector('.hs-mrow.main')?.getBoundingClientRect();
-  if (!st || !icon || !row || s.value < 0 || manual.menu !== null) { pointer.alpha = 0; return; }
+  if (!st || !icon || !row || s.value < 0 || userDriven.value) { pointer.alpha = 0; return; }
   const q = k.value; // the pointer lives on the canvas: screen pixels / k
   const start = { x: (st.width * 0.72) / q, y: (st.height * 0.42) / q };
   const P = { x: (icon.left - st.left + icon.width * 0.5) / q, y: (icon.top - st.top + icon.height * 0.5) / q };
@@ -262,6 +298,10 @@ function measure(now = performance.now()) {
     seg.value = i;
     t.value = (y - STARTS[i]) / SEG[i];
     if (changed && stacked.value) nextTick(fitLayout); // the room under the text depends on this scene's text
+    // a click's jump is over when the story got there, or when the visitor scrolled elsewhere;
+    // scrolling back before scene 1 brings the simulated pointer back
+    if (jumpTarget !== null && (Math.abs(target - jumpTarget) > 0.02 || Math.abs(y - jumpTarget) < 0.005)) jumpTarget = null;
+    if (userDriven.value && jumpTarget === null && i === 0 && t.value < 0.55) userDriven.value = false;
   }
   placePointer();
   const pinned = looksEl.value && getComputedStyle(looksEl.value.firstElementChild as Element).position === 'sticky';
@@ -463,7 +503,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll);
   window.removeEventListener('resize', onResize);
   cancelAnimationFrame(raf);
-  clearTimeout(toastTimer);
 });
 
 const captions = [
@@ -516,9 +555,10 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
           </template>
         </div>
 
-        <template v-if="!reduced">
-          <!-- the area on the right where the windows of the story appear, one at a time -->
-          <div class="hs-area" aria-hidden="true">
+        <!-- the area on the right where the windows of the story appear, one at a time; it is
+             there in the still pictures too, empty, because the editor is placed from it -->
+        <div class="hs-area" aria-hidden="true">
+          <template v-if="!reduced">
             <div class="hs-keys" :style="fade(keysAlpha)">
               <kbd :class="{ down: keyDown.ctrl }">Ctrl</kbd><span>+</span><kbd :class="{ down: keyDown.alt }">Alt</kbd><span>+</span><kbd class="wide" :class="{ down: keyDown.space }">Space</kbd>
             </div>
@@ -536,8 +576,10 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
               <code>C:\Invoices\in</code>
             </div>
             <AlertWin :seconds="seconds" :pressed="alertPressed" :style="fade(alertAlpha, `translateY(${(1 - Math.min(1, alertAlpha * 1.5)) * 20}px)`)" />
-          </div>
+          </template>
+        </div>
 
+        <template v-if="!reduced">
           <svg class="hs-pointer" :class="{ down: pointer.down }" :style="{ transform: `translate(${pointer.x}px, ${pointer.y}px)`, opacity: pointer.alpha }" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
             <path d="M5 3l14 8-6.2 1.6L10 19z" fill="#fff" stroke="#1b1934" stroke-width="1.5" stroke-linejoin="round" />
           </svg>
@@ -553,7 +595,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
         <!-- on the canvas, not inside the taskbar: the taskbar's own glass would stop its blur -->
         <div v-if="coachAlpha > 0.01" class="hs-coach" :style="{ opacity: coachAlpha, left: coachLeft, '--shape': coachShape || undefined }" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>
 
-        <TaskbarBar :proxy-on="proxyOn" :web-on="webOn" :hover-p="s === 1 && t < 0.27" :press-p="pointer.down && t < 0.3" :menu-shown="menuAlpha > 0.5" :pulse="coachAlpha > 0.5" @proxy="clickProxyIcon" @web="clickWeb">
+        <TaskbarBar :proxy-on="proxyOn" :web-on="webOn" :hover-p="!userDriven && s === 1 && t < 0.27" :press-p="pointer.down && t < 0.3" :proxy-locked="proxyLocked" :menu-shown="menuAlpha > 0.5" :pulse="coachAlpha > 0.5" @proxy="clickProxyIcon" @web="clickWeb">
           <template #menu>
             <TrayMenu :proxy-on="proxyOn" :hover="rowHover" :style="fade(menuAlpha, `translateY(${(1 - menuAlpha) * 8}px)`)" @toggle="clickProxyEntry" />
           </template>

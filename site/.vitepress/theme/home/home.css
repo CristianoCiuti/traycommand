@@ -465,6 +465,8 @@ button.hs-ti.locked:hover { background: none; }
 /* a click's jump to another part of the story: everything but the taskbar fades out, the story
    lands, it fades back in (filter, not opacity, which the windows set inline; none at rest so
    the glass keeps its blur) */
-.hs-canvas > :not(.hs-taskbar) { transition: filter 0.25s ease-out; }
-.hs-canvas.fading > :not(.hs-taskbar) { filter: opacity(0); transition: filter 0.15s ease-in; }
-.hs-wall.gliding { transition: transform 0.6s ease; }
+/* the durations are !important: with reduced motion VitePress sets every transition to 0s with
+   !important, and these only run in the animated story, which the visitor chose to play */
+.hs-canvas > :not(.hs-taskbar) { transition: filter 0.25s ease-out; transition-duration: 0.25s !important; }
+.hs-canvas.fading > :not(.hs-taskbar) { filter: opacity(0); transition: filter 0.15s ease-in; transition-duration: 0.15s !important; }
+.hs-wall.gliding { transition: transform 0.6s ease; transition-duration: 0.6s !important; }

@@ -10,7 +10,7 @@ It uses the plain, per-user mechanism of each system:
 | --- | --- |
 | Windows | A shortcut `TrayCommand.lnk` in your Startup folder (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`, open it with <kbd>Win</kbd>+<kbd>R</kbd> → `shell:startup`). |
 | Linux | `~/.config/autostart/traycommand.desktop` |
-| macOS | `~/Library/LaunchAgents/io.github.cristianociuti.traycommand.plist` |
+| macOS | TrayCommand.app in **System Settings → General → Login Items → Open at Login**, shown with its name and icon. Only if macOS refuses it, `~/Library/LaunchAgents/io.github.cristianociuti.traycommand.plist` instead. |
 
 ::: tip No Task Scheduler, no registry
 Start at login never uses the Windows Task Scheduler, never writes `Run` keys in the registry and never needs administrator rights. You can see and delete the shortcut yourself, and Windows lists it under **Task Manager → Startup apps**.

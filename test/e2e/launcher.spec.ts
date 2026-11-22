@@ -218,6 +218,38 @@ test('launcher in dark mode', async () => {
   await launcher.emulateMedia({ colorScheme: 'light' });
 });
 
+test('launcher can be moved and opens again where it was left', async () => {
+  const bounds = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('launcher.html'))!.getBounds());
+  await hook('await tc.launcher.open()');
+  await expect.poll(launcherVisible).toBe(true);
+  // the search bar and the footer drag the window; the field stays a field
+  const region = (sel: string) => launcher.locator(sel).first().evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region') || (getComputedStyle(el) as unknown as Record<string, string>).webkitAppRegion);
+  expect(await region('.lx-search')).toBe('drag');
+  expect(await region('.lx-foot')).toBe('drag');
+  expect(await region('[data-testid="launcher-input"]')).toBe('no-drag');
+  const before = await bounds();
+  // a move made by the person (as a drag does)
+  await app.evaluate(({ BrowserWindow }, p) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('launcher.html'))!.setPosition(p.x, p.y), { x: before.x - 150, y: before.y - 60 });
+  await launcher.waitForTimeout(500);
+  await launcher.keyboard.press('Escape');
+  await expect.poll(launcherVisible).toBe(false);
+  await hook('await tc.launcher.open()');
+  await expect.poll(launcherVisible).toBe(true);
+  const after = await bounds();
+  expect({ x: after.x, y: after.y }).toEqual({ x: before.x - 150, y: before.y - 60 });
+  await launcher.keyboard.press('Escape');
+  await expect.poll(launcherVisible).toBe(false);
+  // Settings → Launcher position → Reset: centred again
+  await editor.getByTestId('tab-settings').click();
+  await editor.getByTestId('reset-launcher-position').click();
+  await expect.poll(() => hook('return tc.launcherStore.position')).toBeUndefined();
+  await hook('await tc.launcher.open()');
+  await expect.poll(launcherVisible).toBe(true);
+  expect((await bounds()).x).toBe(before.x);
+  await launcher.keyboard.press('Escape');
+  await expect.poll(launcherVisible).toBe(false);
+});
+
 test('tray menus show shortcuts, the launcher entry and the schedules pause', async () => {
   const menus = await hook<{ tools: { label: string; accelerator?: string }[]; app: { label: string; accelerator?: string; checked: boolean }[] }>(`
     const items = (key) => tc.trays.menuFor(key).items.map((i) => ({ label: i.label, accelerator: i.accelerator, checked: i.checked }));

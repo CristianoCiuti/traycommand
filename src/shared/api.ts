@@ -306,6 +306,8 @@ export interface TrayCommandApi {
   hotkeys(): Promise<HotkeyStatus[]>;
   onHotkeys(handler: (status: HotkeyStatus[]) => void): () => void;
   openLauncher(): Promise<void>;
+  /** The launcher opens centred on the primary screen again (after it was moved, maybe off screen). */
+  resetLauncherPosition(): Promise<void>;
   /** Pauses global shortcuts while the editor records a new one. */
   recordingHotkey(on: boolean): void;
   schedulesPaused(): Promise<boolean>;

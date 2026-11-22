@@ -2,6 +2,17 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.7.0 — the launcher can be moved, macOS fixes
+
+- The launcher can be moved: drag it by its search bar, the header of a form or its footer. It opens again where you left it (back in the centre if that screen is gone). **Settings → Launcher position → Reset position** brings it back to the centre.
+- macOS: notifications arrive (the app is now signed ad hoc; macOS asks once whether TrayCommand may send them).
+- macOS: the menu bar icon is the TrayCommand icon of the look in use; **Monochrome menu bar icon** in the TrayCommand menu brings back the black-and-white symbol in the style of the other menu bar icons. The app icon in Finder, Launchpad and notifications follows the look too.
+- macOS: **Start at login** adds TrayCommand.app itself to **Open at Login**, with its name and icon, instead of a background item with a generic "exec" icon (the old item is replaced at the next start).
+
+## 2.6.6 — the editor opens in its look
+
+- With a look other than Aurora, opening the editor window could show the Aurora background with a loader for a moment; the window now opens straight in the look chosen, from its very first frame.
+
 ## 2.6.5 — skill for AI agents up to date
 
 - The TrayCommand skill for Claude Code and opencode now lists every check the validator does (alerts and their buttons, time limits, default choice) and its warnings, gives the right shortest alert timeout (5 seconds) and is picked by agents also for checks, alerts, looks and export/import. Installed skills update with the app.

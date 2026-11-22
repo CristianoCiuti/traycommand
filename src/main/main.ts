@@ -1,4 +1,5 @@
 import { app, dialog, ipcMain, nativeImage, Notification, powerMonitor, shell, type IpcMainInvokeEvent } from 'electron';
+import { EventEmitter } from 'node:events';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -18,7 +19,8 @@ import { HotkeyManager, type HotkeyBinding } from './hotkeys';
 import { Alerts } from './alerts';
 import { Launcher } from './launcher';
 import { LauncherStore } from './launcherStore';
-import { assetPath, iconDataUrl, setIconStyle } from './icons';
+import { appIconFile, assetPath, iconDataUrl, setIconStyle, setMonochromeMenuBar } from './icons';
+import { bundleIconOutdated, setBundleIcon } from './macIcon';
 import { readImport, saveIcons, writeExport } from './transfer';
 import { exportKind } from '../shared/transfer';
 import { installForUser, isInstalled, startMenuShortcut } from './install';
@@ -40,9 +42,17 @@ app.setName(APP_NAME);
 if (option('data-dir')) app.setPath('userData', path.resolve(option('data-dir')!));
 const dataDir = app.getPath('userData');
 
-if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
+/*
+ * Native notifications only from a real TrayCommand: packaged and not an isolated run (--data-dir,
+ * used by the tests). On Windows, Electron registers a Start menu shortcut for the executable the
+ * first time it shows a notification: from `electron .` or the tests, that is an "Electron" entry
+ * pointing to the development folder. Those runs write their notifications to the console instead.
+ */
+const nativeNotifications = app.isPackaged && !option('data-dir');
+if (process.platform === 'win32' && nativeNotifications) app.setAppUserModelId(APP_ID);
 
 const state = new AppStateStore(path.join(dataDir, 'state.json'));
+setMonochromeMenuBar(state.get().monochromeMenuBar === true);
 const configPath = path.resolve(option('config') ?? process.env.TRAYCOMMAND_CONFIG ?? state.get().configPath ?? path.join(dataDir, 'traycommand.json'));
 
 /* ---------------- command line tools (also used by the AI agent skill) ---------------- */
@@ -121,8 +131,14 @@ const launcherStore = new LauncherStore(path.join(dataDir, 'launcher.json'));
 
 /* ---------------- notifications & dialogs ---------------- */
 
+function canNotify(title: string, body: string): boolean {
+  if (nativeNotifications) return Notification.isSupported();
+  console.log(`[notification] ${title}: ${body}`);
+  return false;
+}
+
 function notify(title: string, body: string, kind: 'info' | 'warning' | 'error' = 'info', route?: string) {
-  if (!Notification.isSupported()) return;
+  if (!canNotify(title, body)) return;
   const n = new Notification({ title, body, silent: kind === 'info', urgency: kind === 'error' ? 'critical' : 'normal' });
   n.on('click', () => {
     if (route ?? kind === 'error') showWindow(state, route ?? '/logs', devUrl);
@@ -156,7 +172,14 @@ const alerts: Alerts = new Alerts({
   window: (request) => launcher.prompt(request),
   dismissWindow: (id) => launcher.dismiss(id),
   notification: ({ title, body, onClick }) => {
-    if (!Notification.isSupported()) return undefined;
+    if (!canNotify(title, body)) {
+      // development and test runs: a stand-in that is never shown (its click can be simulated)
+      if (nativeNotifications) return undefined;
+      const stub = new EventEmitter() as EventEmitter & { close(): void };
+      stub.close = () => undefined;
+      stub.on('click', onClick);
+      return stub;
+    }
     const n = new Notification({ title, body, urgency: 'normal' });
     n.on('click', onClick);
     n.show();
@@ -238,6 +261,8 @@ const launcher: Launcher = new Launcher(
     },
     options: (id, name) => engine.inputOptions(id, name),
     edit: (key) => showWindow(state, `/entry/${key}`, devUrl),
+    position: () => launcherStore.position,
+    setPosition: (p) => launcherStore.setPosition(p),
   },
   devUrl,
 );
@@ -324,7 +349,32 @@ let trays: TrayManager | undefined;
 
 const writeShortcut = (file: string, spec: Electron.ShortcutDetails) =>
   shell.writeShortcutLink(file, 'replace', spec) || shell.writeShortcutLink(file, 'create', spec);
-const autostartEnv = defaultAutostartEnv((file, spec) => writeShortcut(file, spec));
+const autostartEnv = {
+  ...defaultAutostartEnv((file, spec) => writeShortcut(file, spec)),
+  // macOS: TrayCommand.app itself in "Open at Login", with its name and icon
+  ...(process.platform === 'darwin'
+    ? {
+        loginItem: {
+          set: (open: boolean) => {
+            try {
+              app.setLoginItemSettings({ openAtLogin: open });
+              const s = app.getLoginItemSettings();
+              return open ? s.openAtLogin || s.status === 'enabled' || s.status === 'requires-approval' : !s.openAtLogin;
+            } catch {
+              return false;
+            }
+          },
+          get: () => {
+            try {
+              return app.getLoginItemSettings().openAtLogin;
+            } catch {
+              return false;
+            }
+          },
+        },
+      }
+    : {}),
+};
 
 function relaunchArgs(): string[] {
   const args = ['--hidden'];
@@ -348,9 +398,11 @@ function applyStyle(style: Style) {
   updateShortcutIcon(style);
 }
 
-/** The Start menu shortcut of an installed TrayCommand shows the icon of the look in use. */
+/** The Start menu shortcut (Windows) or the app in Finder (macOS) of an installed TrayCommand shows the icon of the look in use. */
 function updateShortcutIcon(style: Style) {
-  if (process.platform !== 'win32' || !app.isPackaged || option('data-dir')) return;
+  if (!app.isPackaged || option('data-dir')) return;
+  if (process.platform === 'darwin') return void updateBundleIcon(style);
+  if (process.platform !== 'win32') return;
   const lnk = startMenuShortcut();
   const icon = assetPath(`icon-${style}.ico`);
   try {
@@ -363,6 +415,27 @@ function updateShortcutIcon(style: Style) {
   }
 }
 let savedStyle: Style = 'aurora';
+
+/** macOS: one change at a time; the last look asked wins. */
+let bundleIconBusy = false;
+let bundleIconWanted: Style | undefined;
+async function updateBundleIcon(style: Style) {
+  bundleIconWanted = style;
+  if (bundleIconBusy) return;
+  bundleIconBusy = true;
+  try {
+    while (bundleIconWanted) {
+      const wanted = bundleIconWanted;
+      bundleIconWanted = undefined;
+      const bundle = currentInstallRoot();
+      const image = appIconFile(wanted);
+      if (!bundle.endsWith('.app') || !bundleIconOutdated(bundle, wanted, state.get().bundleIcon)) continue;
+      if (await setBundleIcon(bundle, image)) state.update({ bundleIcon: wanted });
+    }
+  } finally {
+    bundleIconBusy = false;
+  }
+}
 
 function applySettings(config: Config) {
   // Autostart points to the running executable; only for packaged builds (never to the dev electron.exe)
@@ -763,6 +836,7 @@ function registerIpc() {
   });
   handle('hotkeys', () => hotkeys.status());
   handle('launcher:open', () => launcher.open());
+  handle('launcher:resetPosition', () => launcher.resetPosition());
   ipcMain.on('hotkeys:recording', (_e, on: boolean) => hotkeys.suspend(!!on));
   handle('schedules:paused', () => engine.schedulesPaused);
   handle('schedules:setPaused', (paused: boolean) => setSchedulesPaused(!!paused));
@@ -785,6 +859,14 @@ function registerIpc() {
 let statusTimer: NodeJS.Timeout | undefined;
 
 /* ---------------- startup ---------------- */
+
+function loginItemOpened(): boolean {
+  try {
+    return app.getLoginItemSettings().wasOpenedAtLogin;
+  } catch {
+    return false;
+  }
+}
 
 /** --launcher opens the launcher, --run=<id> runs an entry (for other tools, or where global shortcuts do not work). */
 function handleArgs(args: string[]): boolean {
@@ -833,10 +915,16 @@ void app.whenReady().then(() => {
     hasSchedules: () => engine.all.some((e) => e.entry.schedules?.some((s) => !s.disabled)),
     schedulesPaused: () => engine.schedulesPaused,
     setSchedulesPaused: (paused) => void setSchedulesPaused(paused),
+    monochromeMenuBar: () => state.get().monochromeMenuBar === true,
+    setMonochromeMenuBar: (on) => {
+      state.update({ monochromeMenuBar: on });
+      setMonochromeMenuBar(on);
+      trays?.scheduleSync();
+    },
   });
 
   // test hook: lets the end-to-end tests inspect tray menus and drive the engine
-  if (process.env.TRAYCOMMAND_E2E === '1') (globalThis as Record<string, unknown>).__traycommand = { engine, trays, store, launcher, hotkeys, hotkeyFired, alerts };
+  if (process.env.TRAYCOMMAND_E2E === '1') (globalThis as Record<string, unknown>).__traycommand = { engine, trays, store, launcher, launcherStore, hotkeys, hotkeyFired, alerts };
 
   const loaded = store.load();
   applyLoaded(loaded);
@@ -881,7 +969,9 @@ void app.whenReady().then(() => {
   const firstRun = state.get().lastVersion === undefined;
   state.update({ lastVersion: app.getVersion() });
   const settings = loaded.ok ? loaded.config.settings : undefined;
-  const showNow = !flag('hidden') || firstRun;
+  // started at login: hidden (the macOS login item cannot pass --hidden, the system tells instead)
+  const atLogin = flag('hidden') || (process.platform === 'darwin' && app.isPackaged && loginItemOpened());
+  const showNow = !atLogin || firstRun;
   const fromArgs = handleArgs(argv);
   if (showNow && !(fromArgs && !firstRun)) showWindow(state, app.isPackaged && !isInstalled() && process.platform !== 'darwin' ? '/welcome' : '/', devUrl);
   else if (settings?.notifyOnStartup) notify('TrayCommand', 'Running in the tray');

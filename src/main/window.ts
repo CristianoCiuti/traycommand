@@ -5,6 +5,8 @@ import { appIconFile } from './icons';
 
 let win: BrowserWindow | undefined;
 let pendingRoute: string | undefined;
+/** Look in use: the window opens with it (never with another one, not even for a frame). */
+let lookStyle: string | undefined;
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
 
@@ -47,6 +49,7 @@ export function setChrome(colors: { bg: string; fg: string }) {
 
 /** The window and taskbar icon of a look. */
 export function setWindowIcon(style?: string) {
+  lookStyle = style;
   if (win && !win.isDestroyed()) win.setIcon(appIconFile(style));
 }
 
@@ -79,7 +82,7 @@ export function showWindow(state: AppStateStore, route?: string, dev?: string) {
     show: false,
     title: 'TrayCommand',
     backgroundColor: c.bg,
-    icon: appIconFile(),
+    icon: appIconFile(lookStyle),
     autoHideMenuBar: true,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     ...(process.platform === 'darwin' ? {} : { titleBarOverlay: { color: c.bg, symbolColor: c.fg, height: 44 } }),
@@ -134,9 +137,10 @@ export function showWindow(state: AppStateStore, route?: string, dev?: string) {
   });
   win.once('ready-to-show', () => win?.show());
 
-  const hash = encodeURIComponent(pendingRoute ?? '/');
-  if (dev) void win.loadURL(`${dev}#${pendingRoute ?? '/'}`);
-  else void win.loadFile(path.join(__dirname, '..', 'ui', 'index.html'), { hash: decodeURIComponent(hash) });
+  // the page is told the look in use, so its first frame (shown by ready-to-show) already has it
+  const query = lookStyle ? { style: lookStyle } : undefined;
+  if (dev) void win.loadURL(`${dev}${query ? `?${new URLSearchParams(query)}` : ''}#${pendingRoute ?? '/'}`);
+  else void win.loadFile(path.join(__dirname, '..', 'ui', 'index.html'), { query, hash: pendingRoute ?? '/' });
   return win;
 }
 

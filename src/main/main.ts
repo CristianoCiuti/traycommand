@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, nativeImage, Notification, powerMonitor, shell, type IpcMainInvokeEvent } from 'electron';
+import { app, dialog, ipcMain, nativeImage, Notification, powerMonitor, safeStorage, shell, type IpcMainInvokeEvent } from 'electron';
 import { EventEmitter } from 'node:events';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { isSeparator, normalizeAction, parseConfig, SCHEMA_URL, STYLES, type Action, type Config, type MenuEntry, type MenuNode, type Style, type Tray } from '../shared/config';
 import { expand } from '../shared/variables';
-import type { AgentSkillInfo, AppInfo, ExecutionLog, ExportRequest, ExportResult, LauncherItem, LauncherShow, LoadedConfig, OpenImportResult, SaveResult, SkillsInfo, TestResult } from '../shared/api';
+import type { AgentSkillInfo, AppInfo, ExecutionLog, ExportRequest, ExportResult, LauncherItem, LauncherShow, LoadedConfig, OpenImportResult, SaveResult, SecretChange, SecretsInfo, SkillsInfo, TestResult } from '../shared/api';
 import { canonicalHotkey, formatHotkey } from '../shared/hotkey';
 import { defaultShell } from './shell';
 import { installSkill, planSkills, renderSkill, skillStatus, uninstallSkill, type SkillEnv } from './skills';
@@ -25,6 +25,7 @@ import { readImport, saveIcons, writeExport } from './transfer';
 import { exportKind } from '../shared/transfer';
 import { installForUser, isInstalled, startMenuShortcut } from './install';
 import { LogStore } from './logStore';
+import { SecretStore } from './secretStore';
 import { APP_ID, APP_NAME, currentInstallRoot, DOCS_URL, machineInstallDir, samePath, userInstallDir } from './paths';
 import { onRunningChange, runningProcesses, runScript } from './runner';
 import { TrayManager } from './trays';
@@ -128,6 +129,12 @@ if (!app.requestSingleInstanceLock()) {
 
 const logs = new LogStore(path.join(dataDir, 'logs'));
 const launcherStore = new LauncherStore(path.join(dataDir, 'launcher.json'));
+/** Values of the secret variables: encrypted for this user, never in the configuration file. */
+const secretStore = new SecretStore(path.join(dataDir, 'secrets.json'), {
+  available: () => safeStorage.isEncryptionAvailable(),
+  encrypt: (text) => safeStorage.encryptString(text),
+  decrypt: (data) => safeStorage.decryptString(data),
+});
 
 /* ---------------- notifications & dialogs ---------------- */
 
@@ -324,7 +331,7 @@ function applyLoaded(loaded: LoadedConfig) {
   }
   configError = undefined;
   iconUrls.clear();
-  engine.load(loaded.config, store.dir);
+  engine.load(loaded.config, store.dir, secretStore.read(loaded.config.secrets ?? []));
   engine.start();
   if (app.isReady()) applyHotkeys(loaded.config);
   applyTheme(loaded.config.settings.theme);
@@ -592,7 +599,14 @@ function quit() {
 
 /* ---------------- config operations ---------------- */
 
-function saveConfig(config: Config): SaveResult {
+function saveConfig(config: Config, secrets: SecretChange[] = []): SaveResult {
+  if (secrets.length) {
+    // the configuration must be valid before the secrets change: both are saved, or neither
+    const check = parseConfig(config);
+    if (!check.ok) return { ok: false, issues: check.issues };
+    const stored = secretStore.apply(secrets);
+    if (!stored.ok) return { ok: false, issues: [{ path: 'secrets', message: stored.error }] };
+  }
   const result = store.save(config);
   if (result.ok && store.loaded) applyLoaded(store.loaded);
   return result;
@@ -651,6 +665,7 @@ function appInfo(): AppInfo {
     startElevated: state.get().startElevated === true,
     docsUrl: DOCS_URL,
     style: savedStyle,
+    envNames: Object.keys(process.env),
   };
 }
 
@@ -729,7 +744,9 @@ function registerIpc() {
     return info;
   });
   handle('config:load', () => store.loaded ?? store.load());
-  handle('config:save', (config: Config) => saveConfig(config));
+  handle('config:save', (config: Config, secrets?: SecretChange[]) => saveConfig(config, Array.isArray(secrets) ? secrets : []));
+  handle('secrets:info', (): SecretsInfo => ({ available: secretStore.available, set: secretStore.names() }));
+  handle('secrets:reveal', (name: string) => (store.loaded?.ok && store.loaded.config.secrets?.includes(name) ? secretStore.get(name) : undefined));
   handle('config:saveRaw', (raw: string) => {
     const result = store.saveRaw(raw);
     if (result.ok && store.loaded) applyLoaded(store.loaded);
@@ -924,7 +941,7 @@ void app.whenReady().then(() => {
   });
 
   // test hook: lets the end-to-end tests inspect tray menus and drive the engine
-  if (process.env.TRAYCOMMAND_E2E === '1') (globalThis as Record<string, unknown>).__traycommand = { engine, trays, store, launcher, launcherStore, hotkeys, hotkeyFired, alerts };
+  if (process.env.TRAYCOMMAND_E2E === '1') (globalThis as Record<string, unknown>).__traycommand = { engine, trays, store, launcher, launcherStore, hotkeys, hotkeyFired, alerts, secretStore };
 
   const loaded = store.load();
   applyLoaded(loaded);

@@ -188,6 +188,8 @@ export interface AppInfo {
   elevated: boolean;
   startElevated: boolean;
   docsUrl: string;
+  /** Names of the environment variables of TrayCommand (to tell ${HOME} written for the shell from a typo). */
+  envNames: string[];
   /** Look in use (the saved one). */
   style: Style;
 }
@@ -268,11 +270,25 @@ export interface SaveResult {
   issues?: ConfigIssue[];
 }
 
+/** A change to the values of the secret variables, saved together with the configuration. */
+export type SecretChange = { op: 'set'; name: string; value: string } | { op: 'delete'; name: string } | { op: 'rename'; from: string; to: string };
+
+export interface SecretsInfo {
+  /** Values can be stored safely on this system. */
+  available: boolean;
+  /** Secrets that have a value on this PC. */
+  set: string[];
+}
+
 /** API exposed by the preload script on window.traycommand */
 export interface TrayCommandApi {
   info(): Promise<AppInfo>;
   loadConfig(): Promise<LoadedConfig>;
-  saveConfig(config: Config): Promise<SaveResult>;
+  /** Saves the configuration and, first, the changes to the values of the secrets. */
+  saveConfig(config: Config, secrets?: SecretChange[]): Promise<SaveResult>;
+  secrets(): Promise<SecretsInfo>;
+  /** The value of a secret, to show it on request. */
+  revealSecret(name: string): Promise<string | undefined>;
   saveRaw(raw: string): Promise<SaveResult>;
   validate(raw: unknown): Promise<SaveResult>;
   status(): Promise<EntryStatus[]>;

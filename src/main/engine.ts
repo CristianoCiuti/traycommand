@@ -153,15 +153,21 @@ export class Engine {
   /** Alerts on screen: closing them resolves them as dismissed. */
   private openAlerts = new Map<number, () => void>();
   private optionLoaders = new Map<string, () => Promise<{ options?: string[]; error?: string }>>();
+  /** Values of the secret variables (an empty string when this PC has none for a declared secret). */
+  private secretValues: Record<string, string> = {};
+  /** The values to hide in what is shown or logged, longest first. */
+  private hidden: string[] = [];
 
   constructor(private readonly deps: EngineDeps) {}
 
   /* ---------- lifecycle ---------- */
 
-  load(config: Config, configDir: string) {
+  load(config: Config, configDir: string, secrets: Record<string, string> = {}) {
     this.stop();
     this.config = config;
     this.configDir = configDir;
+    this.secretValues = Object.fromEntries((config.secrets ?? []).map((name) => [name, secrets[name] ?? '']));
+    this.hidden = [...new Set(Object.values(this.secretValues).filter(Boolean))].sort((a, b) => b.length - a.length);
     this.entries.clear();
     this.byId.clear();
     this.roots = config.trays.map((tray, i) => this.build(tray, `trays[${i}]`, true));
@@ -297,7 +303,7 @@ export class Engine {
   }
 
   label(entry: RuntimeEntry): string {
-    return this.expandText(entry.entry.label);
+    return this.shown(entry.entry.label);
   }
 
   /** "Tray › Sub menu" (ancestors only). */
@@ -310,7 +316,18 @@ export class Engine {
   /* ---------- helpers ---------- */
 
   private get ctx(): VariableContext {
-    return { variables: this.config?.variables ?? {}, env: this.deps.env ?? process.env, configDir: this.configDir };
+    return { variables: { ...this.config?.variables, ...this.secretValues }, env: this.deps.env ?? process.env, configDir: this.configDir };
+  }
+
+  /** Hides the values of the secrets (and of the passwords typed for this run) in a text shown or logged. */
+  redact(text: string, extra: readonly string[] = []): string {
+    const values = extra.length ? [...new Set([...this.hidden, ...extra.filter(Boolean)])].sort((a, b) => b.length - a.length) : this.hidden;
+    return values.reduce((t, s) => t.split(s).join('••••'), text);
+  }
+
+  /** A text for people (labels, notifications, questions): expanded, with the secrets hidden. */
+  private shown(text: string, values?: Record<string, string>, extra?: readonly string[]): string {
+    return this.redact(this.expandText(text, values), extra);
   }
 
   /** Expands ${NAME}; `values` (inputs) take precedence over the configuration variables. */
@@ -367,8 +384,8 @@ export class Engine {
     const custom = typeof confirm === 'object' ? confirm : {};
     const label = this.label(entry);
     const verb = kind === 'off' ? 'Turn off' : kind === 'on' && entry.entry.state ? 'Turn on' : 'Run';
-    const button = custom.button?.trim() ? this.expandText(custom.button) : verb;
-    const text = custom.text?.trim() ? this.expandText(custom.text) : `${verb} “${label}”?`;
+    const button = custom.button?.trim() ? this.shown(custom.button) : verb;
+    const text = custom.text?.trim() ? this.shown(custom.text) : `${verb} “${label}”?`;
     try {
       const answer = await this.deps.prompt({
         id: ++this.promptId,
@@ -464,7 +481,7 @@ export class Engine {
     const fields: PromptField[] = toAsk.map(({ input, owner, action }) => {
       const field: PromptField = {
         name: input.name,
-        label: this.expandText(input.label ?? input.name),
+        label: this.shown(input.label ?? input.name),
         type: input.type ?? 'text',
         value: initial(input),
         placeholder: input.placeholder,
@@ -478,7 +495,7 @@ export class Engine {
         this.optionLoaders.set(`${id}:${input.name}`, async () => {
           const r = await this.deps.run(script, { ...this.runOptions(owner, action), timeout: action.timeout ?? 30 });
           if (!isSuccess(r)) return { error: r.error ?? (r.timedOut ? 'Timed out' : (r.stderr || `Exit code ${r.code}`).split(/\r?\n/).slice(-2).join(' ')) };
-          return { options: r.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean) };
+          return { options: r.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => this.redact(l)) };
         });
       }
       return field;
@@ -527,7 +544,7 @@ export class Engine {
   private async executeAction(entry: RuntimeEntry, kind: ActionKind, action: Action, visited: Set<string>, ctx: ExecContext, label?: string): Promise<RunResult | undefined> {
     // scheduled runs never ask: the user chose to run them unattended
     if (action.confirm && ctx.interactive) {
-      const ok = await this.deps.confirm(label ?? this.label(entry), this.expandText(action.confirm, ctx.values));
+      const ok = await this.deps.confirm(label ?? this.label(entry), this.shown(action.confirm, ctx.values, ctx.secrets));
       if (!ok) return undefined;
     }
 
@@ -562,7 +579,7 @@ export class Engine {
     }
 
     const ok = isSuccess(result);
-    const redact = (text: string) => ctx.secrets.reduce((t, s) => t.split(s).join('••••'), text);
+    const redact = (text: string) => this.redact(text, ctx.secrets);
     const own = new Set((action.inputs ?? []).map((i) => i.name));
     const shown = Object.entries(ctx.values).filter(([k]) => own.has(k) || k === 'TC_EVENT' || k === 'TC_FILE' || (k === 'TC_FILES' && ctx.values.TC_FILES !== ctx.values.TC_FILE));
     this.deps.log({
@@ -578,7 +595,7 @@ export class Engine {
       stderr: redact(result.stderr),
       error: result.error ?? (result.timedOut ? 'Timed out' : result.killed ? 'Stopped' : undefined),
       source: ctx.source,
-      inputs: shown.length ? Object.fromEntries(shown.map(([k, v]) => [k, v && ctx.secrets.includes(v) ? '••••' : v])) : undefined,
+      inputs: shown.length ? Object.fromEntries(shown.map(([k, v]) => [k, v && ctx.secrets.includes(v) ? '••••' : redact(v)])) : undefined,
     });
 
     if (!ok) {
@@ -586,7 +603,7 @@ export class Engine {
       const detail = redact(result.stderr || result.stdout).split(/\r?\n/).slice(-3).join('\n');
       this.deps.notify(label, `${DEFAULT_TEXT.failed}: ${reason}${detail ? `\n${detail}` : ''}`, 'error');
     } else if (action.notify) {
-      this.deps.notify(label, typeof action.notify === 'string' ? this.expandText(action.notify, ctx.values) : DEFAULT_TEXT.ok, 'info');
+      this.deps.notify(label, typeof action.notify === 'string' ? this.shown(action.notify, ctx.values, ctx.secrets) : DEFAULT_TEXT.ok, 'info');
     }
 
     if (entry.entry.state && !this.stopped) this.scheduleCheck(entry, this.deps.recheckDelay ?? 700, this.generation);
@@ -609,6 +626,12 @@ export class Engine {
 
   /** Runs an action from the editor without touching the configuration ("Test" button). */
   async test(action: Action, check = false): Promise<RunResult> {
+    let typed: string[] = [];
+    const r = await this.testRun(action, check, (s) => (typed = s));
+    return { ...r, stdout: this.redact(r.stdout, typed), stderr: this.redact(r.stderr, typed), error: r.error === undefined ? undefined : this.redact(r.error, typed) };
+  }
+
+  private async testRun(action: Action, check: boolean, typed: (passwords: string[]) => void): Promise<RunResult> {
     let values: Record<string, string> | undefined;
     if (!check && action.inputs?.length) {
       const resolved = await this.resolveInputs(
@@ -618,6 +641,7 @@ export class Engine {
       if (!resolved) return { code: null, stdout: '', stderr: '', durationMs: 0, timedOut: false, killed: true, error: 'Cancelled' };
       if ('error' in resolved) return { code: null, stdout: '', stderr: '', durationMs: 0, timedOut: false, killed: false, error: resolved.error };
       values = resolved.values;
+      typed(resolved.secrets);
     }
     const options = this.runOptions(undefined, action, values);
     const script = this.expandText(action.run, values);
@@ -872,8 +896,8 @@ export class Engine {
     }
     if (!pass && (result.error !== undefined || result.timedOut)) {
       const error = `Check not run: ${result.error ?? `timed out after ${c.timeout ?? 60}s`}`;
-      this.deps.log({ time: Date.now(), key: entry.key, label: this.label(entry), kind: 'on', script: c.check, code: result.code, ok: false, durationMs: result.durationMs, stdout: result.stdout, stderr: result.stderr, error, source });
-      this.deps.notify(this.label(entry), `${DEFAULT_TEXT.failed}: ${error}`, 'error');
+      this.deps.log({ time: Date.now(), key: entry.key, label: this.label(entry), kind: 'on', script: c.check, code: result.code, ok: false, durationMs: result.durationMs, stdout: this.redact(result.stdout), stderr: this.redact(result.stderr), error: this.redact(error), source });
+      this.deps.notify(this.label(entry), `${DEFAULT_TEXT.failed}: ${this.redact(error)}`, 'error');
     }
     return pass;
   }
@@ -887,11 +911,11 @@ export class Engine {
     const request: AlertRequest = {
       id,
       style: alert.style ?? 'window',
-      title: this.expandText(alert.title ?? this.label(entry), values),
+      title: alert.title !== undefined ? this.shown(alert.title, values) : this.label(entry),
       subtitle: this.pathLabel(entry) || undefined,
       icon: this.iconFor(entry),
-      text: alert.text !== undefined ? this.expandText(alert.text, values) : undefined,
-      choices: choices.map((c) => this.expandText(c.label, values)),
+      text: alert.text !== undefined ? this.shown(alert.text, values) : undefined,
+      choices: choices.map((c) => this.shown(c.label, values)),
       defaultChoice: defaultIndex >= 0 ? defaultIndex : undefined,
       deadline: seconds ? Date.now() + seconds * 1000 : undefined,
       clickChoice: clickIndex >= 0 ? clickIndex : undefined,
@@ -957,7 +981,7 @@ export class Engine {
     if (generation !== this.generation || this.isDisabled(entry)) return;
     if (choice.action !== undefined) {
       const action = normalizeAction(choice.action)!;
-      const label = `${this.label(entry)} › ${this.expandText(choice.label, values)}`;
+      const label = `${this.label(entry)} › ${this.shown(choice.label, values)}`;
       const interactive = isInteractive(source);
       const resolved = await this.resolveInputs(
         (action.inputs ?? []).map((input) => ({ input, owner: entry, action })),
@@ -1035,7 +1059,7 @@ export class Engine {
     if (previous !== on) {
       if (previous !== undefined) {
         const message = on ? state.notify?.on : state.notify?.off;
-        if (message) this.deps.notify(this.label(entry), typeof message === 'string' ? this.expandText(message) : on ? DEFAULT_TEXT.stateOn : DEFAULT_TEXT.stateOff, 'info');
+        if (message) this.deps.notify(this.label(entry), typeof message === 'string' ? this.shown(message) : on ? DEFAULT_TEXT.stateOn : DEFAULT_TEXT.stateOff, 'info');
       }
       this.emit(entry.key);
     }

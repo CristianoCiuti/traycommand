@@ -3,6 +3,7 @@ import { cronError, parseInterval } from './cron.ts';
 import { canonicalHotkey, hotkeyError } from './hotkey.ts';
 import { globError, patternList } from './glob.ts';
 import { windowError } from './window.ts';
+import { undefinedReferences } from './varRefs.ts';
 
 /*
  * TrayCommand configuration (format v2).
@@ -315,6 +316,10 @@ export const ConfigSchema = z
       .record(z.string().regex(/^[A-Za-z0-9_]+$/), z.string())
       .default({})
       .describe('Reusable values: write ${NAME} in scripts, paths and labels. ${env:NAME} and ${configDir} are built in.'),
+    secrets: z
+      .array(z.string().regex(/^[A-Za-z0-9_]+$/))
+      .optional()
+      .describe('Names of secret variables (passwords, tokens): used as ${NAME} like the others, but their values are never written in this file. They are kept encrypted on this PC, set from the Variables page of the editor, hidden in the activity log and never exported.'),
     trays: z.array(TraySchema).default([]),
   })
   .strict()
@@ -556,6 +561,14 @@ export function parseConfig(raw: unknown): ParseResult {
   if (config.settings.appMenu !== 'own' && !config.trays.some((t) => t.id === config.settings.appMenu)) {
     issues.push({ path: 'settings.appMenu', message: `No tray with id "${config.settings.appMenu}"` });
   }
+
+  const secretNames = new Set<string>();
+  (config.secrets ?? []).forEach((name, i) => {
+    if (secretNames.has(name)) issues.push({ path: `secrets[${i}]`, message: `The secret "${name}" is listed twice` });
+    else if (config.variables[name] !== undefined) issues.push({ path: `secrets[${i}]`, message: `"${name}" is both a variable and a secret: keep only one` });
+    secretNames.add(name);
+  });
+  for (const ref of undefinedReferences(config)) warnings.push({ path: ref.path, message: ref.message });
 
   return issues.length ? { ok: false, issues } : { ok: true, config, warnings };
 }

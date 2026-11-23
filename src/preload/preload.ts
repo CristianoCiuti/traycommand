@@ -17,6 +17,8 @@ const api: TrayCommandApi = {
   loadConfig: invoke('config:load') as TrayCommandApi['loadConfig'],
   saveConfig: invoke('config:save') as TrayCommandApi['saveConfig'],
   saveRaw: invoke('config:saveRaw') as TrayCommandApi['saveRaw'],
+  secrets: invoke('secrets:info') as TrayCommandApi['secrets'],
+  revealSecret: invoke('secrets:reveal') as TrayCommandApi['revealSecret'],
   validate: invoke('config:validate') as TrayCommandApi['validate'],
   status: invoke('status') as TrayCommandApi['status'],
   onStatus: subscribe('status'),

@@ -867,8 +867,8 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
           <div class="hs-lshots">
             <div class="hs-lframe">
               <template v-for="(l, i) in looks" :key="l.id">
-                <img class="only-light" :class="{ in: look === i }" :src="src(`look-${l.id}`)" :alt="`TrayCommand in the ${l.name} look`" loading="lazy" />
-                <img class="only-dark" :class="{ in: look === i }" :src="srcDark(`look-${l.id}`)" :alt="`TrayCommand in the ${l.name} look, dark`" loading="lazy" />
+                <img class="only-light" :class="[`shot-${l.id}`, { in: look === i }]" :src="src(`look-${l.id}`)" :alt="`TrayCommand in the ${l.name} look`" loading="lazy" />
+                <img class="only-dark" :class="[`shot-${l.id}`, { in: look === i }]" :src="srcDark(`look-${l.id}`)" :alt="`TrayCommand in the ${l.name} look, dark`" loading="lazy" />
               </template>
             </div>
           </div>

@@ -452,17 +452,23 @@ function fitLayout() {
   const copy = st.querySelector<HTMLElement>('.hs-copy');
   const caps = [...st.querySelectorAll<HTMLElement>('.hs-cap')];
   const tray = [st.querySelector<HTMLElement>('.hs-menu'), st.querySelector<HTMLElement>('.hs-toast-pos')];
-  if (stacked.value && copy && caps.length) {
+  if (stacked.value && copy) {
     const stTop = st.getBoundingClientRect().top;
-    // the windows live under the text of the scene on screen (the first scene's on the hero)
-    const cap = caps[clamp(seg.value - 1, 0, caps.length - 1)];
-    const capBottom = (copy.getBoundingClientRect().top - stTop) / q + cap.offsetHeight + 20;
-    canvas.style.setProperty('--hs-captop', `${Math.round(capBottom)}px`);
-    // the tray menu and the notification rise from the taskbar: shrink them to stay under the text
     const barTop = ((st.querySelector<HTMLElement>('.hs-taskbar')?.getBoundingClientRect().top ?? 0) - stTop) / q;
-    for (const el of tray) {
-      if (!el?.offsetHeight) continue;
-      el.style.setProperty('--fit', Math.min(1, (barTop - 14 - capBottom) / el.offsetHeight).toFixed(3));
+    // the windows live under the text of the scene on screen (the first scene's on the hero);
+    // the still pictures have no captions on the desktop, only the hero
+    const cap = caps.length ? caps[clamp(seg.value - 1, 0, caps.length - 1)] : null;
+    if (cap) {
+      const capBottom = (copy.getBoundingClientRect().top - stTop) / q + cap.offsetHeight + 20;
+      canvas.style.setProperty('--hs-captop', `${Math.round(capBottom)}px`);
+      // the tray menu and the notification rise from the taskbar: shrink them to stay under the text
+      for (const el of tray) {
+        if (!el?.offsetHeight) continue;
+        el.style.setProperty('--fit', Math.min(1, (barTop - 14 - capBottom) / el.offsetHeight).toFixed(3));
+      }
+    } else {
+      canvas.style.removeProperty('--hs-captop');
+      for (const el of tray) el?.style.removeProperty('--fit');
     }
     // on the first screen the hero text may leave too little room for them (small phones)
     const hero = [...st.querySelectorAll<HTMLElement>('.hs-hero > *')].filter((e) => e.offsetHeight);

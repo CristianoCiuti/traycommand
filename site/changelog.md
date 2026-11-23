@@ -2,6 +2,14 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.9.0 — variables page, variable chips, secrets
+
+- New **Variables** page in the editor: every variable with its value (changed in place), how many times it is used and where (each place opens its entry). Add, rename, delete. See [variables and secrets](./guide/variables).
+- **Rename** asks what to do where the variable is written: everywhere, only in the places you tick, or nowhere (only the name changes).
+- **Chips to insert variables** under every text that can use them (scripts, folders, environment variables, labels, confirmation and notification texts, the shortcut question, the state check and its notifications, the folder of a watch, the check of a schedule, the title, message and buttons of an alert, the label and choices script of an asked value): the values of the action and, for a folder watch, `TC_FILE` and the others first, then the variables and secrets, then `${configDir}` and `${env:…}`. A click writes `${NAME}` where the cursor is.
+- **Names without a value are pointed out** under the text: a name that is not a variable (with **Add variable**), a `TC_…` value outside a folder watch, a secret with no value on this PC. The Variables page lists them all, and `--validate` reports them as warnings.
+- **Secrets** for passwords and tokens: used as `${NAME}` like any variable, but the file only lists their names (`"secrets"`). Values are typed on the Variables page, kept encrypted on this PC for your account, shown as `••••` in the activity log, notifications, labels, alerts and test output, and never exported (only the name travels). A variable can become a secret and back.
+
 ## 2.8.0 — shortcuts that ask first, notifications that run on click
 
 - Keyboard shortcuts can ask before running: **Ask before running** under the shortcut in the editor (`hotkeyConfirm` in the file). The question and the text of the confirm button can be your own; <kbd>Enter</kbd> runs, <kbd>Esc</kbd> cancels. Off by default, and only the shortcut asks: clicks, the launcher and schedules run as before.

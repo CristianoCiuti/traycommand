@@ -9,6 +9,7 @@
 - **Global shortcuts** for any entry, and **forms** that ask for values before a command runs (text, choices, files, passwords).
 - **Schedules**: at set times, at an interval, at startup or **when files appear in a folder**; within a time window, **only if a check passes**, after **asking you with an alert** that offers a few choices.
 - **Four looks**: Aurora (default), Phosphor, Brutal and Neon HUD, light or dark. Each restyles the whole app and has its own icon.
+- **Variables and secrets**: write a value once, use it everywhere as `${NAME}`; the editor offers them as chips while you type, shows where each is used and renames it there too. Secrets (passwords, tokens) stay encrypted on your PC, never in the file, and show as `••••` everywhere.
 - **Export and import**: share some trays, schedules, variables or settings (with their icons) as a file; on import see what changes and choose what to do with what is already there.
 - **Test any command from the editor** and see its output and exit code.
 - **Compose actions**: run other entries before, together with, or after an action.

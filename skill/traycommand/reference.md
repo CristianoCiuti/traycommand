@@ -12,6 +12,8 @@ JSON Schema: https://cristianociuti.github.io/traycommand/schema/v2/config.schem
 }
 ```
 
+Optional: `"secrets": ["NAME", …]` (see below).
+
 `version` must be `2`. Unknown properties anywhere are errors. JSON comments are not allowed.
 
 ## settings
@@ -33,7 +35,11 @@ Do not change settings unless the user explicitly asks. In particular never turn
 
 ## variables
 
-`{ "NAME": "value" }`, names with letters, digits, `_`. Use `${NAME}` in scripts, labels, icon paths, `cwd`, `env` values, `confirm` and `notify` texts. Values may use other variables. Built in: `${env:NAME}` (environment variable, empty if unset) and `${configDir}` (folder of the configuration file). Unknown `${…}` are left untouched, so `${HOME}` still reaches bash.
+`{ "NAME": "value" }`, names with letters, digits, `_`. Use `${NAME}` in scripts, labels, icon paths, `cwd`, `env` values, `confirm` and `notify` texts. Values may use other variables. Built in: `${env:NAME}` (environment variable, empty if unset) and `${configDir}` (folder of the configuration file). Unknown `${…}` are left untouched, so `${HOME}` still reaches bash (`--validate` lists them as warnings: check they are meant for the shell). Also usable in `state.check`, state notifications, `hotkeyConfirm` texts, input `label` / `optionsCommand`, `watch.path`, schedule `if`, alert `title` / `text` / button labels. Variables are global (every tray); inside an action its `inputs` and, for runs started by a folder watch, `TC_FILE`… take precedence.
+
+## secrets
+
+`["NAME", …]`: names of secret variables (passwords, tokens). Used as `${NAME}` like variables, but the **values are never in the file**: the user types them on the Variables page of the editor and they are kept encrypted on that PC. Never write a password or token into `variables` or a script: add its name to `secrets` and tell the user to set the value in TrayCommand → Variables. A name cannot be in both `variables` and `secrets`. To hand a secret to a script safely, map it in the action `env` (`"env": { "API_TOKEN": "${API_TOKEN}" }`) and read `$env:API_TOKEN` / `"$API_TOKEN"` in the script, rather than writing `${API_TOKEN}` in `run`.
 
 ## trays (array, display order)
 

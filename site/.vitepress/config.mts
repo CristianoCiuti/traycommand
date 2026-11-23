@@ -74,6 +74,7 @@ export default defineConfig({
             { text: 'The editor', link: '/guide/editor' },
             { text: 'Launcher and shortcuts', link: '/guide/launcher' },
             { text: 'Asking for values', link: '/guide/inputs' },
+            { text: 'Variables and secrets', link: '/guide/variables' },
             { text: 'Schedules', link: '/guide/schedules' },
             { text: 'Export and import', link: '/guide/sharing' },
             { text: 'Start at login and updates', link: '/guide/startup-and-updates' },

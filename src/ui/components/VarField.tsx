@@ -128,6 +128,12 @@ export function VarChips(props: { value: string; scope?: VarScope; onInsert: (te
 
 type Field = HTMLInputElement | HTMLTextAreaElement;
 
+/** A mouse button or a finger is down: the chips leave only once it is released, or what it presses would move away under it. */
+let pressing = false;
+window.addEventListener('pointerdown', () => (pressing = true), true);
+window.addEventListener('pointerup', () => (pressing = false), true);
+window.addEventListener('pointercancel', () => (pressing = false), true);
+
 /**
  * A text where ${NAME} is replaced: while it is being edited, the variables it can use are shown
  * as chips to insert; names without a value are pointed out.
@@ -165,7 +171,11 @@ export function VarField(props: {
       el.selectionStart = el.selectionEnd = caret;
     });
   };
-  const blur = () => setFocused(false);
+  const blur = () => {
+    if (!pressing) return setFocused(false);
+    // after the click: hidden unless the text got the focus back
+    window.addEventListener('pointerup', () => setTimeout(() => setFocused(!!ref.current && document.activeElement === ref.current)), { once: true });
+  };
 
   return (
     <div class={`var-field${focused ? ' focused' : ''}`} style={props.style}>

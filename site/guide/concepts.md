@@ -177,6 +177,8 @@ Built in:
 
 Variables can use other variables. Unknown names are left as they are, so shell syntax like `${HOME}` in a bash script still works.
 
+Every tray sees the same variables; the values an action asks (and the file of a folder watch) come first inside that action. Passwords and tokens go in **secrets**: used the same way, but kept encrypted on this PC instead of in the file. The **Variables** page of the editor lists them, shows where each one is used and renames it there too; while you edit a text, the variables it can use are offered as chips. See [variables and secrets](./variables).
+
 ## Values asked before running
 
 An action can ask for values in a small form before it runs (`inputs`): text, choices (also produced by a script), yes/no, files, folders, passwords. They are used as `${NAME}` and as environment variables. See [asking for values](./inputs).

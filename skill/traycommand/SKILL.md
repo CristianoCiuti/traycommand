@@ -77,6 +77,7 @@ Never run actions that change the system (admin actions, stopping services, dele
    - `on` / `off` are JavaScript regular expressions in a JSON string (`"\\d+"`);
    - unknown properties are errors (no comments in the file);
    - reuse existing `variables` (`${NAME}`), or add one when a path repeats; `${env:NAME}` and `${configDir}` are built in.
+   - passwords, tokens, API keys: never in the file. Add the name to `secrets`, use `${NAME}` (best through the action `env`), and tell the user to type the value in TrayCommand → Variables.
 5. Icons: `icon` (and `iconOff` for toggles) are image files (png, ico), relative to `configDir`, usually in `<configDir>/icons/`. Reuse icons already there when they fit. To create new ones on Windows use [scripts/make-icon.ps1](scripts/make-icon.ps1): a coloured square with a white pictogram (`-Glyph`) or up to 3 letters (`-Text`, letters and digits only: emoji render as a box):
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass -File "<this skill folder>/scripts/make-icon.ps1" -Glyph print -Color "#2e7d32" -Out "<configDir>/icons/printer_on.png"

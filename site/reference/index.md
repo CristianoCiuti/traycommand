@@ -10,6 +10,7 @@ The configuration is one JSON file (by default `traycommand.json` in the [data f
   "version": 2,
   "settings": {},
   "variables": {},
+  "secrets": [],
   "trays": []
 }
 ```
@@ -20,6 +21,7 @@ The configuration is one JSON file (by default `traycommand.json` in the [data f
 | `version` | `2` | **yes** | Format version. Must be `2`. |
 | `settings` | object | no | [Settings](#settings). |
 | `variables` | object | no | [Variables](#variables). |
+| `secrets` | array of strings | no | Names of [secret variables](#secrets): their values are never in the file. |
 | `trays` | array | no | The [trays](#trays), in display order. |
 
 Unknown properties are errors: a typo such as `"acton"` is reported instead of silently ignored.
@@ -66,7 +68,17 @@ An object of `NAME: value`. Names use letters, digits and `_`. Write `${NAME}` i
 | `${env:NAME}` | The environment variable `NAME` (empty when not set). |
 | `${configDir}` | Folder of the configuration file. |
 
-Unknown names are left untouched, so `${HOME}` in a bash script still reaches the shell.
+Unknown names are left untouched, so `${HOME}` in a bash script still reaches the shell. The check of the configuration (and `--validate`) warns about them, without refusing the file.
+
+Variables belong to the whole configuration. Inside an action, its [inputs](#inputs) and, for runs started by a folder watch, the `TC_` values of the file take precedence over a variable with the same name.
+
+## Secrets
+
+```json
+"secrets": ["API_TOKEN"]
+```
+
+Names (letters, digits, `_`) of variables whose values are **not** in the file: they are set on the Variables page of the editor and kept encrypted on this PC for the current user (`secrets.json` in the [data folder](./cli#data-folder)). Use them as `${API_TOKEN}` like any variable. Their values are shown as `••••` in the activity log, notifications, labels, alerts and test output, and exports carry only the names. A name cannot be both in `variables` and in `secrets`. A secret with no value on this PC is replaced by nothing. See [variables and secrets](../guide/variables#secrets).
 
 ## Trays
 

@@ -1,6 +1,6 @@
 # The editor
 
-Open it from the TrayCommand tray icon → **Open TrayCommand**. It has four pages: **Trays**, **Activity**, **Settings** and **JSON**. Everything you change is a draft until you save.
+Open it from the TrayCommand tray icon → **Open TrayCommand**. It has five pages: **Trays**, **Variables**, **Activity**, **Settings** and **JSON**. Everything you change is a draft until you save.
 
 ## Trays
 
@@ -29,6 +29,8 @@ Select a tray to edit it on the right. The header has the icon picker, the label
 
 Each action editor has the **Script** box, the values to [ask before running](./inputs) (**Ask for a value**) and, under the advanced options, shell, working folder, timeout, notification, confirmation text, **Run in a visible terminal**, **Run as administrator**, environment variables, and the composed actions **Run before**, **Run together** and **Run after**.
 
+While you edit a script, a folder, a label or a message, the [variables](./variables) it can use appear under it as chips (a click inserts `${NAME}` at the cursor), and a `${NAME}` without a value there is pointed out.
+
 ### Test buttons
 
 Every action and every state check has a **Test** button. It runs the script now, with the current (unsaved) values, and shows:
@@ -43,6 +45,10 @@ Tests do not ask for confirmation, do not run composed actions and do not change
 When there are unsaved changes a bar appears at the bottom: **Discard** or **Save** (<kbd>Ctrl</kbd>+<kbd>S</kbd>, <kbd>Cmd</kbd>+<kbd>S</kbd> on macOS). If something is wrong (duplicate id, unknown reference, invalid regular expression) the bar shows how many problems there are, the entry shows **Fix before saving**, and saving is blocked.
 
 A backup of the previous file is kept at every save. See [backups](./startup-and-updates#backups).
+
+## Variables
+
+The [variables and secrets](./variables) of the configuration: change a value in place, see where each one is used (and open those entries), add, rename, delete, turn a variable into a secret and back. Renaming asks whether to change the name everywhere it is written, only in the places you tick, or nowhere. The page also lists the `${NAME}` written but not defined, and the built in values.
 
 ## Activity
 

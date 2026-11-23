@@ -165,8 +165,17 @@ for (const look of LOOKS) {
     await page.locator('.page').first().evaluate((e) => e.scrollTo(0, 0));
     await shot(page, look, '07-settings');
 
+    await page.getByTestId('tab-variables').click();
+    await page.getByTestId('uses-toggle-WS').click();
+    await shot(page, look, '08-variables');
+
     await page.getByTestId('tab-trays').click();
     await page.getByTestId('tray-row').first().click();
+    // the variables offered while a script is edited
+    await page.getByTestId('action-script').click();
+    await expect(page.getByTestId('action-script-vars')).toBeVisible();
+    await shot(page, look, '08b-variable-chips');
+    await page.getByTestId('action-script').blur();
     // saving reloads the configuration: wait for the toggles to show their state again
     await expect(page.getByTestId('tray-row').first()).toContainText('OFF', { timeout: 20000 });
     await shot(page, look, '01-trays');

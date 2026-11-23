@@ -210,7 +210,7 @@ function AddVariable(props: { config: Config }) {
       </Field>
       <Field label="Value">
         {secret ? (
-          <input class="input mono" type="password" autocomplete="off" value={value} placeholder="kept encrypted on this PC" onInput={(e) => setValue((e.currentTarget as HTMLInputElement).value)} onKeyDown={(e) => e.key === 'Enter' && add()} data-testid="add-variable-value" />
+          <input class="input mono" type="password" autocomplete="off" value={value} placeholder="encrypted on this PC" onInput={(e) => setValue((e.currentTarget as HTMLInputElement).value)} onKeyDown={(e) => e.key === 'Enter' && add()} data-testid="add-variable-value" />
         ) : (
           <input class="input mono" value={value} placeholder="e.g. D:\Projects" onInput={(e) => setValue((e.currentTarget as HTMLInputElement).value)} onKeyDown={(e) => e.key === 'Enter' && add()} data-testid="add-variable-value" />
         )}

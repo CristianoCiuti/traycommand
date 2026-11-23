@@ -12,7 +12,7 @@ The window lists what your configuration contains, in four sections:
 | --- | --- |
 | **Trays and menus** | Every tray with its menu entries and sub menus. |
 | **Schedules** | Every schedule, with the entry it belongs to. |
-| **Variables** | The `${NAME}` values of the configuration. |
+| **Variables** | The `${NAME}` values of the configuration, and the names of its secrets (never their values). |
 | **Settings** | Theme, default shell, launcher shortcut and the other settings. |
 
 - Tick a section to take all of it, or open it and tick single items. A tray or sub menu takes everything inside it; untick the entries you want to leave out. Ticking a menu entry alone also takes the trays and sub menus it is in, so it ends up in the same place on import.
@@ -72,7 +72,7 @@ Untick anything you do not want. The other sections work the same way:
 
 - **Shortcuts used twice**: when an imported entry has a shortcut already used here, the one here keeps it unless you choose to move it. A shortcut used by the launcher is never taken.
 - **Schedules** exported alone are added to the entry with the same id; one that is already there is not added twice. If no entry has that id, it cannot be imported.
-- **Variables**: new ones are added; a variable that exists here with another value keeps its value unless you tick it.
+- **Variables**: new ones are added; a variable that exists here with another value keeps its value unless you tick it. A **secret** comes as a name only: after the import, give it your own value on the Variables page.
 - **Settings**: the settings that differ are shown as *now → imported* and applied when ticked. **Allow administrator commands** and the **default shell** are never ticked for you, not even when you tick the whole section: tick them one by one after checking.
 
 **Import** adds everything to the configuration and saves it (a [backup](./startup-and-updates#backups) of the previous file is kept, so you can undo it from **Settings → Backups**). Icons are copied into the `icons` folder next to the configuration file; an icon with the same name but different content gets a new name. If you have unsaved changes in the editor, they are saved together with the import.

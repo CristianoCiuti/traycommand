@@ -384,7 +384,8 @@ button.hs-ti.locked:hover { background: none; }
 /* each picture casts the shadow of its own look, as the app draws its cards (src/ui/themes/<look>
    tokens: --shadow-lg); on the picture itself, so it fades with it when the look changes */
 .hs-lshots img.shot-terminal { border-color: rgb(17 36 26 / 0.25); box-shadow: 6px 6px 0 rgb(17 36 26 / 0.14); }
-.dark .hs-lshots img.shot-terminal { border-color: rgb(56 242 154 / 0.18); box-shadow: 0 0 0 1px rgb(56 242 154 / 0.08), 6px 6px 0 rgb(0 0 0 / 0.65), 0 0 28px rgb(56 242 154 / 0.1); }
+/* dark: only the phosphor glow (a hard black shadow on the dark page would read as a second frame) */
+.dark .hs-lshots img.shot-terminal { border-color: rgb(56 242 154 / 0.18); box-shadow: 0 0 0 1px rgb(56 242 154 / 0.08), 0 0 28px rgb(56 242 154 / 0.14); }
 .hs-lshots img.shot-brutal { border-color: #111; box-shadow: 8px 8px 0 #111; }
 .dark .hs-lshots img.shot-brutal { border-color: #f4ebd9; box-shadow: 8px 8px 0 #f4ebd9; }
 .hs-lshots img.shot-neon { border-color: rgb(0 121 154 / 0.35); box-shadow: 0 14px 36px rgb(11 20 51 / 0.2), 0 0 0 1px rgb(0 121 154 / 0.12); }

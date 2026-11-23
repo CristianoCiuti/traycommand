@@ -486,4 +486,6 @@ button.hs-ti.locked:hover { background: none; }
   transition: opacity 0.25s ease-out, visibility 0s 0.25s; transition-duration: 0.25s, 0s !important; transition-delay: 0s, 0.25s !important;
 }
 .hs-veil.on { opacity: 1; visibility: visible; transition: opacity 0.15s ease-in; transition-duration: 0.15s !important; transition-delay: 0s !important; }
+/* a jump into the story from outside it: the veil is up at once (arriveCut in HomeStory.vue) */
+.hs-veil.on.cut { transition: none !important; }
 .hs-wall.gliding { transition: transform 0.6s ease; transition-duration: 0.6s !important; }

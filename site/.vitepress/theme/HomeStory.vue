@@ -91,6 +91,7 @@ let drivenAt: number | null = null; // where that click sent the story (viewport
  */
 const fading = ref(false); // the veil is up for a jump
 const gliding = ref(false); // the wallpaper eases to its new place after a jump
+const cutting = ref(false); // the veil comes up at once, with no fade in (see arriveCut)
 let snapNext = false; // the next measure() lands on the scroll position without easing
 let jumpTimer: ReturnType<typeof setTimeout> | undefined;
 /*
@@ -635,8 +636,37 @@ function placeStage() {
   st.classList.toggle('past', past);
 }
 
+/*
+ * A jump into the story from outside it (the TrayCommand link from the looks or the quiet parts,
+ * the Home key): the desktop was not on screen, so there is nothing to fade out, and holding the
+ * last scene for the fade would show it for an instant before the veil covers it. Instead the veil
+ * is already up on the first frame after the jump (set in the scroll event, before the browser
+ * paints), the story lands under it, and the veil fades away onto the new scene.
+ */
+let storyOff = false; // the story section is entirely off screen
+function arriveCut() {
+  clearTimeout(jumpTimer);
+  holding = false;
+  cutting.value = true;
+  fading.value = true;
+  gliding.value = true;
+  snapNext = true;
+  lastTarget = null; // landing here is not a jump for measure() to catch
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    cutting.value = false;
+    fading.value = false;
+    jumpTimer = setTimeout(() => (gliding.value = false), 700);
+  }));
+}
 function onScroll() {
+  const wasOff = storyOff;
   placeStage();
+  if (!reduced.value && story.value) {
+    const r = story.value.getBoundingClientRect();
+    storyOff = r.bottom <= 0 || r.top >= window.innerHeight;
+    const target = clamp(-r.top / window.innerHeight, 0, TOTAL - 1e-4);
+    if (wasOff && !storyOff && lastTarget !== null && Math.abs(target - lastTarget) > JUMP) arriveCut();
+  }
   if (raf) return;
   if (!lastFrame) lastFrame = performance.now(); // the first eased frame starts from here
   raf = requestAnimationFrame(measure);
@@ -757,7 +787,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
         <ToastWin class="hs-toast-pos" :on="proxyOn" :style="fade(toastAlpha, `translateX(${(1 - toastAlpha) * 24}px)`)" />
 
         <!-- a jump: a copy of the wallpaper covers the content for an instant, under the taskbar -->
-        <div class="hs-veil" :class="{ on: fading }" aria-hidden="true"><div class="hs-wall" :class="{ gliding }" :style="wallStyle"></div></div>
+        <div class="hs-veil" :class="{ on: fading, cut: cutting }" aria-hidden="true"><div class="hs-wall" :class="{ gliding }" :style="wallStyle"></div></div>
 
         <!-- on the canvas, not inside the taskbar: the taskbar's own glass would stop its blur -->
         <div v-if="coachAlpha > 0.01" class="hs-coach" :style="{ opacity: coachAlpha, left: coachLeft, '--shape': coachShape || undefined }" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>

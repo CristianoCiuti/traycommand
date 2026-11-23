@@ -91,6 +91,7 @@ let drivenAt: number | null = null; // where that click sent the story (viewport
  */
 const fading = ref(false); // the veil is up for a jump
 const gliding = ref(false); // the wallpaper eases to its new place after a jump
+const cutting = ref(false); // the veil comes up at once, with no fade in (see arriveCut)
 let snapNext = false; // the next measure() lands on the scroll position without easing
 let jumpTimer: ReturnType<typeof setTimeout> | undefined;
 /*
@@ -309,10 +310,47 @@ const looks = [
   { id: 'brutal', name: 'Brutal', note: 'Flat colours, thick outlines, hard shadows.' },
   { id: 'neon', name: 'Neon HUD', note: 'Cyan and magenta lines on night blue.' },
 ];
+/*
+ * Pinned, the looks take one screen and the scroll picks the look: four equal stretches of the
+ * section, one per look. The picture takes the room the text leaves (beside it, or under it on a
+ * narrow screen), so this works on phones too; only when that room is too small for a readable
+ * picture, or the text alone does not fit (a phone held sideways), are the looks a plain section
+ * (looksLoose) where the icons choose.
+ * A click on an icon, when pinned, moves the scroll to the middle of that look's stretch in one
+ * go: the scroll stays in step with the look on screen, and no look in between shows up.
+ */
 const looksEl = ref<HTMLElement | null>(null);
 const look = ref(0);
+const looksLoose = ref(false);
 let lookByScroll = -1;
-function pickLook(i: number) { look.value = i; }
+const looksPinned = () => !!looksEl.value && getComputedStyle(looksEl.value.firstElementChild as Element).position === 'sticky';
+function pickLook(i: number) {
+  const el = looksEl.value;
+  look.value = i;
+  if (reduced.value || !el || !looksPinned()) return;
+  const span = el.offsetHeight - window.innerHeight;
+  const top = el.getBoundingClientRect().top + window.scrollY;
+  lookByScroll = i; // already on screen: the scroll that follows changes nothing
+  window.scrollTo({ top: Math.round(top + span * ((i + 0.5) / looks.length)), behavior: 'instant' as ScrollBehavior });
+}
+/* is there room for the pinned looks? measured with the pinned layout, see above */
+const LOOK_MIN_H = 150; // the smallest picture worth pinning for (canvas pixels)
+function fitLooks() {
+  const el = looksEl.value;
+  if (!el) return;
+  looksLoose.value = false;
+  lk.value = k.value;
+  nextTick(() => {
+    const frame = el.querySelector<HTMLElement>('.hs-lframe');
+    const text = el.querySelector<HTMLElement>('.hs-ltext');
+    const stage = el.querySelector<HTMLElement>('.hs-lstage');
+    if (!frame || !text || !stage) return;
+    const cs = getComputedStyle(stage);
+    const room = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    looksLoose.value = frame.offsetHeight < LOOK_MIN_H || text.offsetHeight > room + 1;
+    if (looksLoose.value) lk.value = 1; // a plain section is not scaled
+  });
+}
 
 /* ---------- scroll ---------- */
 /*
@@ -357,8 +395,7 @@ function measure(now = performance.now()) {
     if (userDriven.value && drivenAt !== null && Math.abs(target - drivenAt) > 0.01) { userDriven.value = false; drivenAt = null; }
   }
   placePointer();
-  const pinned = looksEl.value && getComputedStyle(looksEl.value.firstElementChild as Element).position === 'sticky';
-  if (!reduced.value && looksEl.value && pinned) { // not pinned (phones, short windows): icons only
+  if (!reduced.value && looksEl.value && looksPinned()) { // not pinned (no room, still pictures): icons only
     const r = looksEl.value.getBoundingClientRect();
     const span = r.height - vh;
     const p = span > 0 ? clamp(-r.top / span, 0, 0.9999) : 0;
@@ -370,8 +407,8 @@ function measure(now = performance.now()) {
  * Layout that depends on real sizes, in canvas pixels (screen pixels / k).
  * k: large screens scale the canvas so the desktop fills them (1 up to 1440x880).
  * Narrow screens: the windows go under the captions; --hs-captop is where the longest one ends.
- * Each window of the story gets --fit, the scale that fills the room it has: up to 1.35 under
- * the captions, up to 1.4 beside them.
+ * Each window of the story gets --fit, the scale that fills the room it has, up to 1.15 (the
+ * keys up to 1): the windows stay in proportion with the text of the site.
  */
 const STACKED = '(max-width: 639px), (max-width: 860px) and (min-height: 521px)'; // same as home.css
 function computeK() {
@@ -416,17 +453,23 @@ function fitLayout() {
   const copy = st.querySelector<HTMLElement>('.hs-copy');
   const caps = [...st.querySelectorAll<HTMLElement>('.hs-cap')];
   const tray = [st.querySelector<HTMLElement>('.hs-menu'), st.querySelector<HTMLElement>('.hs-toast-pos')];
-  if (stacked.value && copy && caps.length) {
+  if (stacked.value && copy) {
     const stTop = st.getBoundingClientRect().top;
-    // the windows live under the text of the scene on screen (the first scene's on the hero)
-    const cap = caps[clamp(seg.value - 1, 0, caps.length - 1)];
-    const capBottom = (copy.getBoundingClientRect().top - stTop) / q + cap.offsetHeight + 20;
-    canvas.style.setProperty('--hs-captop', `${Math.round(capBottom)}px`);
-    // the tray menu and the notification rise from the taskbar: shrink them to stay under the text
     const barTop = ((st.querySelector<HTMLElement>('.hs-taskbar')?.getBoundingClientRect().top ?? 0) - stTop) / q;
-    for (const el of tray) {
-      if (!el?.offsetHeight) continue;
-      el.style.setProperty('--fit', Math.min(1, (barTop - 14 - capBottom) / el.offsetHeight).toFixed(3));
+    // the windows live under the text of the scene on screen (the first scene's on the hero);
+    // the still pictures have no captions on the desktop, only the hero
+    const cap = caps.length ? caps[clamp(seg.value - 1, 0, caps.length - 1)] : null;
+    if (cap) {
+      const capBottom = (copy.getBoundingClientRect().top - stTop) / q + cap.offsetHeight + 20;
+      canvas.style.setProperty('--hs-captop', `${Math.round(capBottom)}px`);
+      // the tray menu and the notification rise from the taskbar: shrink them to stay under the text
+      for (const el of tray) {
+        if (!el?.offsetHeight) continue;
+        el.style.setProperty('--fit', Math.min(1, (barTop - 14 - capBottom) / el.offsetHeight).toFixed(3));
+      }
+    } else {
+      canvas.style.removeProperty('--hs-captop');
+      for (const el of tray) el?.style.removeProperty('--fit');
     }
     // on the first screen the hero text may leave too little room for them (small phones)
     const hero = [...st.querySelectorAll<HTMLElement>('.hs-hero > *')].filter((e) => e.offsetHeight);
@@ -447,10 +490,12 @@ function fitLayout() {
   if (!area) return;
   const aw = area.clientWidth;
   const ah = area.clientHeight;
-  // the windows grow into the room they have (a phone's width already holds them back)
-  const grow = stacked.value ? 1.35 : 1.4;
+  // the windows grow into the room they have, but only a little: their text stays about the size
+  // of the caption's beside them (larger screens scale both together with k). The keys are
+  // already drawn large.
   for (const el of [...area.children] as HTMLElement[]) {
     if (!el.offsetHeight) continue;
+    const grow = el.classList.contains('hs-keys') ? 1 : 1.15;
     el.style.setProperty('--fit', Math.min(grow, ah / el.offsetHeight, aw / el.offsetWidth).toFixed(3));
   }
   placeEditor(st, canvas, copy, caps, area, q);
@@ -512,19 +557,30 @@ function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | n
     edWidth.value = `${Math.floor(size(b))}px`;
   }
 
-  // first screen: the room ends above the tray bubble. With the editor under the text, the text
-  // has no reason to keep to a column: it takes the full width (hero-wide), so that option is
-  // measured with the wide text; beside the text, the text keeps its column.
+  // first screen: the tray bubble sits over the P, in the bottom right corner. Each room (under
+  // the text, beside it) is tried twice: across its whole width, ending above the bubble, and
+  // narrowed to stop left of the bubble, reaching down to the taskbar; the bigger picture wins.
+  // With the editor under the text, the text has no reason to keep to a column: it takes the full
+  // width (hero-wide), so that option is measured with the wide text; beside the text, the text
+  // keeps its column.
   const roomBottom = bar.offsetTop - 18 - (coachHeight || 60) - gap - slack;
+  const lowBottom = bar.offsetTop - gap - slack;
+  const bubbleLeft = parseFloat(coachLeft.value) || canvas.clientWidth;
   const heroBottomNow = () => {
     const hero = [...st.querySelectorAll<HTMLElement>('.hs-hero > *')].filter((e) => e.offsetHeight);
     return copyTop + Math.max(0, ...hero.map((e) => e.offsetTop + e.offsetHeight)) + gap;
   };
+  // a room as tall as it can be, left of the bubble (or the same room when the bubble is not under it)
+  const pick = (b: Room) => {
+    const right = Math.min(b.left + b.w, bubbleLeft - gap);
+    const low: Room = { ...b, w: right - b.left, h: lowBottom - b.top };
+    return size(low) > size(b) ? low : b;
+  };
   canvas.classList.remove('hero-wide');
-  const side: Room = { left: area.offsetLeft, top: area.offsetTop, w: area.clientWidth, h: roomBottom - area.offsetTop };
+  const side = pick({ left: area.offsetLeft, top: area.offsetTop, w: area.clientWidth, h: roomBottom - area.offsetTop });
   canvas.classList.add('hero-wide');
   const wideBottom = heroBottomNow();
-  const under: Room = { left: contentLeft, top: wideBottom, w: contentRight - contentLeft, h: roomBottom - wideBottom };
+  const under = pick({ left: contentLeft, top: wideBottom, w: contentRight - contentLeft, h: roomBottom - wideBottom });
   const h = best(under, side);
   if (h !== under) canvas.classList.remove('hero-wide');
   // the choice also goes to the template: Vue owns the canvas's class list (the jump fade sets
@@ -556,9 +612,7 @@ function placeEditor(st: HTMLElement, canvas: HTMLElement, copy: HTMLElement | n
 function relayout() {
   placeStage();
   computeK();
-  const lc = looksEl.value?.querySelector<HTMLElement>('.hs-lcanvas');
-  lk.value = lc && getComputedStyle(lc).position === 'absolute' ? k.value : 1;
-  nextTick(() => { fitLayout(); onScroll(); }); // k must be on the canvas before measuring
+  nextTick(() => { fitLayout(); fitLooks(); onScroll(); }); // k must be on the canvas before measuring
 }
 function onResize() {
   relayout();
@@ -582,8 +636,36 @@ function placeStage() {
   st.classList.toggle('past', past);
 }
 
+/*
+ * A jump into the story from outside it (the TrayCommand link from the looks or the quiet parts,
+ * the Home key): the desktop was not filling the screen, so there is nothing to fade out, and holding the
+ * last scene for the fade would show it for an instant before the veil covers it. Instead the veil
+ * is already up on the first frame after the jump (set in the scroll event, before the browser
+ * paints), the story lands under it, and the veil fades away onto the new scene.
+ */
+function arriveCut() {
+  clearTimeout(jumpTimer);
+  holding = false;
+  cutting.value = true;
+  fading.value = true;
+  gliding.value = true;
+  snapNext = true;
+  lastTarget = null; // landing here is not a jump for measure() to catch
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    cutting.value = false;
+    fading.value = false;
+    jumpTimer = setTimeout(() => (gliding.value = false), 700);
+  }));
+}
 function onScroll() {
+  // the desktop filled the screen before this scroll only while pinned; past the story (looks,
+  // quiet parts, even with the bottom of the desktop still in view) it was not
+  const wasPinned = !!stage.value?.classList.contains('pinned');
   placeStage();
+  if (!reduced.value && story.value && !wasPinned && stage.value?.classList.contains('pinned')) {
+    const target = clamp(-story.value.getBoundingClientRect().top / window.innerHeight, 0, TOTAL - 1e-4);
+    if (lastTarget !== null && Math.abs(target - lastTarget) > JUMP) arriveCut();
+  }
   if (raf) return;
   if (!lastFrame) lastFrame = performance.now(); // the first eased frame starts from here
   raf = requestAnimationFrame(measure);
@@ -704,7 +786,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
         <ToastWin class="hs-toast-pos" :on="proxyOn" :style="fade(toastAlpha, `translateX(${(1 - toastAlpha) * 24}px)`)" />
 
         <!-- a jump: a copy of the wallpaper covers the content for an instant, under the taskbar -->
-        <div class="hs-veil" :class="{ on: fading }" aria-hidden="true"><div class="hs-wall" :class="{ gliding }" :style="wallStyle"></div></div>
+        <div class="hs-veil" :class="{ on: fading, cut: cutting }" aria-hidden="true"><div class="hs-wall" :class="{ gliding }" :style="wallStyle"></div></div>
 
         <!-- on the canvas, not inside the taskbar: the taskbar's own glass would stop its blur -->
         <div v-if="coachAlpha > 0.01" class="hs-coach" :style="{ opacity: coachAlpha, left: coachLeft, '--shape': coachShape || undefined }" aria-hidden="true">Your trays live here<small>Click the P to open its menu.</small></div>
@@ -763,7 +845,7 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
     </section>
 
     <!-- ================= looks ================= -->
-    <section ref="looksEl" class="hs-looks" :data-look="looks[look].id">
+    <section ref="looksEl" class="hs-looks" :class="{ loose: looksLoose }" :data-look="looks[look].id">
       <div class="hs-lsticky">
         <div class="hs-lbg" aria-hidden="true">
           <span v-for="(l, i) in looks" :key="l.id" :class="[`bg-${l.id}`, { in: look === i }]"></span>
@@ -783,10 +865,12 @@ const fade = (a: number, extra = '') => ({ opacity: a, visibility: a > 0.01 ? ('
             <p class="hs-lnote">{{ looks[look].note }}</p>
           </div>
           <div class="hs-lshots">
-            <template v-for="(l, i) in looks" :key="l.id">
-              <img class="only-light" :class="{ in: look === i }" :src="src(`look-${l.id}`)" :alt="`TrayCommand in the ${l.name} look`" loading="lazy" />
-              <img class="only-dark" :class="{ in: look === i }" :src="srcDark(`look-${l.id}`)" :alt="`TrayCommand in the ${l.name} look, dark`" loading="lazy" />
-            </template>
+            <div class="hs-lframe">
+              <template v-for="(l, i) in looks" :key="l.id">
+                <img class="only-light" :class="{ in: look === i }" :src="src(`look-${l.id}`)" :alt="`TrayCommand in the ${l.name} look`" loading="lazy" />
+                <img class="only-dark" :class="{ in: look === i }" :src="srcDark(`look-${l.id}`)" :alt="`TrayCommand in the ${l.name} look, dark`" loading="lazy" />
+              </template>
+            </div>
           </div>
         </div>
         </div>

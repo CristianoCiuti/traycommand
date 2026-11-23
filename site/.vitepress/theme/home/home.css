@@ -333,7 +333,9 @@ button.hs-ti.locked:hover { background: none; }
   --hs-nav: calc(var(--vp-nav-height) / var(--k, 1));
 }
 .hs-lstage {
-  height: 100%; padding: var(--hs-nav) 24px 0; display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 56px; align-items: center;
+  height: 100%; box-sizing: border-box; padding: calc(var(--hs-nav) + clamp(16px, 4cqh, 36px)) 24px clamp(16px, 4cqh, 36px); display: grid;
+  /* the text column holds the four icons in one row */
+  grid-template-columns: minmax(344px, 4fr) minmax(0, 8fr); grid-template-rows: minmax(0, 1fr); gap: clamp(32px, 4cqw, 56px); align-items: center;
   max-width: clamp(1240px, calc(100cqw - 160px), 1760px); margin: 0 auto;
 }
 .hs-lbg { position: absolute; inset: 0; z-index: -1; }
@@ -373,7 +375,10 @@ button.hs-ti.locked:hover { background: none; }
 .hs-lpick button[aria-checked='true'] { background: var(--hs-panel); border-color: var(--hs-glow); color: var(--hs-text); box-shadow: inset 0 1px 0 var(--hs-edge); }
 .hs-lpick img { width: 48px; height: 48px; }
 .hs-lnote { margin: 18px 0 0; color: var(--hs-text-3); font-size: 15px; line-height: 1.5; min-height: 3em; min-height: 2lh; } /* room for exactly two lines in every look */
-.hs-lshots { position: relative; aspect-ratio: 3 / 2; justify-self: end; width: min(100%, calc((100cqh - var(--hs-nav, 64px) - 72px) * 1.5)); }
+/* the picture takes the room the text leaves: the whole cell (a size container), at 3:2, as big
+   as fits (HomeStory.vue unpins the looks when that is too small, see looksLoose) */
+.hs-lshots { align-self: stretch; container-type: size; display: flex; align-items: center; justify-content: flex-end; min-height: 0; }
+.hs-lframe { position: relative; flex: none; aspect-ratio: 3 / 2; width: min(100cqw, 100cqh * 1.5); }
 .hs-lshots img { position: absolute; inset: 0; width: 100%; border-radius: 16px; border: 1px solid var(--hs-border); box-shadow: var(--hs-shadow); opacity: 0; transition: opacity 0.45s; }
 .hs-lshots img.in { opacity: 1; }
 
@@ -424,9 +429,13 @@ button.hs-ti.locked:hover { background: none; }
   .hs-still, .hs-lstage { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .hs-frame { min-height: 380px; padding: 20px 16px 64px; }
   .hs-frame-menu { right: 16px; }
-  .hs-lstage { align-content: center; }
-  .hs-lpick { gap: 4px; }
-  .hs-lpick button { width: 72px; font-size: 12.5px; }
+  /* the looks: the text on top, the picture in the room under it */
+  .hs-lstage { grid-template-rows: auto minmax(0, 1fr); gap: 20px; padding: calc(var(--hs-nav) + 20px) 16px 20px; }
+  .hs-lshots { justify-content: center; }
+  .hs-ltext > p { font-size: 16px; margin-bottom: 18px; }
+  .hs-lnote { margin-top: 12px; }
+  .hs-lpick { gap: 4px; flex-wrap: nowrap; max-width: 400px; }
+  .hs-lpick button { flex: 1 1 0; width: auto; min-width: 0; font-size: 12.5px; } /* one row, even on the narrowest phone */
   .hs-quiet dl { grid-template-columns: 1fr; gap: 24px; }
 }
 /* the narrowest phones: the play/still switch shows its icon only and the clock only the time,
@@ -448,15 +457,14 @@ button.hs-ti.locked:hover { background: none; }
   .hs-fine { display: none; }
 }
 
-/* phones and short windows: text, picker and picture don't fit one screen, so the looks
-   are not pinned (the picture would be cut); the look is chosen with the icons */
-@media (max-width: 860px), (max-height: 700px) {
-  .hs-looks { height: auto; }
-  .hs-lsticky, .hs-reduced .hs-lsticky { position: relative; height: auto; min-height: 0; }
-  .hs-lcanvas { position: relative; width: auto; height: auto; transform: none; container-type: normal; }
-  .hs-lstage { height: auto; padding-top: 72px; padding-bottom: 48px; }
-  .hs-lshots { width: 100%; }
-}
+/* no room for a readable picture beside or under the text in one screen (looksLoose in
+   HomeStory.vue, e.g. a phone held sideways): the looks are a plain section, the icons choose */
+.hs-looks.loose { height: auto; }
+.hs-looks.loose .hs-lsticky { position: relative; height: auto; min-height: 0; }
+.hs-looks.loose .hs-lcanvas { position: relative; width: auto; height: auto; transform: none; container-type: normal; }
+.hs-looks.loose .hs-lstage { height: auto; grid-template-rows: none; padding-top: 72px; padding-bottom: 48px; }
+.hs-looks.loose .hs-lshots { container-type: normal; align-self: center; }
+.hs-looks.loose .hs-lframe { width: 100%; }
 
 /* reduced motion: nothing moves on its own */
 @media (prefers-reduced-motion: reduce) {
@@ -478,4 +486,6 @@ button.hs-ti.locked:hover { background: none; }
   transition: opacity 0.25s ease-out, visibility 0s 0.25s; transition-duration: 0.25s, 0s !important; transition-delay: 0s, 0.25s !important;
 }
 .hs-veil.on { opacity: 1; visibility: visible; transition: opacity 0.15s ease-in; transition-duration: 0.15s !important; transition-delay: 0s !important; }
+/* a jump into the story from outside it: the veil is up at once (arriveCut in HomeStory.vue) */
+.hs-veil.on.cut { transition: none !important; }
 .hs-wall.gliding { transition: transform 0.6s ease; transition-duration: 0.6s !important; }

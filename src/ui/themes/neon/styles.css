@@ -760,3 +760,25 @@ label.xfer-row { cursor: pointer; }
 .update-state[data-state='available'], .update-state[data-state='downloading'], .update-state[data-state='ready'] { color: var(--accent); }
 .update-state[data-state='downloading']::before, .update-state[data-state='available']::before { content: '◆ ' / ''; }
 .update-state[data-state='error'] { color: var(--danger); }
+
+/* ---------- variables: a HUD readout of insertable symbols ---------- */
+.var-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.var-chips {
+  display: flex; flex-wrap: wrap; gap: 5px 0; align-items: center; padding: 6px 9px;
+  background: linear-gradient(to right, var(--accent-soft), transparent 80%); box-shadow: inset 2px 0 0 var(--accent);
+}
+.var-chips .chip-btn { display: inline-flex; align-items: center; gap: 4px; }
+.var-sep { font: 600 10px/1.4 var(--mono); color: var(--accent); text-transform: uppercase; letter-spacing: 0.14em; margin: 0 7px 0 4px; text-shadow: var(--text-glow); }
+.var-sep::before { content: '[' / ''; }
+.var-sep::after { content: ']' / ''; }
+.var-warn { display: flex; flex-direction: column; gap: 4px; font: 11.5px/1.5 var(--mono); color: var(--warn); }
+.var-warn > span { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-left: 8px; box-shadow: inset 2px 0 0 var(--warn); }
+.var-warn svg { flex: none; }
+.var-table { width: 100%; border-collapse: collapse; }
+.var-table td, .var-table th { padding: 8px 10px; border-top: 1px dashed var(--border); text-align: left; vertical-align: top; }
+.var-table th { color: var(--text-3); border-top: 0; border-bottom: 1px solid var(--border-strong); padding-top: 10px; font: 600 10.5px/1.4 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; }
+.var-table td:first-child { font-family: var(--mono); color: var(--accent); white-space: nowrap; padding-top: 14px; text-shadow: var(--text-glow); }
+.var-table td:nth-child(2) { width: 100%; }
+.var-table .disclosure { white-space: nowrap; }
+.var-uses { display: flex; flex-direction: column; padding: 4px 0; max-height: 260px; overflow-y: auto; background: var(--panel-2); box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+.var-add { display: grid; grid-template-columns: 200px 1fr auto auto; gap: 12px; align-items: end; padding: 10px 12px; background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--border), inset 2px 0 0 var(--accent); }

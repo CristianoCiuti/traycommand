@@ -90,10 +90,26 @@ export function EntryIcon(props: { path?: string; size?: number; fallback?: Comp
   return <img src={src} width={props.size ?? 20} height={props.size ?? 20} alt="" />;
 }
 
-export function TextArea(props: { value: string; onInput: (v: string) => void; rows?: number; placeholder?: string; invalid?: boolean; code?: boolean; testId?: string; autoFocus?: boolean; inputRef?: Ref<HTMLTextAreaElement> }) {
+export function TextArea(props: {
+  value: string;
+  onInput: (v: string) => void;
+  rows?: number;
+  placeholder?: string;
+  invalid?: boolean;
+  code?: boolean;
+  testId?: string;
+  autoFocus?: boolean;
+  inputRef?: Ref<HTMLTextAreaElement>;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  ariaLabel?: string;
+}) {
   return (
     <textarea
       ref={props.inputRef}
+      onFocus={props.onFocus}
+      onBlur={props.onBlur}
+      aria-label={props.ariaLabel}
       class={`textarea${props.invalid ? ' invalid' : ''}${props.code ? ' code' : ''}`}
       rows={props.rows ?? Math.min(12, Math.max(2, props.value.split('\n').length + 1))}
       value={props.value}

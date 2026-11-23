@@ -2,7 +2,8 @@ import { useState } from 'preact/hooks';
 import { CirclePlay } from 'lucide-preact';
 import type { State } from '../../shared/config';
 import type { TestResult } from '../../shared/api';
-import { Field, TextArea } from '../components/ui';
+import { Field } from '../components/ui';
+import { VarField } from '../components/VarField';
 import { ShellSelect, TestOutput } from './ActionEditor';
 import { IconPicker } from './IconPicker';
 
@@ -39,7 +40,7 @@ export function StateEditor(props: { value: State; onChange: (s: State) => void 
   return (
     <div class="card-body">
       <Field label="Check script" hint="Exit code ≠ 0 means OFF. Without patterns, exit code 0 means ON.">
-        <TextArea code value={s.check} onInput={(check) => change({ check })} placeholder="e.g. Get-Process nginx -ErrorAction SilentlyContinue" testId="state-check" />
+        <VarField multiline code value={s.check} onInput={(check) => change({ check })} placeholder="e.g. Get-Process nginx -ErrorAction SilentlyContinue" testId="state-check" />
       </Field>
       <div class="grid2">
         <Field label="ON when output matches" hint="Regular expression (optional)">
@@ -68,10 +69,10 @@ export function StateEditor(props: { value: State; onChange: (s: State) => void 
       </div>
       <div class="grid2">
         <Field label="Notify when it turns ON" hint="Empty = no notification">
-          <input class="input" value={notifyValue(s.notify?.on)} placeholder="(none)" onInput={(e) => change({ notify: { ...s.notify, on: parseNotify((e.currentTarget as HTMLInputElement).value) } })} />
+          <VarField value={notifyValue(s.notify?.on)} placeholder="(none)" onInput={(v) => change({ notify: { ...s.notify, on: parseNotify(v) } })} testId="state-notify-on" />
         </Field>
         <Field label="Notify when it turns OFF">
-          <input class="input" value={notifyValue(s.notify?.off)} placeholder="(none)" onInput={(e) => change({ notify: { ...s.notify, off: parseNotify((e.currentTarget as HTMLInputElement).value) } })} />
+          <VarField value={notifyValue(s.notify?.off)} placeholder="(none)" onInput={(v) => change({ notify: { ...s.notify, off: parseNotify(v) } })} testId="state-notify-off" />
         </Field>
       </div>
     </div>

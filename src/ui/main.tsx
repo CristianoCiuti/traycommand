@@ -1,7 +1,7 @@
 import { render } from 'preact';
 import { effect } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
-import { Activity, Braces, Loader2, Settings as SettingsIcon, SquareTerminal, CircleAlert, Sparkles } from 'lucide-preact';
+import { Activity, Braces, Loader2, Settings as SettingsIcon, SquareTerminal, CircleAlert, Sparkles, Variable } from 'lucide-preact';
 import { applyStyle, chromeColors } from './themes/apply';
 import { EDITOR_CSS } from './themes/editor';
 import { activeStyle, api, bootStyle, dirty, discard, draft, info, init, loadIssues, navigate, route, save, showToast, skills, skillsSnoozed, toast, validation } from './store';
@@ -9,11 +9,13 @@ import { TraysView } from './views/TraysView';
 import { SettingsView } from './views/SettingsView';
 import { LogsView } from './views/LogsView';
 import { JsonView } from './views/JsonView';
+import { VariablesView } from './views/VariablesView';
 import { WelcomeView } from './views/WelcomeView';
 import { TransferDialog, startImport } from './views/TransferDialogs';
 
 const TABS = [
   { route: '/', label: 'Trays', icon: SquareTerminal },
+  { route: '/variables', label: 'Variables', icon: Variable },
   { route: '/logs', label: 'Activity', icon: Activity },
   { route: '/settings', label: 'Settings', icon: SettingsIcon },
   { route: '/json', label: 'JSON', icon: Braces },
@@ -116,7 +118,7 @@ function App() {
   }
 
   const r = route.value;
-  const current = r.startsWith('/settings') ? '/settings' : r.startsWith('/logs') ? '/logs' : r.startsWith('/json') ? '/json' : r.startsWith('/welcome') ? '/welcome' : '/';
+  const current = r.startsWith('/settings') ? '/settings' : r.startsWith('/variables') ? '/variables' : r.startsWith('/logs') ? '/logs' : r.startsWith('/json') ? '/json' : r.startsWith('/welcome') ? '/welcome' : '/';
   const broken = !draft.value || loadIssues.value.length > 0;
 
   return (
@@ -138,7 +140,7 @@ function App() {
       </header>
       <div class="content">
         <div>{current !== '/welcome' && <SkillBanner />}</div>
-        {current === '/welcome' ? <WelcomeView /> : current === '/json' || (broken && current !== '/logs') ? <JsonView /> : current === '/settings' ? <SettingsView /> : current === '/logs' ? <LogsView /> : <TraysView />}
+        {current === '/welcome' ? <WelcomeView /> : current === '/json' || (broken && current !== '/logs') ? <JsonView /> : current === '/settings' ? <SettingsView /> : current === '/variables' ? <VariablesView /> : current === '/logs' ? <LogsView /> : <TraysView />}
       </div>
       <SaveBar />
       <TransferDialog />

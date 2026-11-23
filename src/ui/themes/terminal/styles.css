@@ -649,3 +649,24 @@ label.xfer-row { cursor: pointer; }
 .update-state[data-state='downloading']::before, .update-state[data-state='available']::before { content: '>> ' / ''; }
 .update-state[data-state='error'] { color: var(--danger); font-weight: 700; }
 .update-state[data-state='error']::before { content: 'ERR! ' / ''; }
+
+/* ---------- variables: an inline completion strip, a symbol table ---------- */
+.var-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.var-chips { display: flex; flex-wrap: wrap; gap: 4px 0; align-items: center; padding: 5px 8px; border: 1px dashed var(--border-strong); border-left: 2px solid var(--accent); background: var(--bg); }
+.var-chips::before { content: '>' / ''; color: var(--accent); font-family: var(--mono); font-weight: 700; margin-right: 8px; }
+.var-chips .chip-btn { display: inline-flex; align-items: center; gap: 4px; }
+.var-sep { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.1em; margin: 0 6px 0 4px; }
+.var-sep::after { content: ':' / ''; }
+.var-warn { display: flex; flex-direction: column; gap: 3px; font-family: var(--mono); font-size: 11.5px; color: var(--warn); }
+.var-warn > span { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.var-warn > span::before { content: 'WARN' / ''; font-weight: 700; }
+.var-warn svg { display: none; }
+.var-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.var-table td, .var-table th { padding: 7px 10px; border-top: 1px dashed var(--border); text-align: left; vertical-align: top; }
+.var-table th { font-size: 11px; color: var(--text-3); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; border-top: 0; border-bottom: 1px solid var(--border-strong); }
+.var-table th:first-child::before { content: '// ' / ''; color: var(--accent); letter-spacing: 0; }
+.var-table td:first-child { font-family: var(--mono); font-weight: 700; color: var(--accent); white-space: nowrap; padding-top: 13px; text-shadow: var(--glow-soft); }
+.var-table td:nth-child(2) { width: 100%; }
+.var-table .disclosure { white-space: nowrap; }
+.var-uses { display: flex; flex-direction: column; border: 1px solid var(--border); border-left: 2px solid var(--accent); background: var(--bg); padding: 4px 0; max-height: 260px; overflow-y: auto; }
+.var-add { display: grid; grid-template-columns: 200px 1fr auto auto; gap: 12px; align-items: end; padding: 10px 12px; border: 1px dashed var(--border-strong); background: var(--bg); }

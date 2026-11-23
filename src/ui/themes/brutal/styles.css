@@ -619,3 +619,26 @@ label.xfer-row { cursor: pointer; }
   border: var(--bw-sm) solid var(--ink); border-radius: 999px; box-shadow: 0 2px 0 var(--ink);
 }
 .update-state[data-state='error'] { color: var(--danger); }
+
+/* ---------- variables: a sticker strip of chips, a bold table ---------- */
+.var-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.var-chips {
+  display: flex; flex-wrap: wrap; gap: 6px 0; align-items: center; padding: 8px 10px;
+  border: var(--bw) solid var(--ink); border-radius: var(--radius); background: var(--panel-2); box-shadow: var(--shadow-sm);
+}
+.var-chips .chip-btn { display: inline-flex; align-items: center; gap: 4px; }
+.var-sep { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--on-color); background: var(--yellow); border: var(--bw-sm) solid var(--ink); border-radius: 4px; padding: 0 5px; margin: 0 7px 0 3px; }
+.var-sep:first-child { margin-left: 0; }
+.var-warn { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; }
+.var-warn > span { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--on-color); background: var(--orange); border: var(--bw-sm) solid var(--ink); border-radius: 8px; padding: 3px 8px; }
+.var-warn svg { flex: none; stroke-width: 2.6; }
+.var-warn .btn { min-height: 22px; }
+.var-table { width: 100%; border-collapse: collapse; }
+.var-table td, .var-table th { padding: 9px 12px; border-top: var(--bw-sm) dashed var(--line); text-align: left; vertical-align: top; }
+.var-table th { font-size: 11px; color: var(--text); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border-top: 0; border-bottom: var(--bw-lg) solid var(--ink); background: var(--panel-2); }
+.var-table thead + tbody tr:first-child td { border-top: 0; }
+.var-table td:first-child { font-family: var(--mono); font-weight: 700; white-space: nowrap; padding-top: 15px; }
+.var-table td:nth-child(2) { width: 100%; }
+.var-table .disclosure { white-space: nowrap; }
+.var-uses { display: flex; flex-direction: column; border: var(--bw) solid var(--ink); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-sm); padding: 6px 4px; max-height: 260px; overflow-y: auto; }
+.var-add { display: grid; grid-template-columns: 200px 1fr auto auto; gap: 12px; align-items: end; padding: 12px; border: var(--bw) dashed var(--ink); border-radius: var(--radius); background: var(--panel-2); }

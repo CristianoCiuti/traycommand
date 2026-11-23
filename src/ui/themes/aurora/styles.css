@@ -686,3 +686,33 @@ label.xfer-row { cursor: pointer; }
 .update-state { font-variant-numeric: tabular-nums; }
 .update-state[data-state='available'], .update-state[data-state='downloading'], .update-state[data-state='ready'] { color: var(--accent); font-weight: 600; }
 .update-state[data-state='error'] { color: var(--danger); font-weight: 600; }
+
+/* ---------- variables: chips under the text being edited, the Variables page ---------- */
+.var-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.var-chips {
+  display: flex; flex-wrap: wrap; gap: 5px 0; align-items: center; padding: 7px 9px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--glass-sheen), var(--panel-2);
+  box-shadow: inset 0 1px 0 var(--edge); animation: var-in 0.14s ease-out;
+}
+.var-chips .chip-btn { display: inline-flex; align-items: center; gap: 4px; }
+.var-sep { font: 650 10.5px/1.4 var(--font); color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 6px 0 4px; }
+.var-sep:first-child { margin-left: 0; }
+@keyframes var-in { from { opacity: 0; transform: translateY(-3px); } }
+.var-warn { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--warn); }
+.var-warn > span { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.var-warn svg { flex: none; }
+.var-warn .btn { color: var(--accent); }
+.var-table { width: 100%; border-collapse: collapse; }
+.var-table td, .var-table th { padding: 8px 10px; border-top: 1px solid var(--border); text-align: left; vertical-align: top; }
+.var-table th { font: 650 11px/1.4 var(--font); color: var(--text-3); border-top: 0; text-transform: uppercase; letter-spacing: 0.08em; }
+.var-table td:first-child { font-family: var(--mono); font-size: 12.5px; color: var(--accent); white-space: nowrap; padding-top: 14px; }
+.var-table td:nth-child(2) { width: 100%; }
+.var-table .disclosure { white-space: nowrap; }
+.var-uses {
+  display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--glass-sheen), var(--panel-2); box-shadow: inset 0 1px 0 var(--edge); padding: 4px 0; max-height: 260px; overflow-y: auto;
+}
+.var-add {
+  display: grid; grid-template-columns: 200px 1fr auto auto; gap: 12px; align-items: end; padding: 12px;
+  border: 1px dashed var(--border-strong); border-radius: var(--radius); background: var(--glass-sheen), var(--panel-2);
+}

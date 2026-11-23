@@ -23,7 +23,7 @@ export function LogsView() {
       <div class="page-inner">
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <h1 data-hud="SYS // 02 · ACTIVITY LOG">Activity</h1>
+            <h1 data-hud="SYS // 03 · ACTIVITY LOG">Activity</h1>
             <p class="lead">Every action run from the tray or the editor. State checks are not listed.</p>
           </div>
           <select class="select" style={{ width: 160 }} value={filter} onChange={(e) => setFilter((e.currentTarget as HTMLSelectElement).value as 'all' | 'errors')}>

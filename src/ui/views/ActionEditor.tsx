@@ -5,6 +5,7 @@ import type { TestResult } from '../../shared/api';
 import { allIds, api, draft } from '../store';
 import { Field, Switch, TextArea, formatDuration } from '../components/ui';
 import { InputsEditor } from './InputsEditor';
+import { VarField, type VarScope } from '../components/VarField';
 
 export function toAction(input: ActionInput | undefined): Action | undefined {
   if (input === undefined) return undefined;
@@ -125,7 +126,7 @@ function RefList(props: { title: string; hint: string; refs: string[] | undefine
   );
 }
 
-export function ActionEditor(props: { value: ActionInput | undefined; onChange: (v: ActionInput | undefined) => void; placeholder?: string; testId?: string }) {
+export function ActionEditor(props: { value: ActionInput | undefined; onChange: (v: ActionInput | undefined) => void; placeholder?: string; testId?: string; scope?: VarScope }) {
   const action = toAction(props.value) ?? { run: '' };
   const [open, setOpen] = useState(() => Object.keys(action).some((k) => k !== 'run'));
   const [result, setResult] = useState<TestResult>();
@@ -162,12 +163,14 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
     }
   };
 
+  const scope: VarScope = { inputs: [...(action.inputs ?? []).map((i) => i.name), ...(props.scope?.inputs ?? [])], files: props.scope?.files };
+  const tid = (s: string) => (props.testId ? `${props.testId}-${s}` : undefined);
   const advancedCount = ['shell', 'cwd', 'env', 'timeout', 'notify', 'confirm', 'terminal', 'admin', 'before', 'parallel', 'after'].filter((k) => (action as Record<string, unknown>)[k] !== undefined).length;
 
   return (
     <div class="card-body" data-testid={props.testId}>
       <Field label="Script">
-        <TextArea value={action.run} code placeholder={props.placeholder ?? 'e.g. Start-Process notepad'} onInput={(run) => change({ run })} testId={props.testId ? `${props.testId}-script` : undefined} inputRef={scriptRef} />
+        <VarField multiline code value={action.run} scope={scope} placeholder={props.placeholder ?? 'e.g. Start-Process notepad'} onInput={(run) => change({ run })} testId={tid('script')} inputRef={scriptRef} />
       </Field>
       <InputsEditor value={action.inputs} onChange={(inputs) => change({ inputs })} script={action.run} onInsert={insert} testId={props.testId ? `${props.testId}-inputs` : undefined} />
       <div class="row" style={{ alignItems: 'center' }}>
@@ -192,7 +195,7 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
               <ShellSelect value={action.shell} onChange={(shell) => change({ shell })} />
             </Field>
             <Field label="Working folder" hint="Relative to the config file">
-              <input class="input" value={action.cwd ?? ''} placeholder="(config folder)" onInput={(e) => change({ cwd: (e.currentTarget as HTMLInputElement).value || undefined })} />
+              <VarField value={action.cwd ?? ''} scope={scope} placeholder="(config folder)" onInput={(cwd) => change({ cwd: cwd || undefined })} testId={tid('cwd')} />
             </Field>
             <Field label="Timeout (seconds)">
               <input class="input" type="number" min={1} value={action.timeout ?? ''} placeholder="none" onInput={(e) => change({ timeout: Number((e.currentTarget as HTMLInputElement).value) || undefined })} />
@@ -225,23 +228,26 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
             </Field>
             {typeof action.notify === 'string' ? (
               <Field label="Notification text">
-                <input class="input" value={action.notify} onInput={(e) => change({ notify: (e.currentTarget as HTMLInputElement).value })} />
+                <VarField value={action.notify} scope={scope} onInput={(notify) => change({ notify })} testId={tid('notify')} />
               </Field>
             ) : (
               <div />
             )}
           </div>
           <Field label="Ask for confirmation" hint="Leave empty to run immediately">
-            <input class="input" value={action.confirm ?? ''} placeholder="e.g. Reset the database?" onInput={(e) => change({ confirm: (e.currentTarget as HTMLInputElement).value || undefined })} />
+            <VarField value={action.confirm ?? ''} scope={scope} placeholder="e.g. Reset the database?" onInput={(confirm) => change({ confirm: confirm || undefined })} testId={tid('confirm')} />
           </Field>
           <div class="grid2">
             <Switch checked={!!action.terminal} onChange={(v) => change({ terminal: v || undefined })} label="Run in a visible terminal" hint="The window stays open after the script ends" />
             <Switch checked={!!action.admin} onChange={(v) => change({ admin: v || undefined })} label="Run as administrator" hint="UAC prompt on every run; enable it in Settings first" />
           </div>
-          <Field label="Environment variables" hint="One per line: NAME=value">
-            <TextArea
+          <Field label="Environment variables" hint="One per line: NAME=value. The safest way to give a secret to a script: TOKEN=${TOKEN}, then $env:TOKEN in the script">
+            <VarField
+              multiline
               code
               rows={2}
+              scope={scope}
+              testId={tid('env')}
               value={Object.entries(action.env ?? {})
                 .map(([k, v]) => `${k}=${v}`)
                 .join('\n')}

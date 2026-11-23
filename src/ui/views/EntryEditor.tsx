@@ -7,6 +7,7 @@ import { SchedulesEditor } from './SchedulesEditor';
 import { scheduleCardText } from '../../shared/scheduleForm';
 import { schedulesPaused } from '../store';
 import { Card, Field, Switch } from '../components/ui';
+import { VarField } from '../components/VarField';
 import { ActionEditor, AddActionButton } from './ActionEditor';
 import { StateEditor } from './StateEditor';
 import { MenuEditor } from './MenuEditor';
@@ -53,10 +54,10 @@ function HotkeyConfirmEditor(props: { entry: AnyEntry; setKey: <K extends keyof 
       {c && (
         <div class="grid2">
           <Field label="Question" hint="${VARIABLES} allowed">
-            <input class="input" value={custom.text ?? ''} placeholder={`${entry.state ? 'Turn on/off' : 'Run'} “${entry.label}”?`} onInput={(e) => change({ text: (e.currentTarget as HTMLInputElement).value })} data-testid="hotkey-confirm-text" />
+            <VarField value={custom.text ?? ''} placeholder={`${entry.state ? 'Turn on/off' : 'Run'} “${entry.label}”?`} onInput={(text) => change({ text })} testId="hotkey-confirm-text" />
           </Field>
           <Field label="Confirm button">
-            <input class="input" value={custom.button ?? ''} placeholder={entry.state ? 'Turn on / Turn off' : 'Run'} onInput={(e) => change({ button: (e.currentTarget as HTMLInputElement).value })} data-testid="hotkey-confirm-button" />
+            <VarField value={custom.button ?? ''} placeholder={entry.state ? 'Turn on / Turn off' : 'Run'} onInput={(button) => change({ button })} testId="hotkey-confirm-button" />
           </Field>
         </div>
       )}
@@ -105,6 +106,8 @@ export function EntryEditor(props: { path: number[] }) {
   };
 
   const otherIds = allIds(draft.value).filter((x) => x.id !== entry.id);
+  // runs started by a folder watch get the file: its values can be used in the actions
+  const scope = { files: (entry.schedules ?? []).some((s) => s.watch !== undefined) };
 
   return (
     <div class="editor-inner" data-testid="entry-editor">
@@ -112,7 +115,7 @@ export function EntryEditor(props: { path: number[] }) {
       <div class="entry-head">
         <IconPicker large value={entry.icon} onChange={(v) => setKey('icon', v)} />
         <div>
-          <input class="title-input" value={entry.label} placeholder={isTray ? 'Tray name' : 'Menu item name'} onInput={(e) => setKey('label', (e.currentTarget as HTMLInputElement).value as never)} data-testid="entry-label" />
+          <VarField class="title-input" value={entry.label} placeholder={isTray ? 'Tray name' : 'Menu item name'} onInput={(label) => setKey('label', label as never)} testId="entry-label" />
           <div class="id-line">
             id
             <input
@@ -161,7 +164,7 @@ export function EntryEditor(props: { path: number[] }) {
         actions={entry.action !== undefined ? <button class="btn sm ghost" onClick={() => setKey('action', undefined)}>Remove</button> : <AddActionButton label="Add action" onClick={() => setKey('action', { run: '' } as never)} testId="add-action" />}
         testId="card-click"
       >
-        {entry.action !== undefined && <ActionEditor value={entry.action} onChange={(v) => setKey('action', v as never)} testId="action" />}
+        {entry.action !== undefined && <ActionEditor value={entry.action} onChange={(v) => setKey('action', v as never)} testId="action" scope={scope} />}
       </Card>
 
       <Card
@@ -181,7 +184,7 @@ export function EntryEditor(props: { path: number[] }) {
           desc="Runs on click while ON"
           actions={entry.offAction !== undefined ? <button class="btn sm ghost" onClick={() => setKey('offAction', undefined)}>Remove</button> : <AddActionButton label="Add turn-off action" onClick={() => setKey('offAction', { run: '' } as never)} testId="add-off-action" />}
         >
-          {entry.offAction !== undefined && <ActionEditor value={entry.offAction} onChange={(v) => setKey('offAction', v as never)} testId="off-action" />}
+          {entry.offAction !== undefined && <ActionEditor value={entry.offAction} onChange={(v) => setKey('offAction', v as never)} testId="off-action" scope={scope} />}
         </Card>
       )}
 
@@ -192,7 +195,7 @@ export function EntryEditor(props: { path: number[] }) {
           desc="Without an action, right click opens the menu"
           actions={tray.rightAction !== undefined ? <button class="btn sm ghost" onClick={() => setKey('rightAction', undefined)}>Remove</button> : <AddActionButton label="Add action" onClick={() => setKey('rightAction', { run: '' } as never)} />}
         >
-          {tray.rightAction !== undefined && <ActionEditor value={tray.rightAction} onChange={(v) => setKey('rightAction', v as never)} />}
+          {tray.rightAction !== undefined && <ActionEditor value={tray.rightAction} onChange={(v) => setKey('rightAction', v as never)} testId="right-action" scope={scope} />}
         </Card>
       )}
 

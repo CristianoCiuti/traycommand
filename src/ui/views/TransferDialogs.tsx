@@ -117,13 +117,13 @@ function ExportDialog(props: { config: Config }) {
   const opener = (s: Section) => (o: boolean) => setOpen({ ...open, [s]: o });
   const settingKeys = Object.keys(SETTING_LABELS) as (keyof Settings)[];
   const selectedOf = (s: Section) => (s === 'entries' ? flat.filter((f) => sel.entries.has(f.key)).length : sel[s].size);
-  const totalOf = (s: Section) => (s === 'entries' ? flat.length : s === 'schedules' ? schedules.length : s === 'variables' ? Object.keys(config.variables).length : settingKeys.length);
+  const totalOf = (s: Section) => (s === 'entries' ? flat.length : s === 'schedules' ? schedules.length : s === 'variables' ? Object.keys(config.variables).length + (config.secrets?.length ?? 0) : settingKeys.length);
   const countText = (s: Section) => `${selectedOf(s)} of ${totalOf(s)}`;
 
   const parts = [
     built.pack.trays.length && plural(built.pack.trays.length, 'tray'),
     built.pack.schedules.length && plural(built.pack.schedules.length, 'schedule'),
-    Object.keys(built.pack.variables).length && plural(Object.keys(built.pack.variables).length, 'variable'),
+    Object.keys(built.pack.variables).length + (built.pack.secrets?.length ?? 0) && plural(Object.keys(built.pack.variables).length + (built.pack.secrets?.length ?? 0), 'variable'),
     Object.keys(built.pack.settings).length && plural(Object.keys(built.pack.settings).length, 'setting'),
     built.icons.length && plural(built.icons.length, 'icon'),
   ].filter(Boolean);
@@ -221,7 +221,15 @@ function ExportDialog(props: { config: Config }) {
               <span class="xfer-meta mono">{v}</span>
             </label>
           ))}
-          {!Object.keys(config.variables).length && <div class="xfer-empty">No variables</div>}
+          {(config.secrets ?? []).map((k) => (
+            <label class="xfer-row" data-testid="export-variable" data-secret="true">
+              <TriCheck state={sel.variables.has(k)} onChange={(on) => setSel(toggleKey(sel, 'variables', k, on))} label={k} />
+              <span class="xfer-label mono">{`\${${k}}`}</span>
+              <span class="pill muted">secret</span>
+              <span class="xfer-meta">only the name: the value never leaves this PC</span>
+            </label>
+          ))}
+          {!Object.keys(config.variables).length && !config.secrets?.length && <div class="xfer-empty">No variables</div>}
         </Section>
 
         <Section title="Settings" testId="export-settings" count={countText('settings')} state={sectionCheck(config, sel, 'settings')} onToggle={toggle('settings')} open={open.settings} setOpen={opener('settings')}>
@@ -480,7 +488,11 @@ function ImportDialog(props: { opened: Opened; config: Config }) {
                 <TriCheck state={v.checked} disabled={v.status === 'same'} onChange={(on) => setChoices({ ...choices, variables: { ...choices.variables, [v.name]: on } })} label={v.name} />
                 <span class="xfer-label mono">{`\${${v.name}}`}</span>
                 {v.status === 'new' ? <span class="pill on">new</span> : v.status === 'same' ? <span class="pill muted">already here</span> : <span class="pill warn">different here</span>}
-                <span class="xfer-meta mono">{v.status === 'different' ? `${valueText(v.current)} → ${valueText(v.value)}` : valueText(v.value)}</span>
+                {v.secret ? (
+                  <span class="xfer-meta">secret: give it a value of yours in Variables</span>
+                ) : (
+                  <span class="xfer-meta mono">{v.status === 'different' ? `${valueText(v.current)} → ${valueText(v.value)}` : valueText(v.value)}</span>
+                )}
               </div>
             ))}
           </Section>

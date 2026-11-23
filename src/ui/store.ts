@@ -1,5 +1,5 @@
 import { computed, signal } from '@preact/signals';
-import type { AppInfo, EntryStatus, ExecutionLog, HotkeyStatus, OpenImportResult, SkillsInfo, UpdateInfo } from '../shared/api';
+import type { AppInfo, EntryStatus, ExecutionLog, HotkeyStatus, OpenImportResult, SecretChange, SecretsInfo, SkillsInfo, UpdateInfo } from '../shared/api';
 import { type Config, type MenuEntry, type MenuNode, type Tray, isSeparator, parseConfig, type ConfigIssue, type Style, STYLES } from '../shared/config';
 
 export const api = window.traycommand;
@@ -24,6 +24,10 @@ export const schedulesPaused = signal(false);
 /** The export or import window, when open. */
 export const transfer = signal<{ mode: 'export' } | { mode: 'import'; opened: Extract<OpenImportResult, { ok: true }> } | undefined>(undefined);
 export const toast = signal<{ text: string; kind: 'ok' | 'error' } | undefined>(undefined);
+/** Which secrets have a value on this PC (as saved). */
+export const secretsInfo = signal<SecretsInfo>({ available: true, set: [] });
+/** Changes to the values of the secrets, saved together with the configuration. */
+export const secretOps = signal<SecretChange[]>([]);
 
 /** JSON with sorted keys, so that key order does not count as a change. */
 export function stableStringify(value: unknown): string {
@@ -39,7 +43,7 @@ export const bootStyle: Style = (STYLES as readonly string[]).includes(requested
 /** Look shown by the editor: the one being chosen in the settings (not saved yet) or the saved one. */
 export const activeStyle = computed<Style>(() => draft.value?.settings.style ?? info.value?.style ?? bootStyle);
 
-export const dirty = computed(() => stableStringify(saved.value) !== stableStringify(draft.value));
+export const dirty = computed(() => stableStringify(saved.value) !== stableStringify(draft.value) || secretOps.value.length > 0);
 export const validation = computed(() => (draft.value ? parseConfig(draft.value) : undefined));
 
 /** "trays[1].menu[0]" → [1, 0] */
@@ -106,6 +110,7 @@ export async function init() {
   skills.value = await api.skills();
   hotkeyStatus.value = await api.hotkeys();
   schedulesPaused.value = await api.schedulesPaused();
+  secretsInfo.value = await api.secrets();
   if (route.value.startsWith('/entry/')) navigate(route.value);
   if (draft.value?.trays.length && selection.value.length === 0) selection.value = [0];
 }
@@ -113,11 +118,14 @@ export async function init() {
 export async function save(): Promise<boolean> {
   const config = draft.value;
   if (!config) return false;
-  const result = await api.saveConfig(config);
+  const ops = secretOps.peek();
+  const result = await api.saveConfig(config, ops);
   if (!result.ok) {
     showToast(`Not saved: ${result.issues?.[0]?.path} ${result.issues?.[0]?.message}`, 'error');
     return false;
   }
+  if (ops.length) secretsInfo.value = await api.secrets();
+  secretOps.value = [];
   saved.value = structuredClone(config);
   showToast('Saved');
   return true;
@@ -125,6 +133,44 @@ export async function save(): Promise<boolean> {
 
 export function discard() {
   draft.value = saved.value ? structuredClone(saved.value) : undefined;
+  secretOps.value = [];
+}
+
+/* ---------- secrets ---------- */
+
+export interface SecretState {
+  /** It has a value (saved, or typed and not saved yet). */
+  set: boolean;
+  /** The value typed and not saved yet. */
+  pending?: string;
+  /** Its saved name, when its saved value is still the one it has. */
+  origin?: string;
+}
+
+/** The secrets as they will be after Save: the saved values with the changes not saved yet. */
+export function secretStates(info: SecretsInfo = secretsInfo.value, ops: SecretChange[] = secretOps.value): Map<string, SecretState> {
+  const states = new Map<string, SecretState>(info.set.map((name) => [name, { set: true, origin: name }]));
+  for (const op of ops) {
+    if (op.op === 'set') states.set(op.name, { set: true, pending: op.value });
+    else if (op.op === 'delete') states.delete(op.name);
+    else {
+      const from = states.get(op.from);
+      states.delete(op.from);
+      if (from) states.set(op.to, from);
+    }
+  }
+  return states;
+}
+
+export function changeSecrets(...ops: SecretChange[]) {
+  secretOps.value = [...secretOps.value, ...ops];
+}
+
+/** The value of a secret, typed or saved. */
+export async function secretValue(name: string): Promise<string | undefined> {
+  const s = secretStates().get(name);
+  if (!s) return undefined;
+  return s.pending ?? (s.origin ? api.revealSecret(s.origin) : undefined);
 }
 
 /* ---------- tree helpers ---------- */

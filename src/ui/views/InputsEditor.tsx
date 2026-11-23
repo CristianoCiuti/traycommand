@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-preact';
 import type { Input } from '../../shared/config';
 import { Field, Switch, TextArea } from '../components/ui';
+import { VarField } from '../components/VarField';
 
 const TYPES: { value: NonNullable<Input['type']>; label: string }[] = [
   { value: 'text', label: 'Text' },
@@ -53,7 +54,7 @@ export function InputsEditor(props: { value: Input[] | undefined; onChange: (v: 
                 onInput={(e) => update(i, { name: (e.currentTarget as HTMLInputElement).value.replace(/[^A-Za-z0-9_]/g, '_') })}
                 data-testid={`input-name-${i}`}
               />
-              <input class="input" value={input.label ?? ''} placeholder={`Label (default: ${input.name})`} aria-label="Label" onInput={(e) => update(i, { label: (e.currentTarget as HTMLInputElement).value || undefined })} />
+              <VarField value={input.label ?? ''} placeholder={`Label (default: ${input.name})`} ariaLabel="Label" onInput={(label) => update(i, { label: label || undefined })} style={{ flex: 1, minWidth: 0 }} />
               <select class="select type" value={type} aria-label="Type" onChange={(e) => update(i, { type: ((e.currentTarget as HTMLSelectElement).value as Input['type']) === 'text' ? undefined : ((e.currentTarget as HTMLSelectElement).value as Input['type']) })} data-testid={`input-type-${i}`}>
                 {TYPES.map((t) => (
                   <option value={t.value}>{t.label}</option>
@@ -121,7 +122,7 @@ export function InputsEditor(props: { value: Input[] | undefined; onChange: (v: 
                   />
                 </Field>
                 <Field label="…or choices from a script" hint="Each output line is a choice, e.g. git branch --format=%(refname:short)">
-                  <TextArea code rows={3} value={input.optionsCommand ?? ''} placeholder="(none)" onInput={(v) => update(i, { optionsCommand: v || undefined })} />
+                  <VarField multiline code rows={3} value={input.optionsCommand ?? ''} placeholder="(none)" onInput={(v) => update(i, { optionsCommand: v || undefined })} />
                 </Field>
               </div>
             )}

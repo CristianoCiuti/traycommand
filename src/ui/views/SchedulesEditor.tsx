@@ -41,7 +41,8 @@ import {
   type ScheduleMode,
 } from '../../shared/scheduleForm';
 import { api } from '../store';
-import { Field, Switch, TextArea } from '../components/ui';
+import { Field, Switch } from '../components/ui';
+import { VarField, type VarScope } from '../components/VarField';
 
 const DAYS = [
   { n: 1, s: 'Mon' },
@@ -159,14 +160,15 @@ function WatchEditor(props: { w: Watch; onChange: (w: Watch) => void; i: number 
       <div class="grid2">
         <Field label="Folder">
           <span class="inline" style={{ display: 'flex', gap: 6 }}>
-            <input
-              class={`input mono${!w.path.trim() ? ' invalid' : ''}`}
-              style={{ flex: 1 }}
+            <VarField
+              mono
+              invalid={!w.path.trim()}
+              style={{ flex: 1, minWidth: 0 }}
               value={w.path}
-              placeholder="C:\Users\me\Downloads or ${HOME}/inbox"
-              onInput={(e) => set({ path: (e.currentTarget as HTMLInputElement).value })}
-              aria-label="Folder to watch"
-              data-testid={`watch-path-${props.i}`}
+              placeholder="C:\Users\me\Downloads or ${env:USERPROFILE}\Downloads"
+              onInput={(path) => set({ path })}
+              ariaLabel="Folder to watch"
+              testId={`watch-path-${props.i}`}
             />
             <button
               class="btn sm"
@@ -246,6 +248,11 @@ function WatchEditor(props: { w: Watch; onChange: (w: Watch) => void; i: number 
 
 
 /** "Only if a check passes": a command run before, like the check of a toggle. */
+/** What the check, the alert and its buttons get: the values of the schedule and, for a folder watch, the file. */
+function scheduleScope(s: Schedule): VarScope {
+  return { inputs: Object.keys(s.values ?? {}), files: s.watch !== undefined };
+}
+
 function ConditionEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: number }) {
   const { s } = props;
   const on = s.if !== undefined;
@@ -263,7 +270,7 @@ function ConditionEditor(props: { s: Schedule; onChange: (s: Schedule) => void; 
       {on && (
         <div class="schedule-extra-body">
           <Field label="Check" hint="Passes when the command ends with exit code 0. It gets the same values as the run (TC_FILE…).">
-            <TextArea value={f.check} onInput={(v) => set({ check: v })} rows={2} code placeholder={'Test-Path "$env:TC_FILE"'} invalid={!f.check.trim()} testId={`schedule-if-check-${props.i}`} />
+            <VarField multiline value={f.check} scope={scheduleScope(s)} onInput={(v) => set({ check: v })} rows={2} code placeholder={'Test-Path "$env:TC_FILE"'} invalid={!f.check.trim()} testId={`schedule-if-check-${props.i}`} />
           </Field>
           <div class="grid2">
             <Field label="…and its output contains" hint="Optional regular expression">
@@ -322,11 +329,11 @@ function AlertEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: n
               </select>
             </Field>
             <Field label="Title">
-              <input class="input" value={a.title ?? ''} placeholder={props.entryLabel} onInput={(e) => patch({ title: (e.currentTarget as HTMLInputElement).value })} data-testid={`alert-title-${props.i}`} />
+              <VarField value={a.title ?? ''} scope={scheduleScope(s)} placeholder={props.entryLabel} onInput={(title) => patch({ title })} testId={`alert-title-${props.i}`} />
             </Field>
           </div>
           <Field label="Message" hint="${TC_FILE_NAME} and the other values can be used in the title, the message and the buttons.">
-            <TextArea value={a.text ?? ''} onInput={(v) => patch({ text: v })} rows={2} placeholder="${TC_FILE_NAME} has arrived: what should I do?" testId={`alert-text-${props.i}`} />
+            <VarField multiline value={a.text ?? ''} scope={scheduleScope(s)} onInput={(v) => patch({ text: v })} rows={2} placeholder="${TC_FILE_NAME} has arrived: what should I do?" testId={`alert-text-${props.i}`} />
           </Field>
           <div class="field">
             <label>Buttons</label>
@@ -337,7 +344,7 @@ function AlertEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: n
                 return (
                   <div class="choice" data-testid={`alert-choice-${props.i}-${j}`}>
                     <span class="choice-num">{j + 1}</span>
-                    <input class={`input${!c.label.trim() ? " invalid" : ""}`} style={{ width: 150 }} value={c.label} onInput={(e) => setAlert(renameChoice(a, j, (e.currentTarget as HTMLInputElement).value))} aria-label="Text of the button" />
+                    <VarField invalid={!c.label.trim()} style={{ width: 150 }} value={c.label} scope={scheduleScope(s)} onInput={(label) => setAlert(renameChoice(a, j, label))} ariaLabel="Text of the button" testId={`alert-choice-label-${props.i}-${j}`} />
                     <select class="select" style={{ width: 150 }} value={kind} onChange={(e) => setChoice(j, withChoiceKind(c, (e.currentTarget as HTMLSelectElement).value as ChoiceKind, props.entries[0]?.id))} aria-label="What the button does">
                       <option value="self">Runs this entry</option>
                       <option value="entry">Runs another entry</option>
@@ -366,16 +373,16 @@ function AlertEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: n
                         );
                       })()}
                     {kind === 'command' && (
-                      <input
-                        class={`input mono${!action.trim() ? ' invalid' : ''}`}
-                        style={{ flex: 1 }}
+                      <VarField
+                        mono
+                        invalid={!action.trim()}
+                        style={{ flex: 1, minWidth: 0 }}
                         value={action}
+                        scope={{ inputs: [...(scheduleScope(s).inputs ?? []), ...(typeof c.action === 'object' ? (c.action.inputs ?? []).map((x) => x.name) : [])], files: s.watch !== undefined }}
                         placeholder={'Move-Item $env:TC_FILE D:\\Archive'}
-                        onInput={(e) => {
-                          const run = (e.currentTarget as HTMLInputElement).value;
-                          setChoice(j, { label: c.label, action: typeof c.action === 'object' ? { ...c.action, run } : run });
-                        }}
-                        aria-label="Command"
+                        onInput={(run) => setChoice(j, { label: c.label, action: typeof c.action === 'object' ? { ...c.action, run } : run })}
+                        ariaLabel="Command"
+                        testId={`alert-choice-command-${props.i}-${j}`}
                       />
                     )}
                     {kind === 'self' && <span style={{ flex: 1 }} />}

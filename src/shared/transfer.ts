@@ -47,6 +47,8 @@ export interface Pack {
   trays: Tray[];
   schedules: AttachedSchedule[];
   variables: Record<string, string>;
+  /** Names of secret variables: their values never leave the PC. */
+  secrets?: string[];
   settings: Partial<Settings>;
 }
 
@@ -149,7 +151,7 @@ export function defaultExportSelection(config: Config): ExportSelection {
   return {
     entries: new Set(flatten(config.trays).map((f) => f.key)),
     schedules: new Set(scheduleRows(config).map((s) => s.key)),
-    variables: new Set(Object.keys(config.variables)),
+    variables: new Set([...Object.keys(config.variables), ...(config.secrets ?? [])]),
     settings: new Set(changedSettings(config.settings)),
     icons: true,
   };
@@ -191,7 +193,7 @@ export function sectionCheck(config: Config, sel: ExportSelection, section: Sect
 export function sectionKeys(config: Config, section: Section): string[] {
   if (section === 'entries') return flatten(config.trays).map((f) => f.key);
   if (section === 'schedules') return scheduleRows(config).map((s) => s.key);
-  if (section === 'variables') return Object.keys(config.variables);
+  if (section === 'variables') return [...Object.keys(config.variables), ...(config.secrets ?? [])];
   return SETTING_KEYS as string[];
 }
 
@@ -301,14 +303,16 @@ export function buildExport(config: Config, sel: ExportSelection, meta: { app?: 
     .filter((r) => sel.schedules.has(r.key) && !sel.entries.has(r.entryKey) && r.entryId !== undefined)
     .map((r) => ({ entry: r.entryId!, label: r.path.join(' › '), schedule: structuredClone(r.schedule) }));
   const variables = Object.fromEntries(Object.entries(config.variables).filter(([k]) => sel.variables.has(k)));
+  // a secret travels as its name only: whoever imports it gives it a value of their own
+  const secrets = (config.secrets ?? []).filter((k) => sel.variables.has(k));
   const settings = Object.fromEntries(SETTING_KEYS.filter((k) => sel.settings.has(k) && config.settings[k] !== undefined).map((k) => [k, structuredClone(config.settings[k])])) as Partial<Settings>;
-  const pack: Pack = { traycommandExport: PACK_FORMAT, ...meta, trays, schedules, variables, settings };
+  const pack: Pack = { traycommandExport: PACK_FORMAT, ...meta, trays, schedules, variables, ...(secrets.length ? { secrets } : {}), settings };
   return { pack, icons: [...icons].map(([raw, name]) => ({ raw, name })) };
 }
 
 /** Number of things in an export: trays, schedules alone, variables, settings. */
 export function packCount(pack: Pack): number {
-  return pack.trays.length + pack.schedules.length + Object.keys(pack.variables).length + Object.keys(pack.settings).length;
+  return pack.trays.length + pack.schedules.length + Object.keys(pack.variables).length + (pack.secrets?.length ?? 0) + Object.keys(pack.settings).length;
 }
 
 /** A single thing without icons is a .json file; anything more is a zip. */
@@ -346,13 +350,14 @@ export function exportDependencies(config: Config, sel: ExportSelection): Depend
   const byId = new Map(flat.filter((f) => f.node.id).map((f) => [f.node.id!, f]));
   const entries = new Map<string, Dependencies['entries'][number]>();
   const variables = new Map<string, Dependencies['variables'][number]>();
+  const defined = (name: string) => config.variables[name] !== undefined || (config.secrets ?? []).includes(name);
   const need = (node: Refs, schedules: Schedule[], by: string, values: unknown) => {
     for (const id of referencedIds(node, schedules)) {
       const f = byId.get(id);
       if (f && !sel.entries.has(f.key) && !entries.has(f.key)) entries.set(f.key, { key: f.key, id, label: f.path.join(' › '), by });
     }
     for (const name of referencedVariables(values)) {
-      if (config.variables[name] !== undefined && !sel.variables.has(name) && !variables.has(name)) variables.set(name, { name, by });
+      if (defined(name) && !sel.variables.has(name) && !variables.has(name)) variables.set(name, { name, by });
     }
   };
   for (const f of flat) {
@@ -367,7 +372,7 @@ export function exportDependencies(config: Config, sel: ExportSelection): Depend
   for (const [name, value] of Object.entries(config.variables)) {
     if (!sel.variables.has(name)) continue;
     for (const inner of referencedVariables(value)) {
-      if (config.variables[inner] !== undefined && !sel.variables.has(inner) && !variables.has(inner)) variables.set(inner, { name: inner, by: `\${${name}}` });
+      if (defined(inner) && !sel.variables.has(inner) && !variables.has(inner)) variables.set(inner, { name: inner, by: `\${${name}}` });
     }
   }
   return { entries: [...entries.values()], variables: [...variables.values()] };
@@ -393,6 +398,7 @@ const PackSchema = z.object({
   trays: z.array(TraySchema).default([]),
   schedules: z.array(z.object({ entry: z.string().min(1), label: z.string().optional(), schedule: ScheduleSchema }).strict()).default([]),
   variables: z.record(z.string().regex(/^[A-Za-z0-9_]+$/), z.string()).default({}),
+  secrets: z.array(z.string().regex(/^[A-Za-z0-9_]+$/)).optional(),
   settings: z.record(z.string(), z.unknown()).default({}),
 });
 
@@ -444,7 +450,7 @@ export function readPack(raw: unknown): ReadResult {
     // only the settings written in the file (the others are defaults)
     const written = Object.keys((obj.settings as Record<string, unknown> | undefined) ?? {});
     const settings = Object.fromEntries(SETTING_KEYS.filter((k) => written.includes(k)).map((k) => [k, parsed.data.settings[k]])) as Partial<Settings>;
-    pack = { traycommandExport: PACK_FORMAT, trays: parsed.data.trays, schedules: [], variables: parsed.data.variables, settings };
+    pack = { traycommandExport: PACK_FORMAT, trays: parsed.data.trays, schedules: [], variables: parsed.data.variables, ...(parsed.data.secrets?.length ? { secrets: parsed.data.secrets } : {}), settings };
     kind = 'config';
   } else return { ok: false, error: 'This file is not a TrayCommand export or configuration' };
   const dup = duplicateId(pack.trays);
@@ -529,6 +535,8 @@ export interface ValueRow {
   checked: boolean;
   /** A setting turned off by default because it needs a look first. */
   caution?: string;
+  /** A secret: only its name is imported, the value is set here. */
+  secret?: boolean;
 }
 
 export interface ImportPlan {
@@ -759,6 +767,13 @@ export function planImport(current: Config, pack: Pack, choices: ImportChoices, 
     if (checked) config.variables[name] = value;
     return { name, value, current, status, checked };
   });
+  for (const name of pack.secrets ?? []) {
+    // already here (as a secret, or as a plain variable that gives the value): nothing to add
+    const here = (config.secrets ?? []).includes(name) || config.variables[name] !== undefined;
+    const checked = here ? false : (choices.variables[name] ?? true);
+    if (checked) (config.secrets ??= []).push(name);
+    variables.push({ name, value: undefined, current: undefined, status: here ? 'same' : 'new', checked, secret: true });
+  }
 
   const settings: ValueRow[] = (Object.keys(pack.settings) as (keyof Settings)[]).map((name) => {
     let value = pack.settings[name];

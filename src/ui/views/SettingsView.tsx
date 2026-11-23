@@ -160,7 +160,7 @@ export function SettingsView() {
     <div class="page">
       <div class="page-inner">
         <div>
-          <h1 data-hud="SYS // 03 · CONFIGURATION">Settings</h1>
+          <h1 data-hud="SYS // 04 · CONFIGURATION">Settings</h1>
           <p class="lead">Saved in the configuration file, except where noted.</p>
         </div>
 

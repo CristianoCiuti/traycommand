@@ -638,12 +638,11 @@ function placeStage() {
 
 /*
  * A jump into the story from outside it (the TrayCommand link from the looks or the quiet parts,
- * the Home key): the desktop was not on screen, so there is nothing to fade out, and holding the
+ * the Home key): the desktop was not filling the screen, so there is nothing to fade out, and holding the
  * last scene for the fade would show it for an instant before the veil covers it. Instead the veil
  * is already up on the first frame after the jump (set in the scroll event, before the browser
  * paints), the story lands under it, and the veil fades away onto the new scene.
  */
-let storyOff = false; // the story section is entirely off screen
 function arriveCut() {
   clearTimeout(jumpTimer);
   holding = false;
@@ -659,13 +658,13 @@ function arriveCut() {
   }));
 }
 function onScroll() {
-  const wasOff = storyOff;
+  // the desktop filled the screen before this scroll only while pinned; past the story (looks,
+  // quiet parts, even with the bottom of the desktop still in view) it was not
+  const wasPinned = !!stage.value?.classList.contains('pinned');
   placeStage();
-  if (!reduced.value && story.value) {
-    const r = story.value.getBoundingClientRect();
-    storyOff = r.bottom <= 0 || r.top >= window.innerHeight;
-    const target = clamp(-r.top / window.innerHeight, 0, TOTAL - 1e-4);
-    if (wasOff && !storyOff && lastTarget !== null && Math.abs(target - lastTarget) > JUMP) arriveCut();
+  if (!reduced.value && story.value && !wasPinned && stage.value?.classList.contains('pinned')) {
+    const target = clamp(-story.value.getBoundingClientRect().top / window.innerHeight, 0, TOTAL - 1e-4);
+    if (lastTarget !== null && Math.abs(target - lastTarget) > JUMP) arriveCut();
   }
   if (raf) return;
   if (!lastFrame) lastFrame = performance.now(); // the first eased frame starts from here

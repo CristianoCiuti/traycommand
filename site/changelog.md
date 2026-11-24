@@ -5,7 +5,7 @@ Full release notes and downloads are on the [GitHub releases page](https://githu
 ## 2.11.0 — clickable notifications
 
 - The notification of an action can **run another entry when it is clicked**: `"notify": { "text": "VDI ready: click to show it", "click": "vdi:on" }`. `"id"` does what a click on that entry does, `"id:on"`, `"id:off"` and `"id:right"` choose. `true` and a plain text work as before.
-- Failures too: `"notifyError": { "text"?, "click"? }`. `text` replaces the first line *Failed: <reason>*, the last lines of the output still follow; without `click` a failure still opens the activity log when clicked.
+- Failures too: `"notifyError": { "text"?, "click"? }`. `text` replaces the first line `Failed: <reason>`, the last lines of the output still follow; without `click` a failure still opens the activity log when clicked.
 - In the editor, under **Options** of the action: **Clicking the notification runs** and the text and click of the error notification. Unknown ids are errors, an entry without that action is a warning, imported entries with a new id keep their notification clicks, and the texts are listed on the Variables page.
 - The activity log shows these runs as started by a *notification click*.
 - Docs: [clicking a notification](./guide/concepts#clicking-a-notification).

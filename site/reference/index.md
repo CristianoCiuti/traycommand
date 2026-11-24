@@ -156,7 +156,7 @@ is the same as
 | `env` | object | — | Extra environment variables, `{ "NAME": "value" }`. Values can use variables. |
 | `timeout` | integer | none | Kill the process (and its children) after N seconds. Reported as an error. |
 | `notify` | boolean \| string \| object | `false` | Notification on success: `false` none, `true` "Done", a string = custom text, `{ "text"?, "click"? }` = text (default "Done") and an entry run when the notification is clicked. Errors are always notified. |
-| `notifyError` | `{ "text"?, "click"? }` | — | How a failure is notified: `text` replaces the first line "Failed: <reason>" (the last 3 lines of the output still follow); `click` = entry run when it is clicked (default: open the activity log). |
+| `notifyError` | `{ "text"?, "click"? }` | — | How a failure is notified: `text` replaces the first line `Failed: <reason>` (the last 3 lines of the output still follow); `click` = entry run when it is clicked (default: open the activity log). |
 | `confirm` | string | — | Ask for confirmation with this text before running (**Run** / **Cancel**). |
 | `terminal` | boolean | `false` | Run in a visible terminal window that stays open. |
 | `admin` | boolean | `false` | Run as administrator (prompt on every run). Requires `settings.allowAdminCommands`. See [administrator](../guide/administrator#run-as-administrator). |

@@ -1,8 +1,42 @@
 import type { Shell } from '../shared/config';
+import { quoteWindowsArg } from './autostart';
 
 export interface ShellCommand {
   file: string;
   args: string[];
+  /**
+   * Windows only: pass `args` to the process exactly as written (spawn's `windowsVerbatimArguments`).
+   * Needed by cmd.exe, which does not understand the `\"` escaping Node uses for the other programs.
+   */
+  verbatim?: boolean;
+}
+
+/** True when a custom shell command is cmd.exe (by name or full path). */
+export function isCmdExe(command: string): boolean {
+  return /^cmd(\.exe)?$/i.test(command.split(/[\\/]/).pop() ?? '');
+}
+
+/**
+ * cmd.exe line that runs a script: `/s /c "<script>"` strips the outer quotes and runs the rest
+ * as typed, so quoted paths with spaces, `&`, `|`, `>` and parentheses keep their cmd meaning.
+ */
+function cmdCommand(file: string, before: string[], script: string): ShellCommand {
+  return { file, args: [...before, `"${script}"`], verbatim: true };
+}
+
+/**
+ * Escapes a script for an outer cmd.exe that only passes it on (e.g. `start ... cmd.exe /k "<script>"`):
+ * wrapped in quotes, the script's own quoted parts are outside the outer quotes, so `&|<>()^` there get a `^`.
+ */
+export function escapeForOuterCmd(script: string): string {
+  let quoted = false;
+  let out = '';
+  for (const ch of script) {
+    if (ch === '"') quoted = !quoted;
+    else if (quoted && '&|<>()^'.includes(ch)) out += '^';
+    out += ch;
+  }
+  return out;
 }
 
 export function defaultShell(platform: NodeJS.Platform = process.platform, env = process.env): Shell {
@@ -16,7 +50,10 @@ const PS_PREAMBLE = "$ProgressPreference='SilentlyContinue';[Console]::OutputEnc
 
 /** Builds the process to spawn for a script with the given shell. */
 export function shellCommand(shell: Shell, script: string, platform: NodeJS.Platform = process.platform): ShellCommand {
-  if (typeof shell === 'object') return { file: shell.command, args: [...shell.args, script] };
+  if (typeof shell === 'object') {
+    if (platform === 'win32' && isCmdExe(shell.command)) return cmdCommand(shell.command, shell.args.map(quoteWindowsArg), script);
+    return { file: shell.command, args: [...shell.args, script] };
+  }
   switch (shell) {
     case 'powershell':
     case 'pwsh':
@@ -25,7 +62,7 @@ export function shellCommand(shell: Shell, script: string, platform: NodeJS.Plat
         args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', PS_PREAMBLE + script],
       };
     case 'cmd':
-      return { file: 'cmd.exe', args: ['/d', '/s', '/c', script] };
+      return cmdCommand('cmd.exe', ['/d', '/s', '/c'], script);
     case 'bash':
     case 'zsh':
       // login shell so that PATH from the user profile is available (macOS GUI apps start with a minimal PATH)
@@ -44,7 +81,8 @@ export function terminalCommand(shell: Shell, script: string, platform: NodeJS.P
       args.splice(args.indexOf('-Command'), 0, '-NoExit');
       return { file: 'cmd.exe', args: ['/d', '/c', 'start', '""', inner.file, ...args] };
     }
-    if (shell === 'cmd') return { file: 'cmd.exe', args: ['/d', '/c', 'start', '""', 'cmd.exe', '/k', script] };
+    if (shell === 'cmd') return cmdCommand('cmd.exe', ['/d', '/s', '/c'], `start "" cmd.exe /d /s /k "${escapeForOuterCmd(script)}"`);
+    if (inner.verbatim) return cmdCommand('cmd.exe', ['/d', '/s', '/c'], `start "" ${quoteWindowsArg(inner.file)} ${inner.args.slice(0, -1).join(' ')} "${escapeForOuterCmd(script)}"`);
     return { file: 'cmd.exe', args: ['/d', '/c', 'start', '""', inner.file, ...inner.args] };
   }
   if (platform === 'darwin') {

@@ -2,6 +2,11 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.9.1 — quoted paths in cmd scripts
+
+- Scripts with the `cmd` shell that contain double quotes work: `type nul > "C:\Users\Mario Rossi\x.flag"`, `if exist "C:\a b\f" (echo yes) else (echo no)`, quoted programs with spaces in their path. The quotes reached cmd as `\"`, which cmd does not understand ("The filename, directory name, or volume label syntax is incorrect", `if exist` always false). The script now reaches cmd exactly as written, also with **Run in a visible terminal** and with a custom shell whose `command` is `cmd.exe` (as administrator too).
+- Docs: [cmd scripts](./guide/platforms#cmd-scripts), and why `echo on` / `echo off` print nothing in a cmd state check.
+
 ## 2.9.0 — variables page, variable chips, secrets
 
 - New **Variables** page in the editor: every variable with its value (changed in place), how many times it is used and where (each place opens its entry). Add, rename, delete. See [variables and secrets](./guide/variables).

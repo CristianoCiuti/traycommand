@@ -64,6 +64,8 @@ For PowerShell use `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypas
 
 **PowerShell exit codes**: a failing cmdlet usually does *not* make the script exit with a non-zero code (non-terminating error). For checks and actions that must fail visibly, add `-ErrorAction Stop` to the cmdlet (an uncaught terminating error exits 1), or end with an explicit `exit 1`. A check like `(Get-Service X).Status` with `"on": "^Running$"` is fine without it, because a failure prints no `Running`.
 
+**cmd output**: `echo on` and `echo off` print nothing in cmd (they toggle command echoing). In a cmd state check print other words (`echo yes` / `echo no`) or use `echo.on` / `echo.off`; `exit /b 1` makes it fail.
+
 Never run actions that change the system (admin actions, stopping services, deleting files…) just to test them; if you cannot test something, say so in the report. Tested or not, check that the commands, names and paths exist (`Get-Command`, `Get-Service`, `Test-Path`, `which`).
 
 ## 4. Edit the file

@@ -45,7 +45,7 @@ ${script}
   } else {
     const cmd = shellCommand(shell, script, 'win32');
     exe = cmd.file;
-    args = cmd.args.map(quoteWindowsArg).join(' ');
+    args = cmd.verbatim ? cmd.args.join(' ') : cmd.args.map(quoteWindowsArg).join(' ');
   }
   const wrapper = path.join(dir, 'elevated.ps1');
   files[wrapper] = `﻿$ErrorActionPreference='Continue'

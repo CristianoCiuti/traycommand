@@ -16,14 +16,25 @@ Change it for everything with `settings.shell`, or per action / state check with
 | --- | --- |
 | `"powershell"` | `powershell.exe` with the options above (your profile is **not** loaded). |
 | `"pwsh"` | PowerShell 7 (`pwsh`), same options. |
-| `"cmd"` | `cmd.exe /d /s /c <script>` |
+| `"cmd"` | `cmd.exe /d /s /c "<script>"`: the script is passed exactly as written, so quoted paths with spaces, `&`, `&&`, `\|\|`, `>` and `( … )` work as in a console. Starts much faster than PowerShell. |
 | `"bash"`, `"zsh"` | Login shell (`-lc`), so the `PATH` from your profile is available. On Windows `bash` is `bash.exe` (Git Bash or WSL, whichever is first in `PATH`). |
 | `"sh"` | `sh -c <script>` |
-| `{ "command": "node", "args": ["-e"] }` | Any executable: the script is appended as the last argument. |
+| `{ "command": "node", "args": ["-e"] }` | Any executable: the script is appended as the last argument. On Windows a `command` that is `cmd` or `cmd.exe` gets the script like the `"cmd"` shell. |
 
 ```json
 "settings": { "shell": { "command": "python", "args": ["-c"] } }
 ```
+
+### cmd scripts
+
+```json
+{ "label": "Flag", "action": { "run": "type nul > \"C:\\Users\\Mario Rossi\\x.flag\"", "shell": "cmd" },
+  "state": { "check": "if exist \"C:\\Users\\Mario Rossi\\x.flag\" (echo yes) else (echo no)", "shell": "cmd", "on": "^yes$" } }
+```
+
+- In the JSON file a `"` inside the script is written `\"` and a `\` is written `\\`; the editor does this for you.
+- `echo on` and `echo off` print **nothing** in cmd: they turn command echoing on and off. In a state check print other words, e.g. `echo yes` / `echo no`, or `echo.on` / `echo.off` (which do print `on` and `off`).
+- `exit /b 1` makes the script fail (e.g. a check that must be OFF).
 
 ### Visible terminal
 

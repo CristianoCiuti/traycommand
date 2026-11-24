@@ -174,7 +174,7 @@ Keys joined by `+`: modifiers `Ctrl`, `Alt`, `Shift`, `Win` (`Super`/`Meta`/`Cmd
 
 ## shell
 
-`"powershell"` (Windows PowerShell 5.1, `-NoProfile -NonInteractive -ExecutionPolicy Bypass`, UTF-8), `"pwsh"` (PowerShell 7), `"cmd"` (`cmd.exe /d /s /c`), `"bash"` / `"zsh"` (login shell, `-lc`), `"sh"` (`sh -c`), or `{ "command": "exe", "args": ["-c"] }`.
+`"powershell"` (Windows PowerShell 5.1, `-NoProfile -NonInteractive -ExecutionPolicy Bypass`, UTF-8), `"pwsh"` (PowerShell 7), `"cmd"` (`cmd.exe /d /s /c "<script>"`, script passed as written, so quoted paths with spaces work; much faster to start than PowerShell), `"bash"` / `"zsh"` (login shell, `-lc`), `"sh"` (`sh -c`), or `{ "command": "exe", "args": ["-c"] }`.
 
 ## Checks done by the validator
 

@@ -1,7 +1,7 @@
 {
   "name": "traycommand",
   "productName": "TrayCommand",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "Run shell commands from system tray icons",
   "author": "Cristiano Ciuti",
   "license": "MIT",

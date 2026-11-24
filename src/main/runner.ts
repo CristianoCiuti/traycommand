@@ -89,6 +89,7 @@ export const runScript: Runner = (script, options) => {
         cwd: options.cwd,
         env: { ...process.env, ...options.env },
         windowsHide: !options.terminal,
+        windowsVerbatimArguments: cmd.verbatim,
         detached: process.platform !== 'win32',
         stdio: ['ignore', 'pipe', 'pipe'],
       });

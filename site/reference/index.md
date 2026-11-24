@@ -265,10 +265,10 @@ A preset name or a custom executable:
 | --- | --- |
 | `"powershell"` | Windows PowerShell, `-NoProfile -NonInteractive -ExecutionPolicy Bypass`, UTF-8 output. |
 | `"pwsh"` | PowerShell 7, same options. |
-| `"cmd"` | `cmd.exe /d /s /c`. |
+| `"cmd"` | `cmd.exe /d /s /c "<script>"`, the script passed exactly as written (quoted paths with spaces work). |
 | `"bash"`, `"zsh"` | Login shell (`-lc`). |
 | `"sh"` | `sh -c`. |
-| `{ "command": "…", "args": ["…"] }` | Custom: `command` is the executable, `args` go before the script (default `[]`). |
+| `{ "command": "…", "args": ["…"] }` | Custom: `command` is the executable, `args` go before the script (default `[]`). On Windows, `cmd` / `cmd.exe` gets the script like `"cmd"`. |
 
 See [platforms](../guide/platforms#default-shell) for details.
 

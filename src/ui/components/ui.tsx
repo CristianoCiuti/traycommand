@@ -1,5 +1,5 @@
 import type { ComponentChildren, Ref } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useState } from 'preact/hooks';
 import { X } from 'lucide-preact';
 import { api } from '../store';
 
@@ -46,7 +46,8 @@ export function Card(props: { title: ComponentChildren; desc?: ComponentChildren
 }
 
 export function Dialog(props: { title: ComponentChildren; icon?: ComponentChildren; children: ComponentChildren; footer: ComponentChildren; onClose: () => void; testId?: string; wide?: boolean }) {
-  useEffect(() => {
+  // before the dialog is painted: Esc works from the moment it can be seen
+  useLayoutEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && props.onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

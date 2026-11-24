@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals';
-import { useEffect, useRef } from 'preact/hooks';
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import { CircleHelp, TriangleAlert } from 'lucide-preact';
 import { Dialog } from './ui';
 
@@ -42,7 +42,8 @@ function answer(ok: boolean) {
 export function ConfirmHost() {
   const p = pending.value;
   const ok = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
+  // before the dialog is painted: Enter and the focus are ready from the moment it can be seen
+  useLayoutEffect(() => {
     if (!p) return;
     ok.current?.focus(); // away from the button that asked, behind the dialog
     const onKey = (e: KeyboardEvent) => {

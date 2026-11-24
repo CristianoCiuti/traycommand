@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Engine } from '../../src/main/engine';
 import { ConfigSchema, parseConfig, type ConfigInput } from '../../src/shared/config';
-import { textFields } from '../../src/shared/varRefs';
+import { renameVariable, textFields } from '../../src/shared/varRefs';
 import type { RunResult } from '../../src/main/runner';
 
 const ok = (stdout = ''): RunResult => ({ code: 0, stdout, stderr: '', durationMs: 1, timedOut: false, killed: false });
@@ -116,6 +116,14 @@ describe('clickable notifications', () => {
     expect(shown[0]).toMatchObject({ body: 'Failed: Exit code 1\nboom', kind: 'error', onClick: undefined });
   });
 
+  it('a click that asks for an action the entry does not have does nothing', async () => {
+    const { engine, shown, scripts } = setup({ trays: [{ id: 'a', label: 'A', action: { run: 'a', notify: { click: 'b:off' } } }, { id: 'b', label: 'B', action: 'b' }] });
+    await engine.click('a');
+    shown[0]!.onClick!();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(scripts()).toEqual(['a']);
+  });
+
   it('a click on a notification of an entry that no longer exists does nothing', async () => {
     const { engine, shown, scripts } = setup({ trays: [{ id: 'a', label: 'A', action: { run: 'a', notify: { click: 'b' } } }, { id: 'b', label: 'B', action: 'b' }] });
     await engine.click('a');
@@ -154,5 +162,12 @@ describe('notify and notifyError in the file', () => {
     const paths = textFields(r.config).map((f) => f.path);
     expect(paths).toContain('trays[0].action.notify.text');
     expect(paths).toContain('trays[0].action.notifyError.text');
+  });
+
+  it('renaming a variable changes the texts too', () => {
+    const r = parseConfig(file({ notify: { text: '${X} ok', click: 'a' }, notifyError: { text: '${X} failed' } }));
+    if (!r.ok) throw new Error('invalid');
+    const renamed = renameVariable(r.config, 'X', 'Y');
+    expect(renamed.trays[0]!.action).toMatchObject({ notify: { text: '${Y} ok', click: 'a' }, notifyError: { text: '${Y} failed' } });
   });
 });

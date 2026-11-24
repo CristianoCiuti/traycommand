@@ -33,7 +33,8 @@ export interface InputMemory {
 export interface EngineDeps {
   run: Runner;
   runAdmin: Runner;
-  notify: (title: string, body: string, kind: 'info' | 'warning' | 'error') => void;
+  /** `onClick`: run when the notification is clicked (instead of the default: errors open the activity log). */
+  notify: (title: string, body: string, kind: 'info' | 'warning' | 'error', onClick?: () => void) => void;
   confirm: (title: string, text: string) => Promise<boolean>;
   log: (entry: ExecutionLog) => void;
   /** Shows the form for the inputs of an action; undefined = cancelled. */
@@ -605,9 +606,13 @@ export class Engine {
     if (!ok) {
       const reason = result.error ?? (result.timedOut ? `Timed out after ${action.timeout}s` : result.killed ? 'Stopped' : `Exit code ${result.code}`);
       const detail = redact(result.stderr || result.stdout).split(/\r?\n/).slice(-3).join('\n');
-      this.deps.notify(label, `${DEFAULT_TEXT.failed}: ${reason}${detail ? `\n${detail}` : ''}`, 'error');
+      const custom = action.notifyError?.text;
+      const head = custom ? this.shown(custom, ctx.values, ctx.secrets) : `${DEFAULT_TEXT.failed}: ${reason}`;
+      this.notifyClickable(label, `${head}${detail ? `\n${detail}` : ''}`, 'error', action.notifyError?.click);
     } else if (action.notify) {
-      this.deps.notify(label, typeof action.notify === 'string' ? this.shown(action.notify, ctx.values, ctx.secrets) : DEFAULT_TEXT.ok, 'info');
+      const n = action.notify;
+      const text = typeof n === 'string' ? n : typeof n === 'object' ? n.text : undefined;
+      this.notifyClickable(label, text ? this.shown(text, ctx.values, ctx.secrets) : DEFAULT_TEXT.ok, 'info', typeof n === 'object' ? n.click : undefined);
     }
 
     const state = entry.entry.state;
@@ -620,6 +625,22 @@ export class Engine {
       this.scheduleCheck(entry, state.recheckDelay ?? this.deps.recheckDelay ?? 700, this.generation);
     }
     return result;
+  }
+
+  /** A notification whose click runs `ref`: "id" = what a click on that entry does, "id:on" / "id:off" / "id:right" forces one. */
+  private notifyClickable(title: string, body: string, kind: 'info' | 'error', ref: string | undefined) {
+    if (ref) this.deps.notify(title, body, kind, () => void this.runClickRef(ref));
+    else this.deps.notify(title, body, kind);
+  }
+
+  async runClickRef(ref: string) {
+    // looked up when clicked: the configuration may have changed since the notification was shown
+    const [id, forced] = ref.split(':') as [string, ActionKind | undefined];
+    const target = this.byId.get(id);
+    if (!target) return;
+    const kind = forced ?? this.clickKind(target);
+    if (!kind || !this.actionOf(target, kind)) return;
+    await this.trigger(target, kind, { source: 'notification' });
   }
 
   runOptions(entry: RuntimeEntry | undefined, action: Pick<Action, 'shell' | 'cwd' | 'env' | 'timeout' | 'terminal'>, values?: Record<string, string>): RunOptions {

@@ -144,12 +144,24 @@ function canNotify(title: string, body: string): boolean {
   return false;
 }
 
-function notify(title: string, body: string, kind: 'info' | 'warning' | 'error' = 'info', route?: string) {
+// notifications with a click to run: kept until clicked or closed, otherwise the click can be lost (garbage collected)
+const clickable = new Set<Notification>();
+
+/** `click`: a page of the window to open, or what to run (an action of an entry). Errors open the activity log by default. */
+function notify(title: string, body: string, kind: 'info' | 'warning' | 'error' = 'info', click?: string | (() => void)) {
   if (!canNotify(title, body)) return;
   const n = new Notification({ title, body, silent: kind === 'info', urgency: kind === 'error' ? 'critical' : 'normal' });
+  const release = () => clickable.delete(n);
   n.on('click', () => {
-    if (route ?? kind === 'error') showWindow(state, route ?? '/logs', devUrl);
+    release();
+    if (typeof click === 'function') click();
+    else if (click ?? kind === 'error') showWindow(state, click ?? '/logs', devUrl);
   });
+  if (typeof click === 'function') {
+    n.on('close', release);
+    clickable.add(n);
+    if (clickable.size > 20) clickable.delete(clickable.values().next().value!);
+  }
   n.show();
 }
 

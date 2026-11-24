@@ -69,6 +69,33 @@ export const ActionRefSchema = z
   .regex(/^[A-Za-z0-9_.-]+(:(on|off|right))?$/)
   .describe('Reference to another entry: "<id>" runs the same kind of action (on → on, off → off), "<id>:on", "<id>:off" or "<id>:right" forces one.');
 
+/** "id" = what a click on that entry does; "id:on" / "id:off" / "id:right" forces one. */
+const ClickRefSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_.-]+(:(on|off|right))?$/)
+  .describe('Entry run when the notification is clicked: "<id>" = what a click on it does, "<id>:on", "<id>:off" or "<id>:right" forces one.');
+
+const actionNotify = z
+  .union([
+    z.boolean(),
+    z.string(),
+    z
+      .object({
+        text: z.string().optional().describe('Text of the notification (default "Done"). ${VARIABLES} allowed.'),
+        click: ClickRefSchema.optional(),
+      })
+      .strict(),
+  ])
+  .describe('Notification shown when the action succeeds: false = none, true = default text, string = custom text, { text, click } = text and an entry run when it is clicked. Errors are always notified (see notifyError).');
+
+export const NotifyErrorSchema = z
+  .object({
+    text: z.string().optional().describe('First line of the notification instead of "Failed: <reason>" (the last lines of the output still follow). ${VARIABLES} allowed.'),
+    click: ClickRefSchema.optional().describe('Entry run when the notification is clicked (default: open the activity log). Same syntax as notify.click.'),
+  })
+  .strict()
+  .describe('How a failure of the action is notified. Failures are always notified.');
+
 export const ActionSchema = z
   .object({
     run: z.string().min(1).describe('Script to run.'),
@@ -76,7 +103,8 @@ export const ActionSchema = z
     cwd: z.string().optional().describe('Working directory. Relative paths are resolved from the config file folder.'),
     env: z.record(z.string(), z.string()).optional().describe('Extra environment variables.'),
     timeout: z.number().int().positive().optional().describe('Kill the process after N seconds.'),
-    notify: notify.optional(),
+    notify: actionNotify.optional(),
+    notifyError: NotifyErrorSchema.optional(),
     confirm: z.string().optional().describe('Ask for confirmation with this text before running.'),
     terminal: z.boolean().optional().describe('Run in a visible terminal window that stays open, instead of hidden.'),
     admin: z
@@ -547,6 +575,11 @@ export function parseConfig(raw: unknown): ParseResult {
       for (const when of ['before', 'parallel', 'after'] as const) {
         action[when]?.forEach((ref, i) => checkRef(ref, `${path}.${key}.${when}[${i}]`));
       }
+      const clicks = [
+        { ref: typeof action.notify === 'object' ? action.notify.click : undefined, at: `${path}.${key}.notify.click` },
+        { ref: action.notifyError?.click, at: `${path}.${key}.notifyError.click` },
+      ];
+      for (const c of clicks) if (c.ref) clickRefs.push({ ref: c.ref, path: c.at });
     }
     if (entry.enabledWhen) checkRef(entry.enabledWhen.replace(/^!/, ''), `${path}.enabledWhen`);
     for (const pattern of ['on', 'off'] as const) {
@@ -560,14 +593,15 @@ export function parseConfig(raw: unknown): ParseResult {
     }
     entry.menu?.forEach((child, i) => visitRefs(child, `${path}.menu[${i}]`));
   };
+  const clickRefs: { ref: string; path: string }[] = [];
   config.trays.forEach((tray, i) => visitRefs(tray, `trays[${i}]`));
-  for (const c of choiceRefs) {
+  for (const c of [...choiceRefs, ...clickRefs]) {
     checkRef(c.ref, c.path);
     const [id, how] = c.ref.split(':') as [string, 'on' | 'off' | 'right' | undefined];
     const target = entriesById.get(id);
     if (!target) continue;
     const action = how === 'off' ? target.offAction : how === 'right' ? target.rightAction : target.action;
-    if (!action) warnings.push({ path: c.path, message: `"${id}" has no ${how === 'off' ? 'offAction' : how === 'right' ? 'rightAction' : 'action'}: this button does nothing` });
+    if (!action) warnings.push({ path: c.path, message: `"${id}" has no ${how === 'off' ? 'offAction' : how === 'right' ? 'rightAction' : 'action'}: ${c.path.endsWith('.click') ? 'clicking the notification' : 'this button'} does nothing` });
   }
 
   if (config.settings.appMenu !== 'own' && !config.trays.some((t) => t.id === config.settings.appMenu)) {

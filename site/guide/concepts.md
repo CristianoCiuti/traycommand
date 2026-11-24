@@ -64,6 +64,21 @@ The long form adds options:
 
 The shell is PowerShell on Windows and your login shell (`$SHELL`, otherwise bash) elsewhere, unless you change `settings.shell` or set `shell` on the action. Errors (exit code ≠ 0, timeout) are always notified; success only when `notify` is set. Every run is recorded on the [Activity page](./editor#activity).
 
+### Clicking a notification
+
+A notification can run another entry when it is clicked. Give `notify` a `click` with the id of the entry (`"id"` does what a click on it does, `"id:on"`, `"id:off"` or `"id:right"` choose), and `notifyError` for failures:
+
+```json
+"action": {
+  "run": "logon.cmd",
+  "shell": "cmd",
+  "notify": { "text": "VDI ready: click to show it", "click": "vdi:on" },
+  "notifyError": { "click": "vdi_logs" }
+}
+```
+
+A failure notification shows `Failed: <reason>` (or `notifyError.text`) and the last 3 lines of the output, so a script that prints the reason last is explained in the notification itself. Without `notifyError.click`, clicking a failure opens the activity log. In the editor: **Options** of the action, **Clicking the notification runs** and **Clicking an error notification runs**.
+
 All options are listed in the [reference](../reference/#actions).
 
 ## Toggles (state)

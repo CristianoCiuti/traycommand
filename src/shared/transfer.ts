@@ -8,6 +8,7 @@ import {
   isSeparator,
   normalizeAction,
   parseConfig,
+  type Action,
   type ActionInput,
   type Config,
   type ConfigIssue,
@@ -320,12 +321,13 @@ export function exportKind(pack: Pack, icons: number): 'zip' | 'json' {
   return icons > 0 || packCount(pack) > 1 ? 'zip' : 'json';
 }
 
-/** Ids referenced by an entry (actions run before, with, after it; enabledWhen; alert buttons). */
+/** Ids referenced by an entry (actions run before, with, after it; clicks on its notifications; enabledWhen; alert buttons). */
 export function referencedIds(node: Refs, schedules: Schedule[] = node.schedules ?? []): string[] {
   const ids: string[] = [];
   for (const k of ['action', 'offAction', 'rightAction'] as const) {
     const a = normalizeAction(node[k]);
     for (const when of ['before', 'parallel', 'after'] as const) ids.push(...(a?.[when] ?? []).map((ref) => ref.split(':')[0]!));
+    for (const ref of notifyClicks(a)) ids.push(ref.split(':')[0]!);
   }
   if (node.enabledWhen) ids.push(node.enabledWhen.replace(/^!/, ''));
   for (const s of schedules) for (const c of s.alert?.choices ?? []) if (c.run !== undefined && c.run !== 'self') ids.push(c.run.split(':')[0]!);
@@ -581,6 +583,12 @@ const SETTING_CAUTION: Partial<Record<keyof Settings, string>> = {
   allowAdminCommands: 'Lets actions run as administrator: check the imported commands first',
 };
 
+/** Entries run by clicking the notifications of an action. */
+function notifyClicks(a: Action | undefined): string[] {
+  const clicks = [typeof a?.notify === 'object' ? a.notify.click : undefined, a?.notifyError?.click];
+  return clicks.filter((c): c is string => c !== undefined);
+}
+
 function renameRefs(node: Refs, renames: Map<string, string>) {
   const swap = (ref: string) => {
     const [id, how] = ref.split(':') as [string, string | undefined];
@@ -590,6 +598,8 @@ function renameRefs(node: Refs, renames: Map<string, string>) {
     const a = node[k];
     if (a === undefined || typeof a === 'string') continue;
     for (const when of ['before', 'parallel', 'after'] as const) if (a[when]) a[when] = a[when].map(swap);
+    if (typeof a.notify === 'object' && a.notify.click) a.notify.click = swap(a.notify.click);
+    if (a.notifyError?.click) a.notifyError.click = swap(a.notifyError.click);
   }
   if (node.enabledWhen) node.enabledWhen = node.enabledWhen.replace(/^(!?)(.*)$/, (_m, not: string, id: string) => `${not}${swap(id)}`);
   for (const s of node.schedules ?? []) renameScheduleRefs(s, renames);

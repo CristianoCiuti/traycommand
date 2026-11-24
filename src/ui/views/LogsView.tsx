@@ -4,7 +4,7 @@ import type { RunningInfo } from '../../shared/api';
 import { api, info, logs } from '../store';
 import { Card, formatDuration, timeAgo } from '../components/ui';
 
-const SOURCES: Record<string, string> = { hotkey: 'shortcut', launcher: 'launcher', schedule: 'scheduled', watch: 'file watch', alert: 'chosen in an alert', cli: 'command line' };
+const SOURCES: Record<string, string> = { hotkey: 'shortcut', launcher: 'launcher', schedule: 'scheduled', watch: 'file watch', alert: 'chosen in an alert', notification: 'notification click', cli: 'command line' };
 
 export function LogsView() {
   const [open, setOpen] = useState<number>();

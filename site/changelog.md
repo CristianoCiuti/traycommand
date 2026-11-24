@@ -2,6 +2,14 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.11.0 — clickable notifications
+
+- The notification of an action can **run another entry when it is clicked**: `"notify": { "text": "VDI ready: click to show it", "click": "vdi:on" }`. `"id"` does what a click on that entry does, `"id:on"`, `"id:off"` and `"id:right"` choose. `true` and a plain text work as before.
+- Failures too: `"notifyError": { "text"?, "click"? }`. `text` replaces the first line *Failed: <reason>*, the last lines of the output still follow; without `click` a failure still opens the activity log when clicked.
+- In the editor, under **Options** of the action: **Clicking the notification runs** and the text and click of the error notification. Unknown ids are errors, an entry without that action is a warning, imported entries with a new id keep their notification clicks, and the texts are listed on the Variables page.
+- The activity log shows these runs as started by a *notification click*.
+- Docs: [clicking a notification](./guide/concepts#clicking-a-notification).
+
 ## 2.10.0 — faster check marks for toggles
 
 - Toggles can show the new state **as soon as the action succeeds**: `"optimistic": true` in `state` (**Show the new state at once** in the editor). ON after `action`, OFF after `offAction`; the check that follows still runs and corrects it if the action changed nothing. The state notifications are shown once, at the change. `rightAction` and the choices of an alert do not change the state. Needs both `action` and `offAction` (`--validate` warns otherwise).

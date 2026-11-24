@@ -72,6 +72,66 @@ export function TestOutput(props: { result?: TestResult; running: boolean; check
   );
 }
 
+/** One entry to run (e.g. when a notification is clicked): "id" = what a click on it does, or "id:on" / "id:off" / "id:right". */
+function ClickRef(props: { label: string; hint: string; none: string; value: string | undefined; onChange: (ref: string | undefined) => void; testId?: string }) {
+  const ids = allIds(draft.value);
+  const [id, kind] = (props.value ?? '').split(':');
+  const known = !id || ids.some((x) => x.id === id);
+  return (
+    <Field label={props.label} hint={props.hint}>
+      <div class="row" style={{ gap: 6 }}>
+        <select
+          class="select"
+          value={id ?? ''}
+          data-testid={props.testId}
+          onChange={(e) => {
+            const v = (e.currentTarget as HTMLSelectElement).value;
+            props.onChange(v ? (kind ? `${v}:${kind}` : v) : undefined);
+          }}
+        >
+          <option value="">{props.none}</option>
+          {!known && <option value={id}>{id} (missing)</option>}
+          {ids.map((x) => (
+            <option value={x.id}>
+              {x.label} ({x.id})
+            </option>
+          ))}
+        </select>
+        {id && (
+          <select
+            class="select"
+            style={{ width: 'auto' }}
+            value={kind ?? ''}
+            onChange={(e) => {
+              const k = (e.currentTarget as HTMLSelectElement).value;
+              props.onChange(k ? `${id}:${k}` : id);
+            }}
+          >
+            <option value="">its click</option>
+            <option value="on">on</option>
+            <option value="off">off</option>
+            <option value="right">right click</option>
+          </select>
+        )}
+      </div>
+    </Field>
+  );
+}
+
+type Notify = Action['notify'];
+const notifyText = (n: Notify): string | true | undefined => (n === undefined || n === false ? undefined : n === true ? true : typeof n === 'string' ? n : (n.text ?? true));
+const notifyClick = (n: Notify) => (typeof n === 'object' ? n.click : undefined);
+/** The shortest form: true / "text" without a click, { text, click } with one. */
+function makeNotify(text: string | true | undefined, click: string | undefined): Notify {
+  if (text === undefined) return undefined;
+  if (!click) return text;
+  return text === true ? { click } : { text, click };
+}
+
+/** notifyError without empty fields (undefined when nothing is set). */
+const errorNotify = (text: string | undefined, click: string | undefined): Action['notifyError'] =>
+  text === undefined && click === undefined ? undefined : { ...(text !== undefined ? { text } : {}), ...(click !== undefined ? { click } : {}) };
+
 function RefList(props: { title: string; hint: string; refs: string[] | undefined; onChange: (refs: string[] | undefined) => void }) {
   const ids = allIds(draft.value);
   const refs = props.refs ?? [];
@@ -165,7 +225,9 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
 
   const scope: VarScope = { inputs: [...(action.inputs ?? []).map((i) => i.name), ...(props.scope?.inputs ?? [])], files: props.scope?.files };
   const tid = (s: string) => (props.testId ? `${props.testId}-${s}` : undefined);
-  const advancedCount = ['shell', 'cwd', 'env', 'timeout', 'notify', 'confirm', 'terminal', 'admin', 'before', 'parallel', 'after'].filter((k) => (action as Record<string, unknown>)[k] !== undefined).length;
+  const advancedCount = ['shell', 'cwd', 'env', 'timeout', 'notify', 'notifyError', 'confirm', 'terminal', 'admin', 'before', 'parallel', 'after'].filter((k) => (action as Record<string, unknown>)[k] !== undefined).length;
+  const text = notifyText(action.notify);
+  const click = notifyClick(action.notify);
 
   return (
     <div class="card-body" data-testid={props.testId}>
@@ -215,10 +277,10 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
             <Field label="Notification on success" hint="Errors are always notified">
               <select
                 class="select"
-                value={action.notify === undefined || action.notify === false ? 'none' : action.notify === true ? 'default' : 'custom'}
+                value={text === undefined ? 'none' : text === true ? 'default' : 'custom'}
                 onChange={(e) => {
                   const v = (e.currentTarget as HTMLSelectElement).value;
-                  change({ notify: v === 'none' ? undefined : v === 'default' ? true : typeof action.notify === 'string' ? action.notify : 'Done' });
+                  change({ notify: makeNotify(v === 'none' ? undefined : v === 'default' ? true : typeof text === 'string' ? text : 'Done', click) });
                 }}
               >
                 <option value="none">None</option>
@@ -226,13 +288,35 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
                 <option value="custom">Custom text</option>
               </select>
             </Field>
-            {typeof action.notify === 'string' ? (
+            {typeof text === 'string' ? (
               <Field label="Notification text">
-                <VarField value={action.notify} scope={scope} onInput={(notify) => change({ notify })} testId={tid('notify')} />
+                <VarField value={text} scope={scope} onInput={(t) => change({ notify: makeNotify(t, click) })} testId={tid('notify')} />
               </Field>
             ) : (
               <div />
             )}
+          </div>
+          {text !== undefined && (
+            <ClickRef label="Clicking the notification runs" hint="An entry of any tray; empty = nothing" none="Nothing" value={click} onChange={(c) => change({ notify: makeNotify(text, c) })} testId={tid('notify-click')} />
+          )}
+          <div class="grid2">
+            <Field label="Error notification text" hint="Instead of “Failed: …”; the last lines of the output follow">
+              <VarField
+                value={action.notifyError?.text ?? ''}
+                scope={scope}
+                placeholder="Failed: <reason>"
+                onInput={(t) => change({ notifyError: errorNotify(t || undefined, action.notifyError?.click) })}
+                testId={tid('notify-error')}
+              />
+            </Field>
+            <ClickRef
+              label="Clicking an error notification runs"
+              hint="Empty = open the activity log"
+              none="Open the activity log"
+              value={action.notifyError?.click}
+              onChange={(c) => change({ notifyError: errorNotify(action.notifyError?.text, c) })}
+              testId={tid('notify-error-click')}
+            />
           </div>
           <Field label="Ask for confirmation" hint="Leave empty to run immediately">
             <VarField value={action.confirm ?? ''} scope={scope} placeholder="e.g. Reset the database?" onInput={(confirm) => change({ confirm: confirm || undefined })} testId={tid('confirm')} />

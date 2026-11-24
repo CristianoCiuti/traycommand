@@ -26,7 +26,7 @@ export interface WatchStatus {
 }
 
 /** What started an action. */
-export type RunSource = 'click' | 'hotkey' | 'launcher' | 'schedule' | 'watch' | 'alert' | 'test' | 'cli';
+export type RunSource = 'click' | 'hotkey' | 'launcher' | 'schedule' | 'watch' | 'alert' | 'notification' | 'test' | 'cli';
 
 export interface ExecutionLog {
   time: number;

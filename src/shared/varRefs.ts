@@ -86,6 +86,10 @@ export function textFields(config: Config): TextField[] {
       if (value.cwd !== undefined) add(`${at}.cwd`, `${prefix}Working folder`, value.cwd, locals, (t) => (value.cwd = t));
       for (const name of Object.keys(value.env ?? {})) add(`${at}.env.${name}`, `${prefix}Environment variable ${name}`, value.env![name]!, locals, (t) => (value.env![name] = t));
       if (typeof value.notify === 'string') add(`${at}.notify`, `${prefix}Notification text`, value.notify, locals, (t) => (value.notify = t));
+      const notify = value.notify;
+      if (typeof notify === 'object' && notify.text !== undefined) add(`${at}.notify.text`, `${prefix}Notification text`, notify.text, locals, (t) => (notify.text = t));
+      const notifyError = value.notifyError;
+      if (notifyError?.text !== undefined) add(`${at}.notifyError.text`, `${prefix}Error notification text`, notifyError.text, locals, (t) => (notifyError.text = t));
       if (value.confirm !== undefined) add(`${at}.confirm`, `${prefix}Confirmation`, value.confirm, locals, (t) => (value.confirm = t));
       // the form is shown before the values exist: its texts get the variables only
       value.inputs?.forEach((input, i) => {

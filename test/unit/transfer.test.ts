@@ -249,6 +249,7 @@ describe('export: what the selection needs', () => {
 
   it('references', () => {
     expect(referencedIds({ label: 'x', action: 'run', offAction: { run: 'y', after: ['a', 'b:on'], parallel: ['c'] }, rightAction: { run: 'z', before: ['a:off'] }, enabledWhen: 'd' } as never)).toEqual(['c', 'a', 'b', 'd']);
+    expect(referencedIds({ label: 'x', action: { run: 'r', notify: { click: 'e:on' }, notifyError: { click: 'f' } } } as never)).toEqual(['e', 'f']);
     expect(referencedVariables({ a: '${A} ${env:B} ${configDir} ${A}' })).toEqual(['A']);
   });
 
@@ -394,6 +395,13 @@ describe('import: plan', () => {
     expect(use.action).toEqual({ run: 'u', after: ['net_2'] });
     expect(use.schedules![0]!.alert!.choices!.map((ch) => ch.run)).toEqual(['net_2:right', 'self', 'other']);
     expect(plan.issues).toEqual([]);
+    // clicks on the notifications follow the new id too
+    const clicks = planImport(
+      c,
+      exportOf(config({ trays: [{ id: 'net', label: 'Wi-Fi', action: 'netsh' }, { id: 'n', label: 'N', action: { run: 'x', notify: { text: 'ok', click: 'net' }, notifyError: { click: 'net:right' } } }] })),
+      noChoices(),
+    );
+    expect(flatten(clicks.config.trays).find((f) => f.node.id === 'n')!.node.action).toEqual({ run: 'x', notify: { text: 'ok', click: 'net_2' }, notifyError: { click: 'net_2:right' } });
     // same label: replaced
     const same = planImport(c, exportOf(config({ trays: [{ id: 'net', label: 'Network', action: 'new' }] })), noChoices());
     expect(same.entries[0]!.decision).toBe('replace');

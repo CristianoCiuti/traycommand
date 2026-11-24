@@ -180,6 +180,8 @@ An action succeeds when the script exits with code 0 within the timeout.
 | `off` | string | — | Regular expression: output matching it means OFF. Tested first. |
 | `interval` | integer | `60` | Seconds between checks (minimum 2). |
 | `iconOff` | string | — | Icon shown while OFF (the main `icon` is shown while ON). |
+| `recheckDelay` | integer (ms, 0–60000) | `700` | Wait between the end of an action of the entry and the check that follows it. `0` checks at once. |
+| `optimistic` | boolean | `false` | Show the new state as soon as the action succeeds: ON after `action`, OFF after `offAction` (exit code 0). The check that follows corrects it if it was wrong. Needs both `action` and `offAction` (warning otherwise); `rightAction` and alert choices do not change the state. |
 | `notify` | `{ "on"?, "off"? }` | — | Notification when the state changes to ON / OFF: `true` default text, a string = custom text. |
 
 Evaluation of each check:
@@ -189,7 +191,7 @@ Evaluation of each check:
 3. `on` set → **ON** if the output matches it, otherwise **OFF**;
 4. otherwise → **ON**.
 
-Patterns are JavaScript regular expressions in multi-line mode (`^` and `$` match at each line). Remember to escape backslashes in JSON (`"\\d+"`). A check is stopped after `max(interval, 30)` seconds. The state is also checked again right after the entry's action runs. Checks are paused while the entry (or a parent) is hidden or disabled. `admin` is not available for checks.
+Patterns are JavaScript regular expressions in multi-line mode (`^` and `$` match at each line). Remember to escape backslashes in JSON (`"\\d+"`). A check is stopped after `max(interval, 30)` seconds. The state is also checked again after the entry's action runs (after `recheckDelay`); a check that was already running when an `optimistic` action ended is ignored and run again. Checks are paused while the entry (or a parent) is hidden or disabled. `admin` is not available for checks.
 
 ## Inputs
 

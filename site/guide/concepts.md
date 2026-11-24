@@ -75,7 +75,20 @@ Adding a `state` turns an entry into a **toggle**. TrayCommand runs the `check` 
 3. `on` is set → **ON** only if the output matches it, otherwise **OFF**.
 4. No patterns → **ON**.
 
-A toggle runs `action` when clicked while OFF and `offAction` when clicked while ON. Right after an action, the state is checked again.
+A toggle runs `action` when clicked while OFF and `offAction` when clicked while ON. After an action, the state is checked again (700 ms later by default).
+
+### Faster check marks
+
+By default the check mark (or the ON/OFF icon) changes only when the check after the action has run. Two options of `state` make it quicker:
+
+- `"optimistic": true` shows the new state as soon as the action succeeds: ON after `action`, OFF after `offAction`. The check still runs and corrects it if the action did not really change anything. Use it when the actions are fast and reliable (a flag file, a setting); it needs both `action` and `offAction`.
+- `"recheckDelay"` is how many milliseconds to wait before that check: `0` checks at once, a few hundred when the real state takes a moment to follow (a service starting, an agent that writes a value).
+
+```json
+"state": { "check": "if exist \"%TEMP%\\quiet.flag\" (echo yes) else (echo no)", "shell": "cmd", "on": "^yes$", "optimistic": true, "recheckDelay": 0 }
+```
+
+In the editor: **Show the new state at once** and **Check after an action (ms)**.
 
 ```json
 {

@@ -102,6 +102,17 @@ export const StateSchema = z
     on: z.string().optional().describe('Regular expression: output matching it means ON.'),
     off: z.string().optional().describe('Regular expression: output matching it means OFF (tested first when present).'),
     interval: z.number().int().min(2).default(60).describe('Seconds between checks.'),
+    recheckDelay: z
+      .number()
+      .int()
+      .min(0)
+      .max(60000)
+      .optional()
+      .describe('Milliseconds between the end of an action of the entry and the check that follows it. Default 700; 0 checks at once.'),
+    optimistic: z
+      .boolean()
+      .optional()
+      .describe('Show the new state as soon as the action succeeds (action → ON, offAction → OFF), without waiting for the check; the check that follows corrects it if wrong. Needs an offAction.'),
     iconOff: z.string().optional().describe('Icon shown when the state is OFF (the main icon is used when ON).'),
     notify: z
       .object({
@@ -376,6 +387,7 @@ export function parseConfig(raw: unknown): ParseResult {
       }
     }
     if (entry.offAction && !entry.state) warnings.push({ path: `${path}.offAction`, message: 'offAction is used only together with state' });
+    if (entry.state?.optimistic && !(entry.action && entry.offAction)) warnings.push({ path: `${path}.state.optimistic`, message: 'optimistic needs both action and offAction: without them the state waits for the check' });
     if (!config.settings.allowAdminCommands) {
       for (const key of ['action', 'offAction', 'rightAction'] as const) {
         if (normalizeAction((entry as MenuEntry & { rightAction?: ActionInput })[key])?.admin) {

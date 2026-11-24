@@ -174,7 +174,7 @@ export function EntryEditor(props: { path: number[] }) {
         actions={<Switch checked={!!entry.state} onChange={(v) => setKey('state', v ? ({ check: '', interval: 60 } as never) : undefined)} testId="toggle-state" />}
         testId="card-state"
       >
-        {entry.state && <StateEditor value={entry.state} onChange={(s) => setKey('state', s as never)} />}
+        {entry.state && <StateEditor value={entry.state} hasOffAction={!!entry.offAction} onChange={(s) => setKey('state', s as never)} />}
       </Card>
 
       {entry.state && (

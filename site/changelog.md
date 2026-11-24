@@ -2,6 +2,13 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.10.0 — faster check marks for toggles
+
+- Toggles can show the new state **as soon as the action succeeds**: `"optimistic": true` in `state` (**Show the new state at once** in the editor). ON after `action`, OFF after `offAction`; the check that follows still runs and corrects it if the action changed nothing. The state notifications are shown once, at the change. `rightAction` and the choices of an alert do not change the state. Needs both `action` and `offAction` (`--validate` warns otherwise).
+- How long to wait before that check is now up to you: `"recheckDelay"` in `state`, in milliseconds (**Check after an action (ms)**). Default 700 as before; `0` checks at once.
+- A check that was already running when an action ended no longer shows an outdated state and no longer swallows the check after the action: it runs again at once.
+- Docs: [faster check marks](./guide/concepts#faster-check-marks).
+
 ## 2.9.1 — quoted paths in cmd scripts
 
 - Scripts with the `cmd` shell that contain double quotes work: `type nul > "C:\Users\Mario Rossi\x.flag"`, `if exist "C:\a b\f" (echo yes) else (echo no)`, quoted programs with spaces in their path. The quotes reached cmd as `\"`, which cmd does not understand ("The filename, directory name, or volume label syntax is incorrect", `if exist` always false). The script now reaches cmd exactly as written, also with **Run in a visible terminal** and with a custom shell whose `command` is `cmd.exe` (as administrator too).

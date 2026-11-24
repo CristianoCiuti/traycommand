@@ -98,9 +98,11 @@ A ref is `"id"` (same kind: on→on, off→off, right→on), `"id:on"`, `"id:off
 | `off` | string | — | Regex: output matching means OFF (tested first). |
 | `interval` | integer ≥ 2 | `60` | Seconds between checks. |
 | `iconOff` | string | — | Icon while OFF (`icon` is used while ON). |
+| `recheckDelay` | integer ms 0–60000 | `700` | Wait after an action of the entry before checking again; `0` = at once. |
+| `optimistic` | boolean | `false` | Show ON after `action` / OFF after `offAction` as soon as it exits 0, then the check corrects it if wrong. Needs `action` and `offAction`. |
 | `notify` | `{ "on"?, "off"? }` | — | Notification when it turns ON / OFF (`true` or a text). |
 
-Evaluation: exit code ≠ 0 → OFF; output matches `off` → OFF; `on` set → ON if output matches, else OFF; otherwise ON. Regexes are JavaScript, multi-line (`^`/`$` per line). A check is killed after `max(interval, 30)` s. The state is re-checked right after the entry's action. No `admin` for checks.
+Evaluation: exit code ≠ 0 → OFF; output matches `off` → OFF; `on` set → ON if output matches, else OFF; otherwise ON. Regexes are JavaScript, multi-line (`^`/`$` per line). A check is killed after `max(interval, 30)` s. The state is re-checked after the entry's action (after `recheckDelay`, default 700 ms). For fast, reliable actions (a flag file, a setting) use `"optimistic": true, "recheckDelay": 0` so the check mark changes on click; when the real state takes a moment to follow (a service, an agent writing a value), keep `optimistic` off and set `recheckDelay` to about that time. No `admin` for checks.
 
 ## inputs (of an action)
 

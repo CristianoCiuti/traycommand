@@ -76,6 +76,10 @@ export interface RuntimeEntry {
   inflight?: Promise<void>;
   timer?: NodeJS.Timeout;
   lastCheck?: number;
+  /** Bumped when an action sets the state without a check (optimistic): a check started before is stale. */
+  stateVersion?: number;
+  /** A check was asked while one was running: check again as soon as it ends. */
+  checkAgain?: boolean;
   /** Next scheduled run per schedule index. */
   nextRuns: Map<number, number>;
   /** Folder watches per schedule index. */
@@ -606,7 +610,15 @@ export class Engine {
       this.deps.notify(label, typeof action.notify === 'string' ? this.shown(action.notify, ctx.values, ctx.secrets) : DEFAULT_TEXT.ok, 'info');
     }
 
-    if (entry.entry.state && !this.stopped) this.scheduleCheck(entry, this.deps.recheckDelay ?? 700, this.generation);
+    const state = entry.entry.state;
+    if (state && !this.stopped) {
+      // optimistic: only the entry's own on/off actions (not alert choices, not rightAction), and only with both actions
+      if (ok && state.optimistic && name === undefined && kind !== 'right' && entry.entry.action && entry.entry.offAction) {
+        entry.stateVersion = (entry.stateVersion ?? 0) + 1;
+        this.setState(entry, kind === 'on');
+      }
+      this.scheduleCheck(entry, state.recheckDelay ?? this.deps.recheckDelay ?? 700, this.generation);
+    }
     return result;
   }
 
@@ -1031,13 +1043,17 @@ export class Engine {
     const state = entry.entry.state;
     if (!state || generation !== this.generation) return;
     entry.timer = undefined;
-    if (entry.checking) return;
+    if (entry.checking) {
+      entry.checkAgain = true;
+      return;
+    }
     if (!force && !this.isActive(entry)) {
       // paused while hidden or disabled: look again later in case it becomes active (a stopped engine has another generation)
       this.scheduleCheck(entry, state.interval * 1000, generation);
       return;
     }
     entry.checking = true;
+    const version = entry.stateVersion;
     let result: RunResult;
     const pending = this.deps
       .run(this.expandText(state.check), {
@@ -1052,18 +1068,28 @@ export class Engine {
       entry.inflight = undefined;
     }
     if (generation !== this.generation) return;
-    const on = evaluateState(result, state.on, state.off);
-    entry.lastCheck = Date.now();
+    // started before an optimistic change: its output is older than the action, so check again instead
+    const stale = version !== entry.stateVersion;
+    if (!stale) {
+      entry.lastCheck = Date.now();
+      this.setState(entry, evaluateState(result, state.on, state.off));
+    }
+    const again = stale || entry.checkAgain;
+    entry.checkAgain = false;
+    if (!this.stopped) this.scheduleCheck(entry, again ? 0 : state.interval * 1000, generation);
+  }
+
+  /** Sets ON/OFF, with the state notification when it changes (not for the first value). */
+  private setState(entry: RuntimeEntry, on: boolean) {
+    const state = entry.entry.state;
     const previous = entry.on;
     entry.on = on;
-    if (previous !== on) {
-      if (previous !== undefined) {
-        const message = on ? state.notify?.on : state.notify?.off;
-        if (message) this.deps.notify(this.label(entry), typeof message === 'string' ? this.shown(message) : on ? DEFAULT_TEXT.stateOn : DEFAULT_TEXT.stateOff, 'info');
-      }
-      this.emit(entry.key);
+    if (previous === on) return;
+    if (previous !== undefined && state) {
+      const message = on ? state.notify?.on : state.notify?.off;
+      if (message) this.deps.notify(this.label(entry), typeof message === 'string' ? this.shown(message) : on ? DEFAULT_TEXT.stateOn : DEFAULT_TEXT.stateOff, 'info');
     }
-    if (!this.stopped) this.scheduleCheck(entry, state.interval * 1000, generation);
+    this.emit(entry.key);
   }
 }
 

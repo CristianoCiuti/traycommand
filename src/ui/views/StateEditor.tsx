@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { CirclePlay } from 'lucide-preact';
 import type { State } from '../../shared/config';
 import type { TestResult } from '../../shared/api';
-import { Field } from '../components/ui';
+import { Field, Switch } from '../components/ui';
 import { VarField } from '../components/VarField';
 import { ShellSelect, TestOutput } from './ActionEditor';
 import { IconPicker } from './IconPicker';
@@ -17,7 +17,7 @@ function validRegex(source: string | undefined) {
   }
 }
 
-export function StateEditor(props: { value: State; onChange: (s: State) => void }) {
+export function StateEditor(props: { value: State; onChange: (s: State) => void; hasOffAction?: boolean }) {
   const s = props.value;
   const [result, setResult] = useState<TestResult>();
   const [running, setRunning] = useState(false);
@@ -66,6 +66,31 @@ export function StateEditor(props: { value: State; onChange: (s: State) => void 
         <Field label="Icon when OFF">
           <IconPicker value={s.iconOff} onChange={(iconOff) => change({ iconOff })} compact />
         </Field>
+      </div>
+      <div class="grid2">
+        <Field label="Check after an action (ms)" hint="Wait before checking again after a click: empty = 700, 0 = at once">
+          <input
+            class="input"
+            type="number"
+            min={0}
+            max={60000}
+            value={s.recheckDelay ?? ''}
+            placeholder="700"
+            data-testid="state-recheck-delay"
+            onInput={(e) => {
+              const raw = (e.currentTarget as HTMLInputElement).value;
+              change({ recheckDelay: raw === '' ? undefined : Math.min(60000, Math.max(0, Math.round(Number(raw)) || 0)) });
+            }}
+          />
+        </Field>
+        <Switch
+          checked={!!s.optimistic}
+          onChange={(v) => change({ optimistic: v || undefined })}
+          disabled={!props.hasOffAction && !s.optimistic}
+          label="Show the new state at once"
+          hint={props.hasOffAction ? 'ON after the action, OFF after the OFF action, when they succeed; the check corrects it if wrong' : 'Needs an OFF action'}
+          testId="state-optimistic"
+        />
       </div>
       <div class="grid2">
         <Field label="Notify when it turns ON" hint="Empty = no notification">

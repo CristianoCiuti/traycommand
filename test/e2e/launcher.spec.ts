@@ -549,6 +549,38 @@ test('shortcut with a confirmation: its own texts, Esc cancels, the button runs'
   }
 });
 
+test('action confirm: a click asks in the TrayCommand window with its own button, Esc cancels', async () => {
+  fs.rmSync(path.join(out, 'hello.txt'), { force: true });
+  const before = await hook<unknown>("return tc.engine.get('hello').entry.action");
+  const key = await hook<string>(`const e = tc.engine.get('hello'); const a = e.entry.action;
+    e.entry.action = { ...(typeof a === 'string' ? { run: a } : a), confirm: { text: 'Riavviare la VDI?', button: 'Riavvia' } }; return e.key`);
+  try {
+    await hook(`tc.engine.click('${key}')`);
+    await expect.poll(launcherVisible).toBe(true);
+    const box = launcher.getByTestId('launcher-alert');
+    await expect(box).toHaveAttribute('data-armed', 'true');
+    await expect(launcher.getByTestId('launcher-alert-title')).toHaveText('Say hello');
+    await expect(launcher.getByTestId('launcher-alert-text')).toContainText('Riavviare la VDI?');
+    await expect(launcher.getByTestId('launcher-alert-choice-0')).toHaveText('Riavvia');
+    await shot(launcher, '34-action-confirm');
+    await launcher.keyboard.press('Escape');
+    await expect.poll(launcherVisible).toBe(false);
+    await launcher.waitForTimeout(800);
+    expect(read('hello.txt')).toBeUndefined();
+
+    // the string form: the "Run" button; Enter runs
+    await hook(`tc.engine.get('${key}').entry.action.confirm = 'Say it?'`);
+    await hook(`tc.engine.click('${key}')`);
+    await expect(box).toHaveAttribute('data-armed', 'true');
+    await expect(launcher.getByTestId('launcher-alert-choice-0')).toHaveText('Run');
+    await launcher.keyboard.press('Enter');
+    await expect.poll(() => read('hello.txt')).toBe('hello');
+    await expect.poll(launcherVisible).toBe(false);
+  } finally {
+    await hook(`tc.engine.get('hello').entry.action = ${JSON.stringify(before)}`);
+  }
+});
+
 test('alert over the open launcher: back to the list after it; Space runs a button once', async () => {
   fs.rmSync(path.join(out, 'space.txt'), { force: true });
   await hook('await tc.launcher.open()');
@@ -661,4 +693,24 @@ test('editor: a notification whose click runs a button; a shortcut that asks fir
   await expect(editor.getByTestId('savebar')).toBeHidden();
   saved = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8'));
   expect(saved.trays[0].hotkeyConfirm).toEqual({ text: 'Deploy now?', button: 'Deploy' });
+
+  // the confirmation of the action: the question, then the text of its button
+  const action = editor.getByTestId('action');
+  if (!(await action.getByTestId('action-confirm').isVisible())) await action.getByRole('button', { name: /^Options/ }).click();
+  await action.getByTestId('action-confirm').fill('Riavviare la VDI?');
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  saved = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8'));
+  expect(saved.trays[0].action.confirm).toBe('Riavviare la VDI?');
+  await action.getByTestId('action-confirm-button').fill('Riavvia');
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  saved = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8'));
+  expect(saved.trays[0].action.confirm).toEqual({ text: 'Riavviare la VDI?', button: 'Riavvia' });
+  // no button text: back to the plain question
+  await action.getByTestId('action-confirm-button').fill('');
+  await editor.keyboard.press('Control+S');
+  await expect(editor.getByTestId('savebar')).toBeHidden();
+  saved = JSON.parse(fs.readFileSync(path.join(work, 'launcher.json'), 'utf8'));
+  expect(saved.trays[0].action.confirm).toBe('Riavviare la VDI?');
 });

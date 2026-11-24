@@ -79,7 +79,7 @@ A string (the script) or an object:
 | `timeout` | integer | none | Kill after N seconds (reported as an error). |
 | `notify` | boolean \| string \| `{ "text"?, "click"? }` | `false` | Notification on success (`true` = "Done"). With `click`, clicking the notification runs that entry: `"id"` = what a click on it does, `"id:on"` / `"id:off"` / `"id:right"` forces one (checked like `before`). Errors are always notified. |
 | `notifyError` | `{ "text"?, "click"? }` | — | Failure notification: `text` replaces "Failed: <reason>" (the last 3 output lines follow, so print the reason last); `click` runs an entry (default: opens the activity log). |
-| `confirm` | string | — | Ask Run/Cancel with this text first. |
+| `confirm` | string \| `{ "text", "button"? }` | — | Ask first in a TrayCommand window (Enter runs, Esc cancels). String = the question with a "Run" button; the object sets the button text too (e.g. `{ "text": "Restart the VDI?", "button": "Restart" }`). `${VAR}` and input values allowed. Scheduled runs skip it. |
 | `terminal` | boolean | `false` | Run in a visible terminal that stays open. |
 | `admin` | boolean | `false` | Run elevated (UAC prompt each time). Needs `settings.allowAdminCommands`. |
 | `before` | refs | — | Actions of other entries to run first, in order. |

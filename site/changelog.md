@@ -2,6 +2,14 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.12.0 — confirmations in TrayCommand's own window
+
+- `confirm` of an action now asks in a **TrayCommand window**, with the look and theme of the app, like the confirmation of a shortcut: <kbd>Enter</kbd> runs, <kbd>Esc</kbd> cancels. It was a system dialog with the buttons *Run / Cancel*. Every run started by a person asks (click, menu, launcher, shortcut, alert choice, notification click); scheduled runs still skip it.
+- The text of the confirm button can be your own: `"confirm": { "text": "Restart the VDI?", "button": "Restart" }`. A plain string works as before, with the **Run** button. In the editor: **Confirm button**, next to the confirmation text under **Options** of the action. Both texts allow `${VARIABLES}` and the values asked by the action, and are listed on the Variables page.
+- The confirmations of the editor are dialogs of the editor too, no longer system windows: deleting an entry, restoring a backup, deleting a variable still in use, making a secret a plain variable, and closing the editor with unsaved changes (**Keep editing** / **Discard and close**).
+- **Quit TrayCommand** from the tray no longer loses the unsaved changes of the editor: it brings the editor to the front and asks (**Keep editing** / **Discard and quit**). Without unsaved changes it quits at once, as before. <kbd>Enter</kbd> confirms, <kbd>Esc</kbd> cancels. The windows to choose a file or a folder stay those of the system.
+- Docs: [ask for confirmation](./recipes/#ask-for-confirmation).
+
 ## 2.11.0 — clickable notifications
 
 - The notification of an action can **run another entry when it is clicked**: `"notify": { "text": "VDI ready: click to show it", "click": "vdi:on" }`. `"id"` does what a click on that entry does, `"id:on"`, `"id:off"` and `"id:right"` choose. `true` and a plain text work as before.

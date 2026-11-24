@@ -9,6 +9,7 @@ import { api, draft, info, mutate, reload, showToast, skills, update } from '../
 import { Card, Dialog, Switch } from '../components/ui';
 import { ShellSelect } from './ActionEditor';
 import { startExport, startImport } from './TransferDialogs';
+import { askConfirm } from '../components/ConfirmDialog';
 
 function Setting(props: { title: string; desc?: preact.ComponentChildren; children: preact.ComponentChildren; testId?: string }) {
   return (
@@ -276,7 +277,8 @@ export function SettingsView() {
                 <button
                   class="btn sm"
                   onClick={async () => {
-                    if (!confirm('Replace the current configuration with this backup?')) return;
+                    const text = `Replace the current configuration with the backup of ${new Date(b.time).toLocaleString()}?`;
+                    if (!(await askConfirm({ title: 'Restore backup', text, button: 'Restore', danger: true }))) return;
                     const r = await api.restoreBackup(b.name);
                     await reload();
                     showToast(r.ok ? 'Backup restored' : 'Cannot restore', r.ok ? 'ok' : 'error');

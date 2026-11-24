@@ -5,6 +5,7 @@ import { FILE_VALUES, VARIABLE_NAME, renameVariable, textFields, undefinedRefere
 import { changeSecrets, draft, info, mutate, navigate, secretOps, secretStates, secretValue, secretsInfo, showToast } from '../store';
 import { Card, Dialog, Field, Switch } from '../components/ui';
 import { VarField } from '../components/VarField';
+import { askConfirm } from '../components/ConfirmDialog';
 
 /** Why a new name cannot be used, or undefined. */
 export function nameProblem(config: Config, name: string, current?: string): string | undefined {
@@ -244,7 +245,8 @@ export function VariablesView() {
 
   const remove = async (name: string, secret: boolean) => {
     const n = counts.get(name) ?? 0;
-    if (n && !confirm(`\${${name}} is used ${n} ${n === 1 ? 'time' : 'times'}: there it will stay written as it is. Delete ${name}?`)) return;
+    const text = `\${${name}} is used ${n} ${n === 1 ? 'time' : 'times'}: there it will stay written as it is. Delete ${name}?`;
+    if (n && !(await askConfirm({ title: `Delete ${name}`, text, button: 'Delete', danger: true }))) return;
     mutate((c) => {
       if (secret) c.secrets = (c.secrets ?? []).filter((s) => s !== name);
       else delete c.variables[name];
@@ -264,7 +266,8 @@ export function VariablesView() {
   };
 
   const makePlain = async (name: string) => {
-    if (!confirm(`The value of ${name} will be written in the configuration file, where anyone who opens it can read it, and it will be exported with it. Continue?`)) return;
+    const text = `The value of ${name} will be written in the configuration file, where anyone who opens it can read it, and it will be exported with it.`;
+    if (!(await askConfirm({ title: `Make ${name} a plain variable`, text, button: 'Write it in the file', danger: true }))) return;
     const value = (await secretValue(name)) ?? '';
     mutate((c) => {
       c.secrets = (c.secrets ?? []).filter((s) => s !== name);

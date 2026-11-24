@@ -274,8 +274,9 @@ describe('engine: alerts', () => {
     );
     answerWith(async () => 0);
     await fire('a', { every: '1m', alert: { choices: [{ label: 'Go', run: 'self' }] } });
-    expect(confirm).toHaveBeenCalled();
-    expect(calls).toEqual([]);
+    expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ title: 'A', alert: { text: 'Sure?', choices: ['Run'] } }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(calls).toEqual([]); // the answer has no choice: declined
     answerWith(async () => 0);
     await fire('a', { every: '1m', alert: { choices: [{ label: 'Named', action: { run: 'named ${NAME}', inputs: [{ name: 'NAME' }] } }] } });
     expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ title: 'A › Named' }));

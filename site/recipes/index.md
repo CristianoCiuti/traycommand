@@ -209,7 +209,7 @@ With `terminal` TrayCommand only knows whether the terminal was opened: the resu
 
 ## Ask for confirmation
 
-`confirm` shows a **Run / Cancel** dialog before running anything, including the composed actions:
+`confirm` asks in a TrayCommand window before running anything, including the composed actions. <kbd>Enter</kbd> runs, <kbd>Esc</kbd> cancels:
 
 ```json
 {
@@ -221,6 +221,12 @@ With `terminal` TrayCommand only knows whether the terminal was opened: the resu
     "notify": "Database reset"
   }
 }
+```
+
+The button says **Run**. To give it your own text, write `confirm` as an object:
+
+```json
+"confirm": { "text": "Restart the VDI? Unsaved work in it is lost.", "button": "Restart" }
 ```
 
 ## Check out a branch (form with choices from git)

@@ -165,20 +165,13 @@ function notify(title: string, body: string, kind: 'info' | 'warning' | 'error' 
   n.show();
 }
 
-async function confirm(title: string, text: string) {
-  const w = currentWindow();
-  const options = { type: 'question' as const, title, message: title, detail: text, buttons: ['Run', 'Cancel'], defaultId: 1, cancelId: 1, noLink: true };
-  const r = w ? await dialog.showMessageBox(w, options) : await dialog.showMessageBox(options);
-  return r.response === 0;
-}
-
 /* ---------------- engine, store, trays ---------------- */
 
 const engine: Engine = new Engine({
   run: runScript,
   runAdmin: createAdminRunner(),
   notify,
-  confirm,
+  // confirmations (action.confirm, hotkeyConfirm) are asked in the launcher window, through prompt
   log: (entry) => logs.add(entry),
   prompt: (request): Promise<Record<string, string> | undefined> => launcher.prompt(request),
   memory: launcherStore,
@@ -599,7 +592,22 @@ function startupSkills(windowShown: boolean) {
   skillsChanged();
 }
 
+let quitWatchdog: NodeJS.Timeout | undefined;
+/**
+ * "Quit TrayCommand" from the tray: with the editor open, it is asked first whether it has unsaved
+ * changes (then it asks in its own dialog, and quits with "Discard and quit").
+ */
+function requestQuit() {
+  const w = currentWindow();
+  if (!w || w.isDestroyed()) return quit();
+  clearTimeout(quitWatchdog);
+  // an editor that does not answer (stuck) does not keep TrayCommand open
+  quitWatchdog = setTimeout(quit, 3000);
+  w.webContents.send('quit-requested');
+}
+
 function quit() {
+  clearTimeout(quitWatchdog);
   hotkeys.dispose();
   launcher.destroy();
   launcherStore.flush();
@@ -819,6 +827,15 @@ function registerIpc() {
   });
   handle('iconData', (file: string) => iconDataUrl(engine.resolvePath(file)));
   handle('openPath', (p: string) => void shell.openPath(p));
+  // "Discard and close" in the dialog of unsaved changes (the editor no longer blocks the close)
+  handle('window:close', () => currentWindow()?.close());
+  // answer of the editor to "Quit TrayCommand": nothing unsaved quits now, otherwise it asks (shown in front)
+  handle('quit:answer', (unsaved: boolean) => {
+    clearTimeout(quitWatchdog);
+    if (!unsaved) return quit();
+    showWindow(state, undefined, devUrl);
+  });
+  handle('app:quit', () => quit());
   handle('openExternal', (url: string) => {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
   });
@@ -931,7 +948,7 @@ void app.whenReady().then(() => {
     openWindow: (route) => showWindow(state, route, devUrl),
     openConfigFile,
     reload: () => applyLoaded(store.load()),
-    quit,
+    quit: requestQuit,
     setTrayHidden,
     isAutostart: () => (store.loaded?.ok ? store.loaded.config.settings.autostart : false),
     setAutostart,

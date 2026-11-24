@@ -12,6 +12,7 @@ import { ActionEditor, AddActionButton } from './ActionEditor';
 import { StateEditor } from './StateEditor';
 import { MenuEditor } from './MenuEditor';
 import { IconPicker } from './IconPicker';
+import { askConfirm } from '../components/ConfirmDialog';
 
 function Breadcrumbs(props: { path: number[] }) {
   const parts = props.path.map((_, i) => props.path.slice(0, i + 1));
@@ -80,8 +81,9 @@ export function EntryEditor(props: { path: number[] }) {
       else (e as Tray)[key] = value as never;
     });
 
-  const remove = () => {
-    if (!confirm(`Delete “${entry.label}”${entry.menu?.length ? ' and its menu' : ''}?`)) return;
+  const remove = async () => {
+    const what = entry.menu?.length ? ' and its menu' : '';
+    if (!(await askConfirm({ title: 'Delete', text: `Delete “${entry.label}”${what}?`, button: 'Delete', danger: true }))) return;
     mutate((c) => siblingsOf(c, path)?.splice(path.at(-1)!, 1));
     selection.value = path.length > 1 ? path.slice(0, -1) : draft.value!.trays.length > 1 ? [Math.max(0, path[0]! - 1)] : [];
   };

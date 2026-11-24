@@ -42,7 +42,7 @@ In the configuration file:
 { "id": "reset", "label": "Reset DB", "hotkey": "Ctrl+Alt+R", "hotkeyConfirm": { "text": "Reset the local database?", "button": "Reset" }, "action": "…" }
 ```
 
-`"hotkeyConfirm": true` asks with the default texts; `text` (`${VARIABLES}` allowed) and `button` replace them. It is separate from the `confirm` of the [action](../reference/#actions), which asks on every run started by a person.
+`"hotkeyConfirm": true` asks with the default texts; `text` (`${VARIABLES}` allowed) and `button` replace them. It is separate from the `confirm` of the [action](../reference/#actions), which asks in the same window on every run started by a person (click, menu, launcher, shortcut, notification click).
 
 Shortcuts are written as keys joined by `+`: modifiers `Ctrl`, `Alt`, `Shift`, `Win` (Windows key, `Cmd` on macOS) or `CommandOrControl`, plus one key: a letter, a digit, `F1`–`F24`, `Space`, `Enter`, `Tab`, `Up`/`Down`/`Left`/`Right`, `Home`, `End`, `PageUp`, `PageDown`, `Insert`, `Delete`, punctuation, `num0`–`num9`. At least one of `Ctrl`, `Alt` or `Win` is needed, so that a shortcut never blocks normal typing (function keys can be used alone).
 

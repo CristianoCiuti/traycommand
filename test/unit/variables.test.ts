@@ -262,7 +262,7 @@ describe('Engine with secrets', () => {
     await engine.click('a');
     expect(calls[0]!.script).toBe('curl https://api?t=s3cr3t ');
     expect(calls[0]!.options.env).toEqual({ AUTH: 's3cr3t' });
-    expect(confirm).toHaveBeenCalledWith('Use ••••', 'Send ••••?');
+    expect(confirm).toHaveBeenCalledWith('Use ••••', 'Send ••••?', 'Run');
     expect(logs[0]).toMatchObject({ label: 'Use ••••', stdout: 'got •••• back', stderr: 'err ••••', script: 'curl ${URL} ${EMPTY}' });
     expect(notify).toHaveBeenCalledWith('Use ••••', 'Sent ••••', 'info');
     // a name that is not declared as a secret is not a variable

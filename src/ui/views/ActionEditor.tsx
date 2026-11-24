@@ -1,6 +1,6 @@
 import { useRef, useState } from 'preact/hooks';
 import { ChevronDown, ChevronRight, CirclePlay, Loader2, Plus, ShieldAlert, X } from 'lucide-preact';
-import type { Action, ActionInput, Shell } from '../../shared/config';
+import { confirmTexts, type Action, type ActionInput, type Shell } from '../../shared/config';
 import type { TestResult } from '../../shared/api';
 import { allIds, api, draft } from '../store';
 import { Field, Switch, TextArea, formatDuration } from '../components/ui';
@@ -132,6 +132,12 @@ function makeNotify(text: string | true | undefined, click: string | undefined):
 const errorNotify = (text: string | undefined, click: string | undefined): Action['notifyError'] =>
   text === undefined && click === undefined ? undefined : { ...(text !== undefined ? { text } : {}), ...(click !== undefined ? { click } : {}) };
 
+/** The shortest form of a confirmation: the question alone, { text, button } with a button text. */
+function makeConfirm(text: string, button: string): Action['confirm'] {
+  if (!button) return text || undefined;
+  return { text, button };
+}
+
 function RefList(props: { title: string; hint: string; refs: string[] | undefined; onChange: (refs: string[] | undefined) => void }) {
   const ids = allIds(draft.value);
   const refs = props.refs ?? [];
@@ -228,6 +234,7 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
   const advancedCount = ['shell', 'cwd', 'env', 'timeout', 'notify', 'notifyError', 'confirm', 'terminal', 'admin', 'before', 'parallel', 'after'].filter((k) => (action as Record<string, unknown>)[k] !== undefined).length;
   const text = notifyText(action.notify);
   const click = notifyClick(action.notify);
+  const confirm = confirmTexts(action.confirm);
 
   return (
     <div class="card-body" data-testid={props.testId}>
@@ -318,9 +325,14 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
               testId={tid('notify-error-click')}
             />
           </div>
-          <Field label="Ask for confirmation" hint="Leave empty to run immediately">
-            <VarField value={action.confirm ?? ''} scope={scope} placeholder="e.g. Reset the database?" onInput={(confirm) => change({ confirm: confirm || undefined })} testId={tid('confirm')} />
-          </Field>
+          <div class="grid2">
+            <Field label="Ask for confirmation" hint="Leave empty to run immediately; Enter runs, Esc cancels">
+              <VarField value={confirm?.text ?? ''} scope={scope} placeholder="e.g. Reset the database?" onInput={(t) => change({ confirm: makeConfirm(t, confirm?.button ?? '') })} testId={tid('confirm')} />
+            </Field>
+            <Field label="Confirm button" hint="Text of the button that runs">
+              <VarField value={confirm?.button ?? ''} scope={scope} placeholder="Run" onInput={(b) => change({ confirm: makeConfirm(confirm?.text ?? '', b) })} testId={tid('confirm-button')} />
+            </Field>
+          </div>
           <div class="grid2">
             <Switch checked={!!action.terminal} onChange={(v) => change({ terminal: v || undefined })} label="Run in a visible terminal" hint="The window stays open after the script ends" />
             <Switch checked={!!action.admin} onChange={(v) => change({ admin: v || undefined })} label="Run as administrator" hint="UAC prompt on every run; enable it in Settings first" />

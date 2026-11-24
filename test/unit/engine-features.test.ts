@@ -136,14 +136,17 @@ describe('inputs', () => {
     expect(await engine.inputOptions(id, 'B')).toEqual({ error: 'The form is no longer open' });
   });
 
-  it('a confirmation shows the typed values', async () => {
+  it('a confirmation shows the typed values, in the TrayCommand window', async () => {
     const confirm = vi.fn(async () => true);
-    const { engine } = setup({ trays: [{ id: 't', label: 'T', action: { run: 'rm', confirm: 'Delete ${WHAT}?', inputs: [{ name: 'WHAT' }] } }] }, undefined, {
+    const prompts: PromptRequest[] = [];
+    const { engine, calls } = setup({ trays: [{ id: 't', label: 'T', action: { run: 'rm ${WHAT}', confirm: { text: 'Delete ${WHAT}?', button: 'Delete ${WHAT}' }, inputs: [{ name: 'WHAT' }] } }] }, undefined, {
       confirm,
-      prompt: async () => ({ WHAT: 'logs' }),
+      prompt: async (r): Promise<Record<string, string>> => (prompts.push(r), r.alert ? { choice: '0' } : { WHAT: 'logs' }),
     });
     await engine.click('t');
-    expect(confirm).toHaveBeenCalledWith('T', 'Delete logs?');
+    expect(prompts[1]).toMatchObject({ title: 'T', fields: [], submitLabel: 'Delete logs', alert: { text: 'Delete logs?', choices: ['Delete logs'] } });
+    expect(confirm).not.toHaveBeenCalled(); // the system dialog is only a fallback without the window
+    expect(calls).toEqual(['rm logs']);
   });
 
   it('the editor test asks the values too', async () => {

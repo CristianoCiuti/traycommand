@@ -157,7 +157,7 @@ is the same as
 | `timeout` | integer | none | Kill the process (and its children) after N seconds. Reported as an error. |
 | `notify` | boolean \| string \| object | `false` | Notification on success: `false` none, `true` "Done", a string = custom text, `{ "text"?, "click"? }` = text (default "Done") and an entry run when the notification is clicked. Errors are always notified. |
 | `notifyError` | `{ "text"?, "click"? }` | — | How a failure is notified: `text` replaces the first line `Failed: <reason>` (the last 3 lines of the output still follow); `click` = entry run when it is clicked (default: open the activity log). |
-| `confirm` | string | — | Ask for confirmation with this text before running (**Run** / **Cancel**). |
+| `confirm` | string \| `{ "text", "button"? }` | — | Ask before running, in a TrayCommand window: <kbd>Enter</kbd> runs, <kbd>Esc</kbd> cancels. A string is the question; `{ "text", "button" }` also sets the text of the confirm button (default **Run**). Both allow `${VARIABLES}` and the values asked by the action. Runs started by a person ask; scheduled runs do not. |
 | `terminal` | boolean | `false` | Run in a visible terminal window that stays open. |
 | `admin` | boolean | `false` | Run as administrator (prompt on every run). Requires `settings.allowAdminCommands`. See [administrator](../guide/administrator#run-as-administrator). |
 | `before` | array of refs | — | Actions of other entries to run, one after the other, before this one. |

@@ -173,13 +173,11 @@ describe('alerts: details', () => {
     ]);
   });
 
-  it('a choice that throws (the confirmation fails) does not escape, and the next choice still runs', async () => {
+  it('a choice that throws does not escape, and the next choice still runs', async () => {
     let fail = true;
-    const { fire, calls, answerWith, engine } = setup([{ id: 'a', label: 'A', action: { run: 'go', confirm: 'Sure?' } }], () => res(), {
-      confirm: async () => {
-        if (fail) throw new Error('dialog gone');
-        return true;
-      },
+    const { fire, calls, answerWith, engine } = setup([{ id: 'a', label: 'A', action: 'go' }], () => {
+      if (fail) throw new Error('runner gone');
+      return res();
     });
     answerWith(async () => 0);
     const s: Schedule = { watch: { path: 'in' }, alert: { text: 'x', choices: [{ label: 'Go', run: 'self' }] } };
@@ -187,11 +185,23 @@ describe('alerts: details', () => {
     await tick();
     await tick();
     // a timed schedule awaits the alert: the error reaches its caller (the timer ignores it)
-    await expect(fire('a', { every: '1m', alert: { text: 'y', choices: [{ label: 'Go', run: 'self' }] } })).rejects.toThrow('dialog gone');
+    await expect(fire('a', { every: '1m', alert: { text: 'y', choices: [{ label: 'Go', run: 'self' }] } })).rejects.toThrow('runner gone');
     fail = false;
     // the queue of choices is not stuck
     await fire('a', { every: '1m', alert: { text: 'z', choices: [{ label: 'Go', run: 'self' }] } });
-    expect(calls).toEqual(['go']);
+    expect(calls).toEqual(['go', 'go', 'go']);
+  });
+
+  it('a confirmation that cannot be shown runs nothing and is notified', async () => {
+    const { fire, calls, answerWith, notify } = setup([{ id: 'a', label: 'A', action: { run: 'go', confirm: 'Sure?' } }], () => res(), {
+      confirm: async () => {
+        throw new Error('dialog gone');
+      },
+    });
+    answerWith(async () => 0);
+    await fire('a', { every: '1m', alert: { text: 'y', choices: [{ label: 'Go', run: 'self' }] } });
+    expect(calls).toEqual([]);
+    expect(notify).toHaveBeenCalledWith('A', expect.stringContaining('dialog gone'), 'error');
   });
 
   it('the default button is the first with its label', () => {

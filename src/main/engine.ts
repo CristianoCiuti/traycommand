@@ -12,6 +12,7 @@ import {
   type Tray,
   isSeparator,
   normalizeAction,
+  confirmTexts,
 } from '../shared/config';
 import { expand, type VariableContext } from '../shared/variables';
 import { nextCron, parseCron, parseInterval } from '../shared/cron';
@@ -35,7 +36,8 @@ export interface EngineDeps {
   runAdmin: Runner;
   /** `onClick`: run when the notification is clicked (instead of the default: errors open the activity log). */
   notify: (title: string, body: string, kind: 'info' | 'warning' | 'error', onClick?: () => void) => void;
-  confirm: (title: string, text: string) => Promise<boolean>;
+  /** Fallback confirmation, used only without `prompt` (the app asks in its own window through `prompt`). */
+  confirm?: (title: string, text: string, button: string) => Promise<boolean>;
   log: (entry: ExecutionLog) => void;
   /** Shows the form for the inputs of an action; undefined = cancelled. */
   prompt?: (request: PromptRequest) => Promise<Record<string, string> | undefined>;
@@ -111,6 +113,7 @@ const DEFAULT_TEXT = {
   stateOn: 'Now ON',
   stateOff: 'Now OFF',
   failed: 'Failed',
+  confirmButton: 'Run',
   busy: 'Still running, try again when it finishes',
   noAdmin: 'Admin commands are disabled. Enable them in Settings → Advanced.',
 };
@@ -391,10 +394,19 @@ export class Engine {
     const verb = kind === 'off' ? 'Turn off' : kind === 'on' && entry.entry.state ? 'Turn on' : 'Run';
     const button = custom.button?.trim() ? this.shown(custom.button) : verb;
     const text = custom.text?.trim() ? this.shown(custom.text) : `${verb} “${label}”?`;
+    return this.ask(entry, label, text, button);
+  }
+
+  /**
+   * Asks a question in the TrayCommand window (Enter = the button, Esc = cancel).
+   * Resolves true when the run can go ahead; a window that cannot be shown runs nothing.
+   */
+  private async ask(entry: RuntimeEntry, title: string, text: string, button: string): Promise<boolean> {
     try {
+      if (!this.deps.prompt) return this.deps.confirm ? await this.deps.confirm(title, text, button) : true;
       const answer = await this.deps.prompt({
         id: ++this.promptId,
-        title: label,
+        title,
         subtitle: this.pathLabel(entry) || undefined,
         icon: this.iconFor(entry),
         fields: [],
@@ -403,7 +415,7 @@ export class Engine {
       });
       return answer?.choice === '0';
     } catch (error) {
-      this.deps.notify(label, `${DEFAULT_TEXT.failed}: the confirmation could not be shown: ${error instanceof Error ? error.message : String(error)}`, 'error');
+      this.deps.notify(title, `${DEFAULT_TEXT.failed}: the confirmation could not be shown: ${error instanceof Error ? error.message : String(error)}`, 'error');
       return false;
     }
   }
@@ -548,8 +560,10 @@ export class Engine {
   /** Runs an action with its chain; `label` names it in the activity log (default: the entry). */
   private async executeAction(entry: RuntimeEntry, kind: ActionKind, action: Action, visited: Set<string>, ctx: ExecContext, label?: string): Promise<RunResult | undefined> {
     // scheduled runs never ask: the user chose to run them unattended
-    if (action.confirm && ctx.interactive) {
-      const ok = await this.deps.confirm(label ?? this.label(entry), this.shown(action.confirm, ctx.values, ctx.secrets));
+    const confirm = confirmTexts(action.confirm);
+    if (confirm?.text.trim() && ctx.interactive) {
+      const button = confirm.button?.trim() ? this.shown(confirm.button, ctx.values, ctx.secrets) : DEFAULT_TEXT.confirmButton;
+      const ok = await this.ask(entry, label ?? this.label(entry), this.shown(confirm.text, ctx.values, ctx.secrets), button);
       if (!ok) return undefined;
     }
 

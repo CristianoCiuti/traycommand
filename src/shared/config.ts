@@ -96,6 +96,27 @@ export const NotifyErrorSchema = z
   .strict()
   .describe('How a failure of the action is notified. Failures are always notified.');
 
+export const ConfirmSchema = z
+  .union([
+    z.string(),
+    z
+      .object({
+        text: z.string().describe('The question. ${VARIABLES} and the values asked by the action allowed.'),
+        button: z.string().optional().describe('Text of the confirm button. ${VARIABLES} allowed. Default: "Run".'),
+      })
+      .strict(),
+  ])
+  .describe(
+    'Ask before running, in a TrayCommand window (Enter runs, Esc cancels): the question, or { text, button } to choose the text of the confirm button too. Runs started by a person ask; scheduled runs do not.',
+  );
+export type Confirm = z.infer<typeof ConfirmSchema>;
+
+/** The question and the button of a confirmation (button undefined = default). */
+export function confirmTexts(confirm: Confirm | undefined): { text: string; button?: string } | undefined {
+  if (confirm === undefined) return undefined;
+  return typeof confirm === 'string' ? { text: confirm } : confirm;
+}
+
 export const ActionSchema = z
   .object({
     run: z.string().min(1).describe('Script to run.'),
@@ -105,7 +126,7 @@ export const ActionSchema = z
     timeout: z.number().int().positive().optional().describe('Kill the process after N seconds.'),
     notify: actionNotify.optional(),
     notifyError: NotifyErrorSchema.optional(),
-    confirm: z.string().optional().describe('Ask for confirmation with this text before running.'),
+    confirm: ConfirmSchema.optional(),
     terminal: z.boolean().optional().describe('Run in a visible terminal window that stays open, instead of hidden.'),
     admin: z
       .boolean()

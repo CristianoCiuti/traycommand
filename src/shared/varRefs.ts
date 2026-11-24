@@ -90,7 +90,12 @@ export function textFields(config: Config): TextField[] {
       if (typeof notify === 'object' && notify.text !== undefined) add(`${at}.notify.text`, `${prefix}Notification text`, notify.text, locals, (t) => (notify.text = t));
       const notifyError = value.notifyError;
       if (notifyError?.text !== undefined) add(`${at}.notifyError.text`, `${prefix}Error notification text`, notifyError.text, locals, (t) => (notifyError.text = t));
-      if (value.confirm !== undefined) add(`${at}.confirm`, `${prefix}Confirmation`, value.confirm, locals, (t) => (value.confirm = t));
+      const confirm = value.confirm;
+      if (typeof confirm === 'string') add(`${at}.confirm`, `${prefix}Confirmation`, confirm, locals, (t) => (value.confirm = t));
+      else if (confirm) {
+        add(`${at}.confirm.text`, `${prefix}Confirmation`, confirm.text, locals, (t) => (confirm.text = t));
+        if (confirm.button !== undefined) add(`${at}.confirm.button`, `${prefix}Confirm button`, confirm.button, locals, (t) => (confirm.button = t));
+      }
       // the form is shown before the values exist: its texts get the variables only
       value.inputs?.forEach((input, i) => {
         if (input.label !== undefined) add(`${at}.inputs[${i}].label`, `${prefix}Label of ${input.name}`, input.label, [], (t) => (input.label = t));

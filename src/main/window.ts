@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, nativeTheme, screen, shell } from 'electron';
+import { BrowserWindow, nativeTheme, screen, shell } from 'electron';
 import path from 'node:path';
 import type { AppStateStore } from './appState';
 import { appIconFile } from './icons';
@@ -96,19 +96,10 @@ export function showWindow(state: AppStateStore, route?: string, dev?: string) {
   });
   if (saved?.maximized) win.maximize();
 
-  // The editor blocks unload while there are unsaved changes: ask before closing.
-  win.webContents.on('will-prevent-unload', (event) => {
-    const choice = dialog.showMessageBoxSync(win!, {
-      type: 'question',
-      title: 'Unsaved changes',
-      message: 'You have unsaved changes.',
-      detail: 'Close the editor and discard them?',
-      buttons: ['Discard and close', 'Keep editing'],
-      defaultId: 1,
-      cancelId: 1,
-      noLink: true,
-    });
-    if (choice === 0) event.preventDefault();
+  // The editor blocks unload while there are unsaved changes: the close stops here and the editor
+  // asks in its own dialog; "Discard and close" closes the window again (see closeEditor).
+  win.webContents.on('will-prevent-unload', () => {
+    win?.webContents.send('close-requested');
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {

@@ -182,6 +182,8 @@ test('a secret can be renamed (its value follows) and turned back into a plain v
   await expect(page.getByTestId('secret-API_TOKEN')).toHaveValue('tok-123-secret');
   // plain again: the value goes in the file (after the confirmation), the store forgets it
   await page.getByTestId('plain-API_TOKEN').click();
+  await expect(page.getByTestId('confirm-text')).toContainText('anyone who opens it can read it');
+  await page.getByTestId('confirm-ok').click();
   await expect(page.getByTestId('variable-API_TOKEN')).toHaveValue('tok-123-secret');
   await save();
   const c = saved();

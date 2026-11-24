@@ -315,6 +315,16 @@ export interface TrayCommandApi {
   restoreBackup(name: string): Promise<SaveResult>;
   backups(): Promise<{ name: string; time: number }[]>;
   onNavigate(handler: (route: string) => void): () => void;
+  /** The window was asked to close with unsaved changes (the close was stopped). */
+  onCloseRequested(handler: () => void): () => void;
+  /** Closes the editor window. */
+  closeWindow(): Promise<void>;
+  /** "Quit TrayCommand" was chosen in the tray: the editor answers with answerQuit. */
+  onQuitRequested(handler: () => void): () => void;
+  /** Tells whether there are unsaved changes: without, TrayCommand quits at once; with, it waits for quit(). */
+  answerQuit(unsaved: boolean): Promise<void>;
+  /** Quits TrayCommand. */
+  quit(): Promise<void>;
   skills(): Promise<SkillsInfo>;
   installSkill(ids: AgentSkillInfo['id'][]): Promise<SkillsInfo>;
   uninstallSkill(id: AgentSkillInfo['id']): Promise<SkillsInfo>;

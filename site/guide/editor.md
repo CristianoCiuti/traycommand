@@ -27,7 +27,7 @@ Select a tray to edit it on the right. The header has the icon picker, the label
 | **Menu** / **Sub menu** | The entries of the menu: add **Item**, **Sub menu** or **Separator**; move up/down, hide, duplicate, delete. Click an entry to edit it; breadcrumbs bring you back. |
 | **Enabled when** | Follow another toggle: enabled only while it is ON or OFF. |
 
-Each action editor has the **Script** box, the values to [ask before running](./inputs) (**Ask for a value**) and, under the advanced options, shell, working folder, timeout, notification, confirmation text, **Run in a visible terminal**, **Run as administrator**, environment variables, and the composed actions **Run before**, **Run together** and **Run after**.
+Each action editor has the **Script** box, the values to [ask before running](./inputs) (**Ask for a value**) and, under the advanced options, shell, working folder, timeout, notification, confirmation text and the text of its button, **Run in a visible terminal**, **Run as administrator**, environment variables, and the composed actions **Run before**, **Run together** and **Run after**.
 
 While you edit a script, a folder, a label or a message, the [variables](./variables) it can use appear under it as chips (a click inserts `${NAME}` at the cursor), and a `${NAME}` without a value there is pointed out.
 
@@ -42,7 +42,7 @@ Tests do not ask for confirmation, do not run composed actions and do not change
 
 ### Saving
 
-When there are unsaved changes a bar appears at the bottom: **Discard** or **Save** (<kbd>Ctrl</kbd>+<kbd>S</kbd>, <kbd>Cmd</kbd>+<kbd>S</kbd> on macOS). If something is wrong (duplicate id, unknown reference, invalid regular expression) the bar shows how many problems there are, the entry shows **Fix before saving**, and saving is blocked.
+When there are unsaved changes a bar appears at the bottom: **Discard** or **Save** (<kbd>Ctrl</kbd>+<kbd>S</kbd>, <kbd>Cmd</kbd>+<kbd>S</kbd> on macOS). If something is wrong (duplicate id, unknown reference, invalid regular expression) the bar shows how many problems there are, the entry shows **Fix before saving**, and saving is blocked. Closing the editor, or **Quit TrayCommand** from the tray, with unsaved changes asks first: **Keep editing** or **Discard and close** (**Discard and quit**).
 
 A backup of the previous file is kept at every save. See [backups](./startup-and-updates#backups).
 

@@ -12,6 +12,7 @@ import { JsonView } from './views/JsonView';
 import { VariablesView } from './views/VariablesView';
 import { WelcomeView } from './views/WelcomeView';
 import { TransferDialog, startImport } from './views/TransferDialogs';
+import { ConfirmHost, askConfirm } from './components/ConfirmDialog';
 
 const TABS = [
   { route: '/', label: 'Trays', icon: SquareTerminal },
@@ -81,10 +82,27 @@ function App() {
       }
     };
     window.addEventListener('keydown', onKey);
+    // unsaved changes stop the close; the question is asked in the editor's own dialog
+    let discarding = false;
     const onUnload = (e: BeforeUnloadEvent) => {
-      if (dirty.peek()) e.returnValue = false;
+      if (dirty.peek() && !discarding) e.returnValue = false;
     };
     window.addEventListener('beforeunload', onUnload);
+    const offClose = api.onCloseRequested(async () => {
+      const ok = await askConfirm({ title: 'Unsaved changes', text: 'You have unsaved changes. Close the editor and discard them?', button: 'Discard and close', cancel: 'Keep editing', danger: true });
+      if (!ok) return;
+      discarding = true;
+      await api.closeWindow();
+    });
+    const offQuit = api.onQuitRequested(async () => {
+      const unsaved = dirty.peek();
+      await api.answerQuit(unsaved);
+      if (!unsaved) return;
+      const ok = await askConfirm({ title: 'Quit TrayCommand', text: 'You have unsaved changes. Quit TrayCommand and discard them?', button: 'Discard and quit', cancel: 'Keep editing', danger: true });
+      if (!ok) return;
+      discarding = true;
+      await api.quit();
+    });
     // a file dropped on the window is imported (an export or a configuration file)
     const onDragOver = (e: DragEvent) => {
       if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
@@ -106,6 +124,8 @@ function App() {
       window.removeEventListener('drop', onDrop);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('beforeunload', onUnload);
+      offClose();
+      offQuit();
     };
   }, []);
 
@@ -144,6 +164,7 @@ function App() {
       </div>
       <SaveBar />
       <TransferDialog />
+      <ConfirmHost />
       {toast.value && <div class={`toast ${toast.value.kind === 'error' ? 'error' : ''}`}>{toast.value.text}</div>}
     </div>
   );

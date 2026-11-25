@@ -206,6 +206,9 @@ export function SettingsView() {
             <Setting title="Notify when TrayCommand starts">
               <Switch checked={s.notifyOnStartup} onChange={(v) => set('notifyOnStartup', v)} />
             </Setting>
+            <Setting title="Badge while running" desc="An orange dot on the icon of a tray or menu entry until what it runs has ended" testId="setting-busy-badge">
+              <Switch checked={s.busyBadge} onChange={(v) => set('busyBadge', v)} testId="busy-badge" />
+            </Setting>
           </div>
         </Card>
 

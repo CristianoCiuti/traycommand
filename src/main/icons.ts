@@ -1,6 +1,7 @@
 import { nativeImage, type NativeImage } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
+import { drawBadge } from '../shared/badge';
 
 const cache = new Map<string, { mtime: number; image: NativeImage }>();
 
@@ -30,6 +31,22 @@ export function sizedIcon(file: string | undefined, size: number): NativeImage |
     result.addRepresentation({ scaleFactor: scale, width: px, height: px, buffer: resized.toPNG() });
   }
   return result;
+}
+
+/** The image with the "busy" badge drawn over it, at each of its resolutions (1x, 2x). */
+export function withBusyBadge(image: NativeImage): NativeImage {
+  const result = nativeImage.createEmpty();
+  for (const scale of [1, 2]) {
+    // getSize is in logical pixels: the bitmap of a representation has `scale` times as many
+    const size = image.getSize(scale);
+    const width = Math.round(size.width * scale);
+    const height = Math.round(size.height * scale);
+    const bitmap = image.toBitmap({ scaleFactor: scale });
+    if (!width || !height || bitmap.length !== width * height * 4) continue; // no representation at that scale
+    const drawn = nativeImage.createFromBitmap(Buffer.from(drawBadge(bitmap, width, height)), { width, height });
+    result.addRepresentation({ scaleFactor: scale, width, height, buffer: drawn.toPNG() });
+  }
+  return result.isEmpty() ? image : result;
 }
 
 export function assetPath(...parts: string[]): string {

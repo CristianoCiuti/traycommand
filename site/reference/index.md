@@ -49,6 +49,7 @@ The schema is also available here: [config.schema.json](/traycommand/schema/v2/c
 | `autostart` | boolean | `false` | Start TrayCommand when you log in. See [start at login](../guide/startup-and-updates#start-at-login). |
 | `allowAdminCommands` | boolean | `false` | Allow actions with `"admin": true` (prompt on each run). See [administrator](../guide/administrator). |
 | `launcherHotkey` | string | `"Ctrl+Alt+Space"` | Global [shortcut](#shortcuts) that opens the [launcher](../guide/launcher). `""` = no shortcut. |
+| `busyBadge` | boolean | `true` | An orange dot on the icon of a tray or menu entry while it runs, with all it runs `before`, `parallel` and `after`. |
 | `skillUpdates` | `"auto"` \| `"ask"` | `"auto"` | Update the [skill for AI assistants](../guide/ai-assistants) automatically, or ask first. |
 
 ## Variables

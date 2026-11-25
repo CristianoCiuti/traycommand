@@ -29,6 +29,7 @@ Optional: `"secrets": ["NAME", …]` (see below).
 | `autostart` | boolean | `false` | Start at login. |
 | `allowAdminCommands` | boolean | `false` | Required for actions with `"admin": true`. |
 | `launcherHotkey` | string | `"Ctrl+Alt+Space"` | Global shortcut of the launcher (search and run any entry). `""` = none. |
+| `busyBadge` | boolean | `true` | Orange dot on the icon of a tray / menu entry while it runs (whole before/parallel/after chain); drawn automatically, no icon to configure. |
 | `skillUpdates` | `"auto"` \| `"ask"` | `"auto"` | Update this AI skill automatically or ask first. |
 
 Do not change settings unless the user explicitly asks. In particular never turn on `allowAdminCommands` on your own: tell the user to do it.

@@ -1,7 +1,7 @@
 import { Menu, Tray, type MenuItemConstructorOptions, type NativeImage } from 'electron';
 import { watchTooltip } from '../shared/scheduleForm';
 import type { Engine, RuntimeEntry } from './engine';
-import { appIcon, sizedIcon, trayIcon } from './icons';
+import { appIcon, sizedIcon, trayIcon, withBusyBadge } from './icons';
 import type { RunningProcess } from './runner';
 import { canonicalHotkey } from '../shared/hotkey';
 
@@ -102,7 +102,12 @@ export class TrayManager {
   }
 
   private trayImage(entry: RuntimeEntry): NativeImage {
-    return sizedIcon(this.engine.iconFor(entry), 16) ?? trayIcon(16);
+    return this.badged(entry, sizedIcon(this.engine.iconFor(entry), 16) ?? trayIcon(16));
+  }
+
+  /** While the entry runs (with all its chain), its icon gets the orange "busy" badge. */
+  private badged(entry: RuntimeEntry, image: NativeImage): NativeImage {
+    return entry.busy && this.engine.settings?.busyBadge !== false ? withBusyBadge(image) : image;
   }
 
   private tooltip(entry: RuntimeEntry): string {
@@ -180,7 +185,8 @@ export class TrayManager {
   private item(entry: RuntimeEntry): MenuItemConstructorOptions {
     const enabled = this.engine.isEnabled(entry);
     const label = `${this.engine.label(entry)}${entry.busy ? ' …' : ''}`;
-    const icon = sizedIcon(this.engine.iconFor(entry), 16);
+    const plain = sizedIcon(this.engine.iconFor(entry), 16);
+    const icon = plain && this.badged(entry, plain);
     const isToggle = !!entry.entry.state;
     const kind = this.engine.clickKind(entry);
     const base: MenuItemConstructorOptions = { label, enabled: enabled || entry.children.length > 0, ...(entry.children.length ? {} : shortcut(entry.entry.hotkey)) };

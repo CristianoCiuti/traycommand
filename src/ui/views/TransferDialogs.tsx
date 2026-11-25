@@ -46,6 +46,7 @@ const SETTING_LABELS: Record<keyof Settings, string> = {
   autostart: 'Start at login',
   allowAdminCommands: 'Allow administrator commands',
   launcherHotkey: 'Launcher shortcut',
+  busyBadge: 'Badge while running',
   skillUpdates: 'AI skill updates',
 };
 

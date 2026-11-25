@@ -65,7 +65,7 @@ Clicking an error notification opens this page.
 | Section | Contains |
 | --- | --- |
 | **Look** | Aurora, Phosphor, Brutal or Neon HUD (see [looks](#looks)). |
-| **General** | Start at login, theme (light, dark or as the system), default shell, where the TrayCommand menu appears, notification at startup. |
+| **General** | Start at login, theme (light, dark or as the system), default shell, where the TrayCommand menu appears, notification at startup, the orange badge on the icons of entries while they run. |
 | **Configuration file** | Path of the file in use, **Open folder**, **Use another file…**, **Export…** and **Import…** (see [export and import](./sharing)). |
 | **Backups** | The latest backups with **Restore**. |
 | **Updates** | Current version, **Check now** / **Install**, automatic checks on/off, link to this documentation. |

@@ -450,6 +450,7 @@ export const SettingsSchema = z
       .string()
       .default('Ctrl+Alt+Space')
       .describe('Global keyboard shortcut that opens the launcher (search and run any entry). Empty = no shortcut.'),
+    busyBadge: z.boolean().default(true).describe('An orange badge on the icon of a tray or menu entry while it runs (with all it runs before, together and after).'),
     skillUpdates: z
       .enum(['auto', 'ask'])
       .default('auto')

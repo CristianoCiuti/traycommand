@@ -169,7 +169,7 @@ To depend on several toggles, combine them: `{ "all": [...] }` while all of them
 
 Here **Deploy** is clickable while the VPN is ON and either the proxy is ON or the office network is OFF. In the editor, the **Enabled when** card builds the same thing: choose **All (and)** or **Any (or)**, add toggles (each **is ON** or **is OFF**) and groups, and read the result in words underneath. Entries that are not clickable say why in the launcher, in the same words.
 
-An entry is also not clickable while its own action is still running, together with everything it runs (`before`, `parallel`, `after`): it shows *running* until the last one ends.
+An entry is also not clickable while its own action is still running, together with everything it runs (`before`, `parallel`, `after`): it shows *running* until the last one ends. Meanwhile its icon, in the tray and in the menu, carries an **orange dot** in the bottom-right corner, over the icon of ON or of OFF; the tooltip says *running…* and the menu entry ends with *…*. The dot can be turned off in **Settings → General → Badge while running** (`settings.busyBadge`).
 
 ## Composing actions
 

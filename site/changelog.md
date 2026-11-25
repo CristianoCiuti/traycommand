@@ -2,6 +2,10 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.16.0 — a badge while it runs
+
+- While an entry runs, with all it runs `before`, `parallel` and `after`, its **icon carries an orange dot** in the bottom-right corner: in the tray (over the icon of ON or of OFF) and on its menu entry. It goes as soon as the last step ends. A long action, such as opening the VDI from the portal, no longer looks as if nothing were happening. The dot is drawn by TrayCommand, sharp at 100 % and 200 %: no icon to add. **Settings → General → Badge while running** (`settings.busyBadge`) turns it off.
+
 ## 2.15.0 — exit codes that lead on, text that follows the state
 
 - **An exit code routed by `after` is not an error.** With `{ "run": "vdi_portal_open", "exitCodes": [3] }`, a script that exits 3 to say "go on with the portal" no longer shows *Failed: Exit code 3* (nor `notifyError`); the **Activity** shows it green, *Exit 3 ↪*, with where it went. Codes not listed, time-outs, stops and failures handled by `"when": "failed"` stay errors. The entry run after a click still asks its own confirmation.

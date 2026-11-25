@@ -49,6 +49,13 @@ const config = {
         { id: 'vdi_broken', label: 'Broken step', action: 'exit 5' },
       ],
     },
+    {
+      // busy for a few seconds, through the step it runs before: both icons get the badge meanwhile
+      id: 'slow',
+      label: 'Slow',
+      action: { run: 'echo done', before: ['slow_step'] },
+      menu: [{ id: 'slow_step', label: 'Slow step', icon: path.join(root, 'assets', 'icon.png'), action: 'Start-Sleep -Seconds 4' }],
+    },
   ],
 };
 /** What TrayCommand would notify (an isolated run writes its notifications to its output). */
@@ -287,5 +294,58 @@ test('an exit code routed by after is not an error: no error notification, "Exit
     await page.getByTestId('card-menu').getByText('VDI started and running').click();
     await shot(page.getByTestId('card-state'), `59-state-label-off-${look}`);
   }
+  await page.getByTestId('tab-trays').click();
+});
+
+type BadgeHook = {
+  __traycommand: {
+    engine: { get(k: string): unknown; click(k: string): Promise<boolean> };
+    trays: { trayImage(e: unknown): Electron.NativeImage; menuFor(k: string): { items: { label: string; icon?: Electron.NativeImage }[] } };
+  };
+};
+
+test('busy badge: an orange dot on the tray icon and on the menu entry while they run, gone when the chain ends; off in the settings', async () => {
+  // is the bottom-right corner of the 16 px icons orange? (BGRA pixels)
+  const orange = () =>
+    app.evaluate(() => {
+      const tc = (globalThis as unknown as BadgeHook).__traycommand;
+      const isOrange = (img: Electron.NativeImage | undefined) => {
+        if (!img) return false;
+        const { width } = img.getSize(1);
+        const px = img.toBitmap({ scaleFactor: 1 });
+        const i = (11 * width + 11) * 4;
+        return px[i + 2]! > 220 && px[i + 1]! > 110 && px[i + 1]! < 170 && px[i]! < 60;
+      };
+      const step = tc.trays.menuFor('slow').items.find((i) => i.label.startsWith('Slow step'));
+      return { tray: isOrange(tc.trays.trayImage(tc.engine.get('slow'))), step: isOrange(step?.icon), label: step?.label };
+    });
+  expect(await orange()).toEqual({ tray: false, step: false, label: 'Slow step' });
+  const run = app.evaluate(() => (globalThis as unknown as BadgeHook).__traycommand.engine.click('slow'));
+  await expect.poll(orange).toEqual({ tray: true, step: true, label: 'Slow step …' });
+  // the images given to the tray, at 100 % and 200 %
+  fs.mkdirSync(shots, { recursive: true });
+  const pngs = await app.evaluate(() => {
+    const tc = (globalThis as unknown as BadgeHook).__traycommand;
+    const img = tc.trays.trayImage(tc.engine.get('slow'));
+    return [1, 2].map((scaleFactor) => img.toPNG({ scaleFactor }).toString('base64'));
+  });
+  pngs.forEach((b64, i) => fs.writeFileSync(path.join(shots, `61-tray-busy-${i + 1}x.png`), Buffer.from(b64, 'base64')));
+  // both resolutions are kept: 16 px, and 32 px sharp on HiDPI screens (the width is at byte 16 of a PNG)
+  expect(pngs.map((b64) => Buffer.from(b64, 'base64').readUInt32BE(16))).toEqual([16, 32]);
+  await run;
+  await expect.poll(orange).toEqual({ tray: false, step: false, label: 'Slow step' });
+
+  // switched off in the settings: no badge, the running mark of the menu stays
+  await page.getByTestId('tab-settings').click();
+  await page.getByTestId('busy-badge').click();
+  await save();
+  await shot(page.getByTestId('setting-busy-badge'), '60-setting-busy-badge');
+  expect(JSON.parse(fs.readFileSync(path.join(work, 'config.json'), 'utf8')).settings.busyBadge).toBe(false);
+  const again = app.evaluate(() => (globalThis as unknown as BadgeHook).__traycommand.engine.click('slow'));
+  await expect.poll(async () => (await orange()).label).toBe('Slow step …');
+  expect(await orange()).toEqual({ tray: false, step: false, label: 'Slow step …' });
+  await again;
+  await page.getByTestId('busy-badge').click();
+  await save();
   await page.getByTestId('tab-trays').click();
 });

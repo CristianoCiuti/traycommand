@@ -15,7 +15,9 @@ let work: string;
 const systemDialogs: string[] = [];
 
 const saved = () => JSON.parse(fs.readFileSync(path.join(work, 'config.json'), 'utf8'));
-const editorOpen = () => app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.webContents.getURL().includes('index.html')));
+/** The editor is on screen (closing it hides it: the window is kept for the next open). */
+const editorOpen = () => app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.isVisible() && w.webContents.getURL().includes('index.html')));
+const editorWindows = () => app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.webContents.getURL().includes('index.html')).length);
 const closeEditor = () =>
   app!.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()
@@ -47,9 +49,8 @@ test.beforeAll(async () => {
     dialog.showMessageBoxSync = box as never;
   });
   page = await editorWindow(app);
-  // "beforeunload" is how the page stops a close with unsaved changes: Electron then asks the editor
-  // (will-prevent-unload), no window is shown for it; any other page dialog would be a system window
-  page.on('dialog', (d) => void (d.type() !== 'beforeunload' && systemDialogs.push(`${d.type()}: ${d.message()}`)));
+  // any page dialog would be a system window
+  page.on('dialog', (d) => void systemDialogs.push(`${d.type()}: ${d.message()}`));
   await page.setViewportSize({ width: 1200, height: 800 });
   await page.waitForSelector('[data-testid="tray-list"]');
 });
@@ -148,6 +149,20 @@ test('closing with unsaved changes asks in the editor: Keep editing, then Discar
   await expect.poll(editorOpen).toBe(false);
   expect(saved().trays[0].label).not.toBe('Changed, not saved');
   expect(systemDialogs).toEqual([]);
+  // hidden, not destroyed: the same page comes back at once, without the discarded change
+  expect(await editorWindows()).toBe(1);
+  await page.evaluate(() => ((window as unknown as { kept: boolean }).kept = true));
+  await app!.evaluate(() => (globalThis as unknown as { __traycommand: { trays: { hooks: { openWindow: () => void } } } }).__traycommand.trays.hooks.openWindow());
+  await expect.poll(editorOpen).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as { kept?: boolean }).kept)).toBe(true);
+  await expect(page.getByTestId('savebar')).toBeHidden();
+  await expect(page.getByTestId('entry-label')).not.toHaveValue('Changed, not saved');
+
+  // nothing unsaved: closing hides it straight away, no question
+  await closeEditor();
+  await expect.poll(editorOpen).toBe(false);
+  await expect(page.getByTestId('confirm-dialog')).toBeHidden();
+  expect(await editorWindows()).toBe(1);
 });
 
 test('"Quit TrayCommand" from the tray with unsaved changes asks in the editor: Keep editing, then Discard and quit', async () => {
@@ -155,6 +170,7 @@ test('"Quit TrayCommand" from the tray with unsaved changes asks in the editor: 
   const tc = app!;
   const proc = tc.process();
   await tc.evaluate(() => (globalThis as unknown as { __traycommand: { trays: { hooks: { openWindow: () => void } } } }).__traycommand.trays.hooks.openWindow());
+  await expect.poll(editorOpen).toBe(true);
   page = await editorWindow(tc);
   await page.waitForSelector('[data-testid="tray-list"]');
   await page.getByTestId('tray-row').nth(0).click();
@@ -179,4 +195,39 @@ test('"Quit TrayCommand" from the tray with unsaved changes asks in the editor: 
   app = undefined; // gone: nothing to close after the tests
   expect(saved().trays[0].label).not.toBe('Changed, not saved');
   expect(systemDialogs).toEqual([]);
+});
+
+test('started hidden (at login), the editor is loaded in the background: opening it shows the page already there', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-e2e-hidden-'));
+  fs.cpSync(path.join(here, 'fixtures'), dir, { recursive: true });
+  // not the first run (that one shows the editor even when started hidden)
+  fs.mkdirSync(path.join(dir, 'data'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'data', 'state.json'), JSON.stringify({ lastVersion: '2.0.0' }));
+  const hidden = await electron.launch({
+    args: [root, '--hidden', `--data-dir=${path.join(dir, 'data')}`, `--config=${path.join(dir, 'config.json')}`],
+    env: { ...process.env, TRAYCOMMAND_E2E: '1', TRAYCOMMAND_AGENTS_HOME: path.join(dir, 'home') },
+  });
+  try {
+    const editors = () =>
+      hidden.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()
+          .filter((w) => !w.isDestroyed() && w.webContents.getURL().includes('index.html'))
+          .map((w) => ({ visible: w.isVisible(), loading: w.webContents.isLoading() })),
+      );
+    await expect.poll(editors, { timeout: 20000 }).toEqual([{ visible: false, loading: false }]);
+    const editor = await editorWindow(hidden);
+    await editor.waitForSelector('[data-testid="tray-list"]', { state: 'attached' });
+    await editor.evaluate(() => ((window as unknown as { kept: boolean }).kept = true));
+    await hidden.evaluate(() => (globalThis as unknown as { __traycommand: { trays: { hooks: { openWindow: () => void } } } }).__traycommand.trays.hooks.openWindow());
+    await expect.poll(editors).toEqual([{ visible: true, loading: false }]);
+    expect(await editor.evaluate(() => (window as unknown as { kept?: boolean }).kept)).toBe(true);
+  } finally {
+    await closeApp(hidden);
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+    } catch {
+      /* temp folder still locked by the exiting app: harmless */
+    }
+  }
 });

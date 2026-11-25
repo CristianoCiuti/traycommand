@@ -61,21 +61,59 @@ function visibleOnSomeDisplay(b: { x?: number; y?: number; width: number; height
   });
 }
 
+/** Asked to be shown: shown as soon as its page has drawn its first frame. */
+let wantShow = false;
+/** Its page has drawn: showing it is immediate. */
+let ready = false;
+/** Closing for good (the system session ends): the close is not turned into a hide. */
+let closingForGood = false;
+
+/**
+ * The editor window. It is created once and kept: closing it hides it, so opening it again is
+ * immediate (a new window starts a new renderer process and loads the whole page, which takes
+ * seconds on some PCs). Its page keeps up with the configuration while hidden.
+ */
 export function showWindow(state: AppStateStore, route?: string, dev?: string) {
   if (win && !win.isDestroyed()) {
     if (route) win.webContents.send('navigate', route);
+    if (!ready) {
+      wantShow = true;
+      return win;
+    }
     if (win.isMinimized()) win.restore();
+    // loaded hidden at start-up: it opens as it was left (maximize also shows it)
+    if (!win.isVisible() && state.get().window?.maximized && !win.isMaximized()) win.maximize();
     win.show();
     win.focus();
     return win;
   }
+  wantShow = true;
+  return createWindow(state, route, dev);
+}
+
+/** Loads the editor hidden, so that the first open is immediate too (started hidden at login). */
+export function prepareWindow(state: AppStateStore, dev?: string) {
+  if (win && !win.isDestroyed()) return win;
+  wantShow = false;
+  return createWindow(state, undefined, dev);
+}
+
+/** Closing the editor hides it (its page has already asked about unsaved changes). */
+export function hideWindow() {
+  if (!win || win.isDestroyed()) return;
+  wantShow = false;
+  win.hide();
+}
+
+function createWindow(state: AppStateStore, route?: string, dev?: string) {
   pendingRoute = route;
+  ready = false;
   const saved = state.get().window;
   const bounds = saved && visibleOnSomeDisplay(saved) ? saved : { width: saved?.width ?? 1100, height: saved?.height ?? 740 };
   stateRef = state;
   const c = state.get().chrome ?? (nativeTheme.shouldUseDarkColors ? DEFAULT_CHROME.dark : DEFAULT_CHROME.light);
 
-  win = new BrowserWindow({
+  const w = new BrowserWindow({
     ...bounds,
     minWidth: 860,
     minHeight: 560,
@@ -94,19 +132,14 @@ export function showWindow(state: AppStateStore, route?: string, dev?: string) {
       spellcheck: false,
     },
   });
-  if (saved?.maximized) win.maximize();
+  win = w;
+  if (saved?.maximized && wantShow) w.maximize();
 
-  // The editor blocks unload while there are unsaved changes: the close stops here and the editor
-  // asks in its own dialog; "Discard and close" closes the window again (see closeEditor).
-  win.webContents.on('will-prevent-unload', () => {
-    win?.webContents.send('close-requested');
-  });
-
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  w.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
   });
-  win.webContents.on('will-navigate', (event, url) => {
+  w.webContents.on('will-navigate', (event, url) => {
     if (!url.startsWith('file:') && !(dev && url.startsWith(dev))) {
       event.preventDefault();
       if (/^https?:/.test(url)) void shell.openExternal(url);
@@ -114,27 +147,45 @@ export function showWindow(state: AppStateStore, route?: string, dev?: string) {
   });
 
   const save = () => {
-    if (!win || win.isDestroyed()) return;
-    const b = win.getNormalBounds();
-    state.update({ window: { ...b, maximized: win.isMaximized() } });
+    if (w.isDestroyed() || !w.isVisible()) return;
+    const b = w.getNormalBounds();
+    state.update({ window: { ...b, maximized: w.isMaximized() } });
   };
-  win.on('resized', save);
-  win.on('moved', save);
-  win.on('maximize', save);
-  win.on('unmaximize', save);
-  win.on('close', save);
-  win.on('closed', () => {
-    win = undefined;
+  w.on('resized', save);
+  w.on('moved', save);
+  w.on('maximize', save);
+  w.on('unmaximize', save);
+  // the close becomes a hide: the page asks about unsaved changes first, then hides it (window:close).
+  // A page that crashed, or the end of the system session, close it for real.
+  w.on('close', (event) => {
+    save();
+    if (closingForGood || w.webContents.isCrashed()) return;
+    event.preventDefault();
+    w.webContents.send('close-requested');
   });
-  win.once('ready-to-show', () => win?.show());
+  w.on('session-end', () => (closingForGood = true));
+  w.on('closed', () => {
+    if (win === w) win = undefined;
+  });
+  // a page that crashed is loaded again next time
+  w.webContents.on('render-process-gone', () => {
+    if (!w.isDestroyed()) w.destroy();
+  });
+  w.once('ready-to-show', () => {
+    ready = true;
+    if (!wantShow || w.isDestroyed()) return;
+    if (state.get().window?.maximized && !w.isMaximized()) w.maximize();
+    w.show();
+  });
 
   // the page is told the look in use, so its first frame (shown by ready-to-show) already has it
   const query = lookStyle ? { style: lookStyle } : undefined;
-  if (dev) void win.loadURL(`${dev}${query ? `?${new URLSearchParams(query)}` : ''}#${pendingRoute ?? '/'}`);
-  else void win.loadFile(path.join(__dirname, '..', 'ui', 'index.html'), { query, hash: pendingRoute ?? '/' });
-  return win;
+  if (dev) void w.loadURL(`${dev}${query ? `?${new URLSearchParams(query)}` : ''}#${pendingRoute ?? '/'}`);
+  else void w.loadFile(path.join(__dirname, '..', 'ui', 'index.html'), { query, hash: pendingRoute ?? '/' });
+  return w;
 }
 
+/** The editor window, also while hidden. */
 export function currentWindow() {
   return win && !win.isDestroyed() ? win : undefined;
 }

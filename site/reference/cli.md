@@ -8,7 +8,7 @@ TrayCommand.exe [--hidden] [--config=<file>] [--data-dir=<dir>] [--launcher] [--
 
 | Option | Description |
 | --- | --- |
-| `--hidden` | Start in the tray without opening the editor window (used by start at login). On the very first start the window is shown anyway. |
+| `--hidden` | Start in the tray without opening the editor window (used by start at login); the window is loaded in the background, so opening it later is immediate. On the very first start the window is shown anyway. |
 | `--config=<file>` | Use this configuration file. Takes precedence over everything else and is kept when TrayCommand relaunches itself (updates, start at login). |
 | `--data-dir=<dir>` | Use another [data folder](#data-folder) (state, logs, backups). With this option start at login is never changed, which makes it handy for test copies. |
 | `--launcher` | Open the [launcher](../guide/launcher). When TrayCommand is already running, the running copy opens it (and nothing else starts). |
@@ -107,6 +107,6 @@ Only one TrayCommand runs per user. Starting it again (from the Start menu, for 
 
 ## Exit behaviour
 
-- Closing the editor window does **not** quit TrayCommand: it keeps running in the tray.
+- Closing the editor window does **not** quit TrayCommand: it keeps running in the tray. The window is only hidden, so it opens again at once; started with `--hidden`, TrayCommand loads it in the background a few seconds after start.
 - **Quit TrayCommand** in the TrayCommand menu removes all icons, stops the state checks and exits.
 - Installing an update quits TrayCommand and relaunches it with `--hidden` and the same `--config` option.

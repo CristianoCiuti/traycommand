@@ -82,16 +82,14 @@ function App() {
       }
     };
     window.addEventListener('keydown', onKey);
-    // unsaved changes stop the close; the question is asked in the editor's own dialog
-    let discarding = false;
-    const onUnload = (e: BeforeUnloadEvent) => {
-      if (dirty.peek() && !discarding) e.returnValue = false;
-    };
-    window.addEventListener('beforeunload', onUnload);
+    // closing the window hides it (it is kept for the next open): unsaved changes are asked about first,
+    // in the editor's own dialog, and dropped if the answer is "Discard and close"
     const offClose = api.onCloseRequested(async () => {
-      const ok = await askConfirm({ title: 'Unsaved changes', text: 'You have unsaved changes. Close the editor and discard them?', button: 'Discard and close', cancel: 'Keep editing', danger: true });
-      if (!ok) return;
-      discarding = true;
+      if (dirty.peek()) {
+        const ok = await askConfirm({ title: 'Unsaved changes', text: 'You have unsaved changes. Close the editor and discard them?', button: 'Discard and close', cancel: 'Keep editing', danger: true });
+        if (!ok) return;
+        discard();
+      }
       await api.closeWindow();
     });
     const offQuit = api.onQuitRequested(async () => {
@@ -100,7 +98,6 @@ function App() {
       if (!unsaved) return;
       const ok = await askConfirm({ title: 'Quit TrayCommand', text: 'You have unsaved changes. Quit TrayCommand and discard them?', button: 'Discard and quit', cancel: 'Keep editing', danger: true });
       if (!ok) return;
-      discarding = true;
       await api.quit();
     });
     // a file dropped on the window is imported (an export or a configuration file)
@@ -123,7 +120,6 @@ function App() {
       window.removeEventListener('dragover', onDragOver);
       window.removeEventListener('drop', onDrop);
       window.removeEventListener('keydown', onKey);
-      window.removeEventListener('beforeunload', onUnload);
       offClose();
       offQuit();
     };

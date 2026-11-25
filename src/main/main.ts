@@ -30,7 +30,7 @@ import { APP_ID, APP_NAME, currentInstallRoot, DOCS_URL, machineInstallDir, same
 import { onRunningChange, runningProcesses, runScript } from './runner';
 import { TrayManager } from './trays';
 import { Updater } from './updater';
-import { applyTheme, currentWindow, sendToWindow, setChrome, setWindowIcon, showWindow } from './window';
+import { applyTheme, currentWindow, hideWindow, prepareWindow, sendToWindow, setChrome, setWindowIcon, showWindow } from './window';
 
 /* ---------------- arguments & paths ---------------- */
 
@@ -721,6 +721,10 @@ let quitWatchdog: NodeJS.Timeout | undefined;
  * "Quit TrayCommand" from the tray: with the editor open, it is asked first whether it has unsaved
  * changes (then it asks in its own dialog, and quits with "Discard and quit").
  */
+/** Whether TrayCommand runs as administrator: asked once (it cannot change while it runs). */
+let elevated: Promise<boolean> | undefined;
+const isElevated = () => (elevated ??= runScript('net session', { shell: 'cmd', timeout: 10 }).then((r) => r.code === 0));
+
 function requestQuit() {
   const w = currentWindow();
   if (!w || w.isDestroyed()) return quit();
@@ -884,7 +888,7 @@ function registerIpc() {
   });
   handle('info', async () => {
     const info = appInfo();
-    if (process.platform === 'win32') info.elevated = (await runScript('net session', { shell: 'cmd', timeout: 10 })).code === 0;
+    if (process.platform === 'win32') info.elevated = await isElevated();
     return info;
   });
   handle('config:load', () => store.loaded ?? store.load());
@@ -951,8 +955,8 @@ function registerIpc() {
   });
   handle('iconData', (file: string) => iconDataUrl(engine.resolvePath(file)));
   handle('openPath', (p: string) => void shell.openPath(p));
-  // "Discard and close" in the dialog of unsaved changes (the editor no longer blocks the close)
-  handle('window:close', () => currentWindow()?.close());
+  // the editor closes (nothing unsaved, or "Discard and close"): it is hidden, kept for the next open
+  handle('window:close', () => hideWindow());
   // answer of the editor to "Quit TrayCommand": nothing unsaved quits now, otherwise it asks (shown in front)
   handle('quit:answer', (unsaved: boolean) => {
     clearTimeout(quitWatchdog);
@@ -1155,7 +1159,10 @@ void app.whenReady().then(() => {
   startupSkills(showNow);
   skillsStarted = true;
   // the launcher is loaded in the background right after start-up (the editor window comes first),
-  // so that its shortcut only has to show it
+  // so that its shortcut only has to show it; started hidden, the editor is loaded in the background
+  // too, so that opening it from the tray is immediate
   setTimeout(() => launcher.create(), 300);
+  if (!currentWindow()) setTimeout(() => prepareWindow(state, devUrl), 3000);
+  if (process.platform === 'win32') void isElevated();
 });
 

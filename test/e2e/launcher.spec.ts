@@ -448,9 +448,11 @@ test('editor: run an entry when files appear in a folder, in a time window', asy
 
 test('alert of a schedule: a window over the others, chosen with the keyboard', async () => {
   for (const f of ['alert.txt', 'hello.txt']) fs.rmSync(path.join(out, f), { force: true });
+  // a schedule is skipped while its entry still runs (a button's command may have written its file and not ended yet): wait for it
   const fire = (alert: object) =>
     hook(`
       const e = tc.engine.get('tools');
+      for (let n = 0; e.busy && n < 400; n++) await new Promise((r) => setTimeout(r, 25));
       tc.lastAlert = tc.engine.fireSchedule(e, { every: '1h', alert: ${JSON.stringify(alert)} }, { TC_FILE: 'scan.pdf' });
     `);
   const choices = [

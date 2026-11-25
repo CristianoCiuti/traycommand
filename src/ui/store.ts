@@ -95,11 +95,6 @@ export async function reload() {
 }
 
 export async function init() {
-  info.value = await api.info();
-  await reload();
-  draft.value = saved.value ? structuredClone(saved.value) : undefined;
-  status.value = new Map((await api.status()).map((s) => [s.key, s]));
-  logs.value = await api.logs();
   api.onStatus((list) => (status.value = new Map(list.map((s) => [s.key, s]))));
   api.onLog((log) => (logs.value = [log, ...logs.value].slice(0, 300)));
   api.onConfigChanged(() => void reload());
@@ -107,10 +102,17 @@ export async function init() {
   api.onNavigate((to) => navigate(to));
   api.onSkills((s) => (skills.value = s));
   api.onHotkeys((h) => (hotkeyStatus.value = h));
-  skills.value = await api.skills();
-  hotkeyStatus.value = await api.hotkeys();
-  schedulesPaused.value = await api.schedulesPaused();
-  secretsInfo.value = await api.secrets();
+  // asked all at once, each shown as soon as it arrives (the configuration does not wait for the others)
+  await Promise.all([
+    api.info().then((v) => (info.value = v)),
+    reload().then(() => (draft.value = saved.value ? structuredClone(saved.value) : undefined)),
+    api.status().then((list) => (status.value = new Map(list.map((s) => [s.key, s])))),
+    api.logs().then((list) => (logs.value = list)),
+    api.skills().then((v) => (skills.value = v)),
+    api.hotkeys().then((v) => (hotkeyStatus.value = v)),
+    api.schedulesPaused().then((v) => (schedulesPaused.value = v)),
+    api.secrets().then((v) => (secretsInfo.value = v)),
+  ]);
   if (route.value.startsWith('/entry/')) navigate(route.value);
   if (draft.value?.trays.length && selection.value.length === 0) selection.value = [0];
 }

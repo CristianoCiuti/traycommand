@@ -2,6 +2,11 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.14.1 — the editor opens at once
+
+- Opening the editor from the tray is **immediate**: closing it now hides it instead of destroying it, and when TrayCommand starts hidden (at login) the editor is loaded in the background. It took 1–5 seconds on some PCs, where starting a new window process is slow. Unsaved changes are still asked about on close (**Keep editing** / **Discard and close**); discarded ones are gone the next time it opens.
+- The editor shows its data sooner: what it needs is asked all at once, and whether TrayCommand runs as administrator is checked once at start-up instead of at every open.
+
 ## 2.14.0 — conditions made of several toggles, reordering by dragging
 
 - **Enabled when** can depend on several toggles: `{ "all": ["vpn", "proxy"] }` while all of them hold (and), `{ "any": ["vpn", "!office"] }` while at least one does (or), and groups inside groups: `{ "all": ["vpn", { "any": ["proxy", "!office"] }] }`. A single `"id"` / `"!id"` works as before. In the editor the **Enabled when** card has **All (and)** / **Any (or)**, toggles that are **ON** or **OFF**, groups, and the condition written in words; the launcher tells why an entry is not clickable in the same words. Docs: [enabled when](./guide/concepts#enabled-when).

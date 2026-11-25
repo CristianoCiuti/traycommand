@@ -363,7 +363,9 @@ test('shortcuts can be removed: an entry and the launcher', async () => {
   await editor.getByTestId('entry-hotkey').focus();
   await editor.keyboard.press('Delete');
   await expect(editor.getByTestId('entry-hotkey')).not.toContainText('F9');
-  await editor.keyboard.press('Control+S');
+  // saved with the button: Ctrl+S on the shortcut field could be taken as a new shortcut
+  await editor.getByTestId('entry-hotkey').blur();
+  await editor.getByTestId('save').click();
   await expect(editor.getByTestId('savebar')).toBeHidden();
   expect(saved().trays[0]).not.toHaveProperty('hotkey');
   expect(saved().trays[1]).not.toHaveProperty('hotkey');

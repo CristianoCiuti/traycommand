@@ -153,6 +153,26 @@ with `"variables": { "INET": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersio
 { "label": "Restart all", "action": { "run": "echo restarting", "before": ["stack:off", "nginx:off"], "after": ["nginx:on", "stack:on"] } }
 ```
 
+## Continue only if it worked (conditional after)
+
+```json
+{
+  "id": "vdi_open",
+  "label": "Open the VDI",
+  "action": {
+    "run": "& C:/tools/open-vdi.ps1",
+    "timeout": 300,
+    "after": [
+      { "run": "vdi_ready", "when": "success" },
+      { "run": "vdi_already_open", "exitCodes": [3] },
+      { "run": "vdi_cleanup", "exitCodes": [1, 2] }
+    ]
+  }
+}
+```
+
+Each item checks the script's result on its own: `"when": "failed"` would also run on exit code 3, so use `exitCodes` when codes mean different things. The tray shows running until the last step ends.
+
 ## Script in another shell
 
 ```json

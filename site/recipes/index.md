@@ -229,6 +229,30 @@ The button says **Run**. To give it your own text, write `confirm` as an object:
 "confirm": { "text": "Restart the VDI? Unsaved work in it is lost.", "button": "Restart" }
 ```
 
+## Continue only if it worked
+
+`after` items can run only when the script succeeds or fails, or with some exit codes. The entry shows *running* until the last step ends:
+
+```json
+{
+  "id": "vdi_open",
+  "label": "Open the VDI",
+  "action": {
+    "run": "& C:/tools/open-vdi.ps1",
+    "timeout": 300,
+    "after": [
+      { "run": "vdi_ready", "when": "success" },
+      { "run": "vdi_already_open", "exitCodes": [3] },
+      { "run": "vdi_cleanup", "exitCodes": [1, 2] }
+    ]
+  }
+}
+```
+
+Here the script ends with 0 when the VDI opened, 3 when it was already open, 1 or 2 when it failed. Each item looks at the result on its own, so `"when": "failed"` would run on 3 too: exit codes keep the cases apart.
+
+A step left out is listed in the **Activity** as *Skipped*, with the reason.
+
 ## Check out a branch (form with choices from git)
 
 A menu entry that lists the branches of a repository and checks out the one you pick. Give the tray a shortcut and the whole thing is keyboard only: shortcut, arrows, <kbd>Enter</kbd>.

@@ -39,8 +39,24 @@ These options print JSON and exit at once, without starting TrayCommand (they wo
 | `--info` | `version`, `configPath`, `configDir`, `configExists`, `dataDir`, `backupsDir`, `platform`, `defaultShell`, `schema`, `docs` | 0 |
 | `--validate` | Validates the configuration file in use: `{ "ok", "file", "issues": [{ "path", "message" }], "warnings" }` | 0 valid, 1 invalid |
 | `--validate=<file>` | Same, for another file | 0 / 1 |
+| `--update` | Checks for a new version: `{ "ok", "current", "latest", "available", "url", "notes" }` | 0, 1 when the check fails |
+| `--update=install` | Checks, downloads, verifies the checksum and installs the new version; TrayCommand then starts (see [updates](../guide/startup-and-updates#updates)). Progress on stderr. | 0, 1 on failure |
+| `--export=<file>` | Writes an export as **Export…** does: everything, or with `--entries=<id>,<id>` those entries (with their menus and schedules) and what they need. `.zip` or `.json` (a `.json` cannot carry icons). | 0 / 1 |
+| `--import=<file>` | Shows what importing the file would do, as the **Import** window proposes it: `{ "applied": false, "counts", "entries": [{ "label", "id", "status", "decision", "newId" }], "variables", "settings", "issues", "warnings" }`. Nothing changes. | 0 / 1 |
+| `--import=<file> --apply` | Imports it with the proposed choices and saves (a [backup](../guide/startup-and-updates#backups) is kept). | 0 / 1 |
 
 They honour `--config`, `TRAYCOMMAND_CONFIG` and `--data-dir` like a normal start.
+
+`--update=install` with TrayCommand running: the running copy downloads and installs the update itself and restarts; with unsaved changes in the editor it asks first. Without TrayCommand running, the command installs the update once it ends, then starts TrayCommand. Development builds never install updates.
+
+`--import --apply` with TrayCommand running: the running copy sees the changed file and applies it within a few seconds, as for any change of the file.
+
+```powershell
+TrayCommand.exe --export="D:\share\vdi.zip" --entries=vdi_open | Out-String
+TrayCommand.exe --import="D:\share\vdi.zip" | Out-String          # what would change
+TrayCommand.exe --import="D:\share\vdi.zip" --apply | Out-String  # import it
+TrayCommand.exe --update=install | Out-String
+```
 
 ::: tip PowerShell
 TrayCommand is a windowed app: PowerShell waits for it and shows its output only when the output is piped.

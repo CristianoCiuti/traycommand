@@ -84,7 +84,7 @@ A string (the script) or an object:
 | `admin` | boolean | `false` | Run elevated (UAC prompt each time). Needs `settings.allowAdminCommands`. |
 | `before` | refs | — | Actions of other entries to run first, in order. |
 | `parallel` | refs | — | Actions of other entries to run at the same time. |
-| `after` | refs | — | Actions of other entries to run afterwards, in order. |
+| `after` | refs or `{ "run", "when"? }` / `{ "run", "exitCodes" }` | — | Actions of other entries to run afterwards, in order. A plain ref always runs. `{ "run": "id", "when": "success" }` only if the script succeeds (exit 0, not timed out or stopped), `"failed"` only if it fails, `"always"` = default; `{ "run": "id", "exitCodes": [3] }` only with those exit codes (not together with `when`). Each item looks at the script's result on its own. Items not run appear as *Skipped* in the Activity. The entry stays busy (running, second click refused) until the last item ends. |
 | `inputs` | array of input | — | Values asked in a form before running (see below). |
 
 A ref is `"id"` (same kind: on→on, off→off, right→on), `"id:on"`, `"id:off"` or `"id:right"`. Unknown ids are errors. Success = exit code 0 within the timeout. While an action runs the entry is busy and cannot be clicked again.
@@ -181,6 +181,20 @@ Keys joined by `+`: modifiers `Ctrl`, `Alt`, `Shift`, `Win` (`Super`/`Meta`/`Cmd
 
 ## Checks done by the validator
 
-Unique ids; every ref in `before` / `parallel` / `after` / `enabledWhen` exists; `on` / `off` / `pattern` are valid regexes; `settings.appMenu` is `"own"` or a tray id; shortcuts valid and unique (also against `settings.launcherHotkey`); input names unique per action, `select` with `options` or `optionsCommand`; schedules with exactly one of `cron`/`every`/`startup`/`watch`, valid expression / interval (≥ 5 s) / folder / patterns / settle (≤ 1 h) / time window, something to run; `if` with a check command and valid `on`/`off` regexes; `alert` with a text or choices, at most 4 choices with unique labels, each with exactly one of `run`/`action`, `run` = `"self"` or an existing id (`:on`/`:off`/`:right` allowed), `timeout` between 5 s and 1 day, `default` and `click` = a choice label (`click` with a window style or `hotkeyConfirm` without `hotkey`: warning).
+Unique ids; every ref in `before` / `parallel` / `after` (also `after[].run`) / `enabledWhen` exists; an `after` item has `when` or `exitCodes`, not both, and `exitCodes` has at least one integer; `on` / `off` / `pattern` are valid regexes; `settings.appMenu` is `"own"` or a tray id; shortcuts valid and unique (also against `settings.launcherHotkey`); input names unique per action, `select` with `options` or `optionsCommand`; schedules with exactly one of `cron`/`every`/`startup`/`watch`, valid expression / interval (≥ 5 s) / folder / patterns / settle (≤ 1 h) / time window, something to run; `if` with a check command and valid `on`/`off` regexes; `alert` with a text or choices, at most 4 choices with unique labels, each with exactly one of `run`/`action`, `run` = `"self"` or an existing id (`:on`/`:off`/`:right` allowed), `timeout` between 5 s and 1 day, `default` and `click` = a choice label (`click` with a window style or `hotkeyConfirm` without `hotkey`: warning).
 
 Warnings (the file is valid, but check them): `offAction` without `state`; schedule `values` for unknown inputs; `run: "on"`/`"off"` on an entry without `state`; an alert `default` without `timeout` (never used); a button whose target has no such action (`"b:off"` on an entry without `offAction`); admin actions while `settings.allowAdminCommands` is off; icon files that do not exist.
+
+## Command line
+
+All print JSON and exit (they work while TrayCommand runs too; in PowerShell pipe to `| Out-String`):
+
+| Option | Does |
+| --- | --- |
+| `--info` | Paths and version (see SKILL.md). |
+| `--validate[=<file>]` | Validates the configuration; exit 1 when invalid. |
+| `--export=<file.zip\|file.json> [--entries=id,id]` | Writes an export like **Export…**: everything, or those entries with their menus, schedules and what they need. A `.json` cannot carry icons. Output: `file`, `kind`, `trays`, `schedules`, `variables`, `settings`, `icons`. |
+| `--import=<file>` | Dry run: what importing would do with the proposed choices (`entries[].status` new / identical / conflict, `decision` add / skip / replace / merge / rename with `newId`, `variables`, `settings`, `issues`). Nothing changes. |
+| `--import=<file> --apply` | Imports with those choices and saves (backup kept; a running TrayCommand reloads the file). |
+| `--update` | `{ current, latest, available, url, notes }`. |
+| `--update=install` | Downloads, verifies and installs the new version, then TrayCommand starts (a running TrayCommand does it itself and restarts). |

@@ -173,8 +173,15 @@ function App() {
 // the look: the one being chosen in the settings is shown at once; the window buttons follow it, light or dark
 applyStyle(bootStyle, EDITOR_CSS);
 const sendChrome = () => api.setChrome(chromeColors(), activeStyle.peek());
-/** After a change of light/dark the colours are read once the page has been drawn with it (never the old ones). */
-const sendChromeLater = () => requestAnimationFrame(() => requestAnimationFrame(sendChrome));
+/**
+ * After a change of light/dark the colours are sent again a few times: the page may get the new theme a little
+ * after the system, and a window in the background may draw no frame (timers, not animation frames).
+ */
+let chromeTimers: ReturnType<typeof setTimeout>[] = [];
+const sendChromeLater = () => {
+  chromeTimers.forEach(clearTimeout);
+  chromeTimers = [30, 200, 600].map((ms) => setTimeout(sendChrome, ms));
+};
 effect(() => {
   applyStyle(activeStyle.value, EDITOR_CSS);
   sendChrome();

@@ -71,17 +71,23 @@ export function LogsView() {
                   <>
                     <tr class="clickable" onClick={() => setOpen(open === idx ? undefined : idx)}>
                       <td>
-                        <span class={`pill ${l.ok ? 'on' : 'danger'}`}>{l.ok ? 'OK' : l.error ? 'Error' : `Exit ${l.code}`}</span>
+                        {l.skipped ? (
+                          <span class="pill muted" title={l.skipped}>
+                            Skipped
+                          </span>
+                        ) : (
+                          <span class={`pill ${l.ok ? 'on' : 'danger'}`}>{l.ok ? 'OK' : l.error ? 'Error' : `Exit ${l.code}`}</span>
+                        )}
                       </td>
                       <td>
                         <div style={{ fontWeight: 600 }}>
                           {l.label} <span class="hint">{l.kind === 'off' ? '· turn off' : l.kind === 'right' ? '· right click' : ''}{l.source && SOURCES[l.source] ? ` · ${SOURCES[l.source]}` : ''}</span>
                         </div>
-                        <div class="hint mono" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 460 }}>
-                          {l.script.split('\n')[0]}
+                        <div class={`hint ${l.skipped ? '' : 'mono'}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 460 }}>
+                          {l.skipped ?? l.script.split('\n')[0]}
                         </div>
                       </td>
-                      <td>{formatDuration(l.durationMs)}</td>
+                      <td>{l.skipped ? '—' : formatDuration(l.durationMs)}</td>
                       <td class="hint" title={new Date(l.time).toLocaleString()}>
                         {timeAgo(l.time)}
                       </td>
@@ -98,7 +104,8 @@ export function LogsView() {
                                   .join('\n')}
                               </pre>
                             )}
-                            {(l.stdout || !l.stderr) && <pre style={{ borderTop: '1px dashed var(--border)' }}>{l.stdout || '(no output)'}</pre>}
+                            {l.skipped && <pre style={{ borderTop: '1px dashed var(--border)' }}>{l.skipped}</pre>}
+                            {!l.skipped && (l.stdout || !l.stderr) && <pre style={{ borderTop: '1px dashed var(--border)' }}>{l.stdout || '(no output)'}</pre>}
                             {(l.stderr || l.error) && <pre class="err">{[l.error, l.stderr].filter(Boolean).join('\n')}</pre>}
                           </div>
                         </td>

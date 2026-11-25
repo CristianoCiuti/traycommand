@@ -48,7 +48,7 @@ Removing the skill from **Settings** also stops TrayCommand from proposing it ag
 | `examples.md` | Common patterns: launchers, menus, toggles for services, processes, Docker, registry, Linux and macOS. |
 | `scripts/make-icon.ps1` | Windows: creates a PNG icon, a coloured square or circle with a pictogram (printer, globe, cloud, play, lock…) or up to 3 letters. |
 
-The agent uses two [command line options](../reference/cli#tools-for-scripts-and-ai-agents) of TrayCommand: `--info` to find the configuration file and `--validate` to check it before you see it.
+The agent uses the [command line options](../reference/cli#tools-for-scripts-and-ai-agents) of TrayCommand: `--info` to find the configuration file, `--validate` to check it before you see it, `--export` / `--import` to share trays or bring them in when you ask, `--update` to check for a new version.
 
 ## Safety
 

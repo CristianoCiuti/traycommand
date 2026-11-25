@@ -46,11 +46,13 @@ test.afterAll(async () => {
 });
 
 test('lists trays with state, hidden badge and icons', async () => {
+  // the first state check starts PowerShell for the first time: on a cold CI runner it can take as long as the
+  // check is allowed (30 s, then it counts as OFF), so the wait goes beyond it
+  test.setTimeout(120_000);
   const rows = page.getByTestId('tray-row');
   await expect(rows).toHaveCount(4);
   await expect(rows.nth(3)).toContainText('hidden');
-  // the first state check starts PowerShell for the first time: slow on a cold CI runner
-  await expect(rows.nth(0)).toContainText('OFF', { timeout: 30000 });
+  await expect(rows.nth(0)).toContainText('OFF', { timeout: 75_000 });
   await expect(rows.nth(1)).toContainText('OFF');
   await shot('01-trays');
 });
@@ -151,6 +153,54 @@ test('activity shows executions', async () => {
   await page.getByTestId('tab-activity').click();
   await expect(page.getByTestId('log-table')).toContainText('Test from editor');
   await shot('06-activity');
+});
+
+test('run after: each entry always, only on success or failure, or with exit codes; a skipped one is in the activity', async () => {
+  const saved = () => JSON.parse(fs.readFileSync(path.join(work, 'config.json'), 'utf8'));
+  const save = async () => {
+    await page.keyboard.press('Control+S');
+    await expect(page.getByTestId('savebar')).toBeHidden();
+  };
+  await page.getByTestId('tab-trays').click();
+  await page.getByTestId('tray-row').nth(1).click(); // Web server
+  const action = page.getByTestId('action');
+  if (!(await action.getByTestId('action-after').isVisible())) await action.getByRole('button', { name: /^Options/ }).click();
+  await action.getByTestId('action-after-add').selectOption('server_stop');
+  await save();
+  expect(saved().trays[1].action.after).toEqual(['server_stop']);
+
+  const row = action.getByTestId('action-after-0');
+  await row.getByTestId('action-after-0-when').selectOption('failed');
+  await save();
+  expect(saved().trays[1].action.after).toEqual([{ run: 'server_stop', when: 'failed' }]);
+
+  await row.getByTestId('action-after-0-when').selectOption('codes');
+  await expect(page.getByTestId('savebar')).toContainText('problem'); // no exit code yet
+  await row.getByTestId('action-after-0-codes').fill('0, 3');
+  await row.getByTestId('action-after-0-kind').selectOption('on');
+  await save();
+  expect(saved().trays[1].action.after).toEqual([{ run: 'server_stop:on', exitCodes: [0, 3] }]);
+  await action.getByTestId('action-after').scrollIntoViewIfNeeded();
+  await action.getByTestId('action-after').locator('xpath=..').screenshot({ path: path.join(shots, '12-run-after.png') });
+
+  await row.getByTestId('action-after-0-when').selectOption('always');
+  await save();
+  expect(saved().trays[1].action.after).toEqual(['server_stop:on']);
+
+  // only on failure: the script succeeds, so the entry is skipped and the activity says why
+  await row.getByTestId('action-after-0-when').selectOption('failed');
+  await save();
+  await app.evaluate(() => (globalThis as unknown as { __traycommand: { engine: { click: (k: string) => Promise<boolean> } } }).__traycommand.engine.click('server'));
+  await page.getByTestId('tab-activity').click();
+  const skipped = page.getByTestId('log-table').locator('tr', { hasText: 'Skipped' }).first();
+  await expect(skipped).toContainText('Stop server');
+  await expect(skipped).toContainText('Not run: “Web server” ended with exit code 0');
+
+  await page.getByTestId('tab-trays').click();
+  await page.getByTestId('tray-row').nth(1).click();
+  await action.getByTestId('action-after-0-remove').click();
+  await save();
+  expect(saved().trays[1].action.after).toBeUndefined();
 });
 
 test('settings: elevated mode shows the red warning and needs explicit consent', async () => {

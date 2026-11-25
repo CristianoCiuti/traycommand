@@ -22,7 +22,7 @@ import { LauncherStore } from './launcherStore';
 import { appIconFile, assetPath, iconDataUrl, setIconStyle, setMonochromeMenuBar } from './icons';
 import { bundleIconOutdated, setBundleIcon } from './macIcon';
 import { readImport, saveIcons, writeExport } from './transfer';
-import { exportKind } from '../shared/transfer';
+import { buildExport, cliExportSelection, exportKind, importSummary, noChoices, packCount, planImport } from '../shared/transfer';
 import { installForUser, isInstalled, startMenuShortcut } from './install';
 import { LogStore } from './logStore';
 import { SecretStore } from './secretStore';
@@ -115,6 +115,16 @@ if (validateArg) {
   cliExit({ ok: true, file, issues: [], warnings }, 0);
 }
 
+/**
+ * --update: checks for a new version and prints it. --update=install: also downloads it, verifies it
+ * and installs it (TrayCommand restarts). Handled once the app is ready (see runCliUpdate).
+ */
+const updateArg = argv.find((a) => a === '--update' || a.startsWith('--update='));
+const cliUpdate = updateArg ? (updateArg === '--update' ? 'check' : updateArg.slice('--update='.length)) : undefined;
+if (cliUpdate !== undefined && cliUpdate !== 'check' && cliUpdate !== 'install') {
+  cliExit({ ok: false, error: `Unknown --update mode "${cliUpdate}": use --update (check) or --update=install` }, 1);
+}
+
 // end-to-end tests: windows covered by others (the launcher is always on top) keep painting, so screenshots never wait for a frame
 if (process.env.TRAYCOMMAND_E2E === '1') {
   app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
@@ -122,7 +132,19 @@ if (process.env.TRAYCOMMAND_E2E === '1') {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 }
 
-if (!app.requestSingleInstanceLock()) {
+/**
+ * --export=<file> [--entries=id,id]: writes an export as the editor does (zip or JSON).
+ * --import=<file> [--apply]: shows what an import changes; with --apply it does it (a backup is kept).
+ */
+const exportFile = option('export');
+const importFile = option('import');
+const cliCommand = cliUpdate !== undefined || exportFile !== undefined || importFile !== undefined;
+for (const name of ['export', 'import']) {
+  if (flag(name) || option(name) === '') cliExit({ ok: false, error: `Write the file: --${name}=<file>` }, 1);
+}
+
+// command line tools work with or without a TrayCommand already running (it picks up a changed file by itself)
+if (!cliCommand && !app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
@@ -476,6 +498,107 @@ function setAutostart(on: boolean): boolean {
 /* ---------------- updates ---------------- */
 
 const updater = new Updater(dataDir, relaunchArgs);
+
+/** --update / --update=install from the command line: prints JSON (progress on stderr), exit code 0 or 1. */
+async function runCliUpdate(mode: 'check' | 'install') {
+  const [output, code] = await cliUpdateResult(mode);
+  cliExit(output, code);
+}
+
+async function cliUpdateResult(mode: 'check' | 'install'): Promise<[Record<string, unknown>, number]> {
+  const info = await updater.check();
+  if (info.state === 'error') return [{ ok: false, current: info.current, error: `Cannot check for updates: ${info.error}` }, 1];
+  const available = info.state === 'available';
+  const out = { ok: true, current: info.current, latest: info.latest, available, url: info.url, notes: available ? info.notes : undefined };
+  if (mode === 'check') return [out, 0];
+  if (!available) return [{ ...out, installed: false, message: `TrayCommand ${info.current} is up to date` }, 0];
+  if (!app.isPackaged) return [{ ...out, ok: false, error: 'Updates are installed only by the installed TrayCommand, not by a development run' }, 1];
+  // a TrayCommand already running gets these arguments and installs the update itself (see handleArgs)
+  if (!app.requestSingleInstanceLock()) {
+    return [{ ...out, installing: info.latest, message: `TrayCommand is running: it downloads and installs ${info.latest}, then restarts (asking first if the editor has unsaved changes)` }, 0];
+  }
+  let shown = -1;
+  updater.onChange((u) => {
+    const pct = Math.floor((u.progress ?? 0) * 100);
+    if (u.state === 'downloading' && pct >= shown + 10) process.stderr.write(`Downloading ${(shown = pct)}%\n`);
+  });
+  // the update runner waits for this process to end, then installs and starts TrayCommand
+  let started = false;
+  await updater.install(() => (started = true));
+  if (!started) return [{ ...out, ok: false, error: `Update failed: ${updater.state.error ?? 'unknown error'}` }, 1];
+  return [{ ...out, installing: info.latest, message: `Downloaded and verified: ${info.latest} is installed as soon as this command ends, then TrayCommand starts` }, 0];
+}
+
+/** --export / --import from the command line: prints JSON, exit code 0 or 1. */
+function cliTransfer(): [Record<string, unknown>, number] {
+  if (exportFile !== undefined) {
+    if (!fs.existsSync(store.path)) return [{ ok: false, error: `No configuration file at ${store.path}` }, 1];
+    const loaded = store.load();
+    if (!loaded.ok) return [{ ok: false, error: 'The configuration has problems: fix them first', issues: loaded.issues }, 1];
+    const config = loaded.config;
+    const ids = option('entries')
+      ?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const { sel, unknown } = cliExportSelection(config, ids);
+    if (unknown.length) return [{ ok: false, error: `No entry with id ${unknown.map((u) => `"${u}"`).join(', ')}` }, 1];
+    const built = buildExport(config, sel, { app: app.getVersion(), created: new Date().toISOString() });
+    if (!packCount(built.pack)) return [{ ok: false, error: 'Nothing to export' }, 1];
+    const file = path.resolve(exportFile);
+    const ext = path.extname(file).toLowerCase();
+    const kind = ext === '.zip' ? 'zip' : ext === '.json' ? 'json' : exportKind(built.pack, built.icons.length);
+    if (kind === 'json' && built.icons.length) return [{ ok: false, error: `The export has ${built.icons.length} icon(s): write it to a .zip file` }, 1];
+    const target = ext === '.zip' || ext === '.json' ? file : `${file}.${kind}`;
+    try {
+      const ctx = { variables: config.variables, env: process.env, configDir: store.dir };
+      const resolve = (raw: string) => {
+        const expanded = expand(raw, ctx);
+        return path.isAbsolute(expanded) ? expanded : path.resolve(store.dir, expanded);
+      };
+      const { missing } = writeExport(target, kind, built.pack, built.icons, resolve);
+      const p = built.pack;
+      return [
+        {
+          ok: true,
+          file: target,
+          kind,
+          trays: p.trays.map((t) => t.label),
+          schedules: p.schedules.length,
+          variables: [...Object.keys(p.variables), ...(p.secrets ?? [])],
+          settings: Object.keys(p.settings),
+          icons: built.icons.length - missing.length,
+          ...(missing.length ? { missingIcons: missing } : {}),
+        },
+        0,
+      ];
+    } catch (error) {
+      return [{ ok: false, error: (error as Error).message }, 1];
+    }
+  }
+  const file = path.resolve(importFile!);
+  const read = readImport(file);
+  if (!read.ok) return [{ ok: false, file, error: read.error }, 1];
+  const loaded = store.load();
+  if (!loaded.ok) return [{ ok: false, error: 'The configuration has problems: fix them first', issues: loaded.issues }, 1];
+  const plan = planImport(loaded.config, read.pack, noChoices());
+  const summary = { file, kind: read.kind, ...importSummary(plan), ...(read.missing.length ? { missingIcons: read.missing } : {}) };
+  if (plan.issues.length) return [{ ok: false, applied: false, ...summary, error: 'The import would leave problems in the configuration' }, 1];
+  if (!flag('apply')) return [{ ok: true, applied: false, ...summary, message: 'Nothing changed: add --apply to import' }, 0];
+  const icons = plan.icons.length ? saveIcons(store.dir, read.icons, plan.icons) : {};
+  const final = planImport(loaded.config, read.pack, noChoices(), icons);
+  const saved = store.save(final.config);
+  if (!saved.ok) return [{ ok: false, applied: false, ...summary, error: 'Not saved', issues: saved.issues }, 1];
+  return [{ ok: true, applied: true, ...summary, config: store.path, message: 'Imported: the previous configuration is kept in the backups' }, 0];
+}
+
+/** --update=install sent to the TrayCommand already running: it checks, downloads, installs and restarts. */
+async function installUpdateFromCli() {
+  if (!app.isPackaged) return notify('TrayCommand', 'Updates are installed only by the installed TrayCommand', 'error');
+  const info = await updater.check();
+  if (info.state === 'available') await updater.install(requestQuit);
+  if (updater.state.state === 'error') notify('TrayCommand', `Update failed: ${updater.state.error}`, 'error');
+  else if (info.state === 'none') notify('TrayCommand', `TrayCommand ${info.current} is up to date`, 'info');
+}
 updater.onChange((info) => {
   sendToWindow('update', info);
   if (info.state === 'available') trays?.scheduleSync();
@@ -916,6 +1039,10 @@ function loginItemOpened(): boolean {
 
 /** --launcher opens the launcher, --run=<id> runs an entry (for other tools, or where global shortcuts do not work). */
 function handleArgs(args: string[]): boolean {
+  if (args.includes('--update=install')) {
+    void installUpdateFromCli();
+    return true;
+  }
   if (args.includes('--launcher')) {
     void launcher.open();
     return true;
@@ -943,6 +1070,9 @@ app.on('window-all-closed', () => {
 if (process.platform === 'darwin') app.dock?.hide();
 
 void app.whenReady().then(() => {
+  // command line update: no tray, no windows
+  if (cliUpdate) return void runCliUpdate(cliUpdate as 'check' | 'install');
+  if (cliCommand) return void cliExit(...cliTransfer());
   registerIpc();
   trays = new TrayManager(engine, {
     openWindow: (route) => showWindow(state, route, devUrl),

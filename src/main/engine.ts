@@ -13,6 +13,8 @@ import {
   isSeparator,
   normalizeAction,
   confirmTexts,
+  afterParts,
+  refOf,
 } from '../shared/config';
 import { expand, type VariableContext } from '../shared/variables';
 import { nextCron, parseCron, parseInterval } from '../shared/cron';
@@ -74,7 +76,10 @@ export interface RuntimeEntry {
   parent?: RuntimeEntry;
   children: (RuntimeEntry | 'separator')[];
   on?: boolean;
+  /** Running: its script, or a chain it started (before / parallel / after) is not finished yet. */
   busy: boolean;
+  /** How many runs keep the entry busy (its scripts and the chains it started): busy while above 0. */
+  holds: number;
   checking: boolean;
   inflight?: Promise<void>;
   timer?: NodeJS.Timeout;
@@ -218,7 +223,7 @@ export class Engine {
   }
 
   private build(node: Tray | MenuEntry, key: string, isTray: boolean, parent?: RuntimeEntry): RuntimeEntry {
-    const runtime: RuntimeEntry = { key, entry: node, isTray, parent, children: [], busy: false, checking: false, nextRuns: new Map(), watches: new Map() };
+    const runtime: RuntimeEntry = { key, entry: node, isTray, parent, children: [], busy: false, holds: 0, checking: false, nextRuns: new Map(), watches: new Map() };
     this.entries.set(key, runtime);
     if (node.id) this.byId.set(node.id, runtime);
     runtime.children = (node.menu ?? []).map((child: MenuNode, i) =>
@@ -457,7 +462,7 @@ export class Engine {
     const action = this.actionOf(entry, kind);
     if (!action) return out;
     for (const input of action.inputs ?? []) if (!out.some((c) => c.input.name === input.name)) out.push({ input, owner: entry, action });
-    for (const ref of [...(action.before ?? []), ...(action.parallel ?? []), ...(action.after ?? [])]) {
+    for (const ref of [...(action.before ?? []), ...(action.parallel ?? []), ...(action.after ?? []).map(refOf)]) {
       const t = this.refTargets(ref, kind);
       if (t) this.collectInputs(t.entry, t.kind, visited, out);
     }
@@ -573,16 +578,63 @@ export class Engine {
       else for (const t of targets) await this.execute(t.entry, t.kind, visited, ctx);
     };
 
-    await runRefs(action.before, false);
-    const [result] = await Promise.all([this.runOwn(entry, kind, action, ctx, label), runRefs(action.parallel, true)]);
-    await runRefs(action.after, false);
-    return result;
+    // the entry stays busy until the whole chain has ended (its icon shows it running, a second click is refused)
+    this.hold(entry);
+    try {
+      await runRefs(action.before, false);
+      const [result] = await Promise.all([this.runOwn(entry, kind, action, ctx, label), runRefs(action.parallel, true)]);
+      for (const ref of action.after ?? []) {
+        const { run, when, exitCodes } = afterParts(ref);
+        const target = this.refTargets(run, kind);
+        if (!target) continue;
+        const ok = isSuccess(result);
+        const runs = exitCodes ? result.code !== null && !result.timedOut && !result.killed && exitCodes.includes(result.code) : when === 'always' || (when === 'success') === ok;
+        if (runs) await this.execute(target.entry, target.kind, visited, ctx);
+        else this.logSkipped(target, label ?? this.label(entry), result, ctx);
+      }
+      return result;
+    } finally {
+      this.release(entry);
+    }
+  }
+
+  /** An entry of `after` not run because of the result of the script: written in the activity log. */
+  private logSkipped(target: { entry: RuntimeEntry; kind: ActionKind }, by: string, result: RunResult, ctx: ExecContext) {
+    const outcome = result.error ?? (result.timedOut ? 'timed out' : result.killed ? 'was stopped' : `ended with exit code ${result.code}`);
+    this.deps.log({
+      time: Date.now(),
+      key: target.entry.key,
+      label: this.label(target.entry),
+      kind: target.kind,
+      script: this.actionOf(target.entry, target.kind)?.run ?? '',
+      code: null,
+      ok: true,
+      durationMs: 0,
+      stdout: '',
+      stderr: '',
+      skipped: `Not run: “${by}” ${outcome}`,
+      source: ctx.source,
+    });
+  }
+
+  /** One more run keeps the entry busy. */
+  private hold(entry: RuntimeEntry) {
+    entry.holds++;
+    if (entry.busy) return;
+    entry.busy = true;
+    this.emit(entry.key);
+  }
+
+  /** A run ended: the entry is free when no run holds it any more. */
+  private release(entry: RuntimeEntry) {
+    if (--entry.holds > 0) return;
+    entry.busy = false;
+    this.emit(entry.key);
   }
 
   private async runOwn(entry: RuntimeEntry, kind: ActionKind, action: Action, ctx: ExecContext, name?: string): Promise<RunResult> {
     const label = name ?? this.label(entry);
-    entry.busy = true;
-    this.emit(entry.key);
+    this.hold(entry);
     let result: RunResult;
     try {
       if (action.admin && !this.config?.settings.allowAdminCommands) {
@@ -593,8 +645,7 @@ export class Engine {
         result = await (action.admin ? this.deps.runAdmin : this.deps.run)(script, options);
       }
     } finally {
-      entry.busy = false;
-      this.emit(entry.key);
+      this.release(entry);
     }
 
     const ok = isSuccess(result);

@@ -162,7 +162,7 @@ is the same as
 | `admin` | boolean | `false` | Run as administrator (prompt on every run). Requires `settings.allowAdminCommands`. See [administrator](../guide/administrator#run-as-administrator). |
 | `before` | array of refs | — | Actions of other entries to run, one after the other, before this one. |
 | `parallel` | array of refs | — | Actions of other entries to run together with this one. |
-| `after` | array of refs | — | Actions of other entries to run, one after the other, after this one. |
+| `after` | array of refs or `{ "run", "when"? }` / `{ "run", "exitCodes" }` | — | Actions of other entries to run, one after the other, after this one. `when`: `"always"` (default), `"success"`, `"failed"`; `exitCodes`: only with these exit codes. See [run after only on some results](../guide/concepts#run-after-only-on-some-results). |
 | `inputs` | array of [inputs](#inputs) | — | Values asked in a form before running, used as `${NAME}` and as environment variables. |
 
 A reference is `"id"` (same kind: on → on, off → off; right → on), `"id:on"`, `"id:off"` or `"id:right"`. See [composing actions](../guide/concepts#composing-actions). Unknown ids are errors.

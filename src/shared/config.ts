@@ -69,6 +69,40 @@ export const ActionRefSchema = z
   .regex(/^[A-Za-z0-9_.-]+(:(on|off|right))?$/)
   .describe('Reference to another entry: "<id>" runs the same kind of action (on → on, off → off), "<id>:on", "<id>:off" or "<id>:right" forces one.');
 
+/** When an entry of `after` runs, from the result of the script: always, only if it succeeds or fails. */
+export const AFTER_WHEN = ['always', 'success', 'failed'] as const;
+export type AfterWhen = (typeof AFTER_WHEN)[number];
+
+export const AfterRefSchema = z
+  .union([
+    ActionRefSchema,
+    z
+      .object({
+        run: ActionRefSchema,
+        when: z
+          .enum(AFTER_WHEN)
+          .optional()
+          .describe('"always" (default): whatever the result; "success": only if the script succeeds (exit code 0, not timed out or stopped); "failed": only if it fails.'),
+        exitCodes: z
+          .array(z.number().int())
+          .min(1, 'Write at least one exit code')
+          .optional()
+          .describe('Only if the script ends with one of these exit codes (instead of when).'),
+      })
+      .strict(),
+  ])
+  .describe('An entry run after this one: a reference ("<id>", "<id>:on"…), or { run, when } / { run, exitCodes } to run it only on some results.');
+export type AfterRef = z.infer<typeof AfterRefSchema>;
+
+/** The parts of an entry of `after`: the reference and its condition (default: always). */
+export function afterParts(ref: AfterRef): { run: string; when: AfterWhen; exitCodes?: number[] } {
+  if (typeof ref === 'string') return { run: ref, when: 'always' };
+  return { run: ref.run, when: ref.exitCodes ? 'always' : (ref.when ?? 'always'), exitCodes: ref.exitCodes };
+}
+
+/** The reference of an entry of before / parallel / after. */
+export const refOf = (ref: AfterRef): string => (typeof ref === 'string' ? ref : ref.run);
+
 /** "id" = what a click on that entry does; "id:on" / "id:off" / "id:right" forces one. */
 const ClickRefSchema = z
   .string()
@@ -134,7 +168,10 @@ export const ActionSchema = z
       .describe('Run with administrator privileges (UAC prompt on every run). Requires settings.allowAdminCommands.'),
     before: z.array(ActionRefSchema).optional().describe('Actions of other entries to run, in order, before this one.'),
     parallel: z.array(ActionRefSchema).optional().describe('Actions of other entries to run together with this one.'),
-    after: z.array(ActionRefSchema).optional().describe('Actions of other entries to run, in order, after this one.'),
+    after: z
+      .array(AfterRefSchema)
+      .optional()
+      .describe('Actions of other entries to run, in order, after this one; each can depend on the result of this script ({ run, when } or { run, exitCodes }).'),
     inputs: z.array(InputSchema).optional().describe('Values asked when the action starts, used in the script as ${NAME}.'),
   })
   .strict();
@@ -593,9 +630,15 @@ export function parseConfig(raw: unknown): ParseResult {
     for (const key of ['action', 'offAction', 'rightAction'] as const) {
       const action = normalizeAction(entry[key]);
       if (!action) continue;
-      for (const when of ['before', 'parallel', 'after'] as const) {
+      for (const when of ['before', 'parallel'] as const) {
         action[when]?.forEach((ref, i) => checkRef(ref, `${path}.${key}.${when}[${i}]`));
       }
+      action.after?.forEach((ref, i) => {
+        const at = `${path}.${key}.after[${i}]`;
+        if (typeof ref === 'string') return checkRef(ref, at);
+        checkRef(ref.run, `${at}.run`);
+        if (ref.when !== undefined && ref.exitCodes) issues.push({ path: at, message: 'Use either when or exitCodes, not both' });
+      });
       const clicks = [
         { ref: typeof action.notify === 'object' ? action.notify.click : undefined, at: `${path}.${key}.notify.click` },
         { ref: action.notifyError?.click, at: `${path}.${key}.notifyError.click` },

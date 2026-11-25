@@ -1,6 +1,6 @@
 import { useRef, useState } from 'preact/hooks';
-import { ChevronDown, ChevronRight, CirclePlay, Loader2, Plus, ShieldAlert, X } from 'lucide-preact';
-import { confirmTexts, type Action, type ActionInput, type Shell } from '../../shared/config';
+import { ChevronDown, ChevronRight, CirclePlay, Loader2, Plus, ShieldAlert, Trash2, X } from 'lucide-preact';
+import { afterParts, confirmTexts, type Action, type ActionInput, type AfterRef, type AfterWhen, type Shell } from '../../shared/config';
 import type { TestResult } from '../../shared/api';
 import { allIds, api, draft } from '../store';
 import { Field, Switch, TextArea, formatDuration } from '../components/ui';
@@ -192,6 +192,134 @@ function RefList(props: { title: string; hint: string; refs: string[] | undefine
   );
 }
 
+type AfterMode = AfterWhen | 'codes';
+
+/** The shortest form of an entry of `after`: the reference alone when it always runs. */
+export function makeAfter(run: string, mode: AfterMode, codes: number[]): AfterRef {
+  if (mode === 'codes') return { run, exitCodes: codes };
+  return mode === 'always' ? run : { run, when: mode };
+}
+
+/** Exit codes typed in a field: the whole numbers in it ("0, 3 4" → [0, 3, 4]). */
+export const parseCodes = (text: string): number[] => [...new Set((text.match(/-?\d+/g) ?? []).map(Number))];
+
+/** One entry of "Run after": which entry, which of its actions, and on which result of the script. */
+function AfterRow(props: { item: AfterRef; i: number; ids: { id: string; label: string }[]; onChange: (item: AfterRef) => void; onRemove: () => void; testId?: string }) {
+  const { run, when, exitCodes } = afterParts(props.item);
+  const [id = '', kind = ''] = run.split(':');
+  const mode: AfterMode = exitCodes ? 'codes' : when;
+  const [codesText, setCodesText] = useState((exitCodes ?? []).join(', '));
+  const set = (next: { id?: string; kind?: string; mode?: AfterMode; codes?: number[] }) => {
+    const nid = next.id ?? id;
+    const nkind = next.kind ?? kind;
+    props.onChange(makeAfter(nkind ? `${nid}:${nkind}` : nid, next.mode ?? mode, next.codes ?? exitCodes ?? []));
+  };
+  const tid = (s: string) => (props.testId ? `${props.testId}-${s}` : undefined);
+  return (
+    <div class="choice" data-testid={props.testId}>
+      <span class="choice-num">{props.i + 1}</span>
+      <select class="select" style={{ flex: 1, minWidth: 0 }} value={id} onChange={(e) => set({ id: (e.currentTarget as HTMLSelectElement).value })} aria-label="Entry" data-testid={tid('entry')}>
+        {!props.ids.some((x) => x.id === id) && <option value={id}>{id} (unknown)</option>}
+        {props.ids.map((x) => (
+          <option value={x.id}>
+            {x.label} ({x.id})
+          </option>
+        ))}
+      </select>
+      <select class="select" style={{ width: 128 }} value={kind} onChange={(e) => set({ kind: (e.currentTarget as HTMLSelectElement).value })} aria-label="Which action" data-testid={tid('kind')}>
+        <option value="">same action</option>
+        <option value="on">turn on</option>
+        <option value="off">turn off</option>
+        <option value="right">right click</option>
+      </select>
+      <select
+        class="select"
+        style={{ width: 196 }}
+        value={mode}
+        onChange={(e) => {
+          const m = (e.currentTarget as HTMLSelectElement).value as AfterMode;
+          if (m === 'codes') setCodesText((exitCodes ?? []).join(', '));
+          set({ mode: m });
+        }}
+        aria-label="When it runs"
+        data-testid={tid('when')}
+      >
+        <option value="always">always</option>
+        <option value="success">only if the script succeeds</option>
+        <option value="failed">only if the script fails</option>
+        <option value="codes">only with exit codes…</option>
+      </select>
+      {mode === 'codes' && (
+        <input
+          class={`input mono ${exitCodes?.length ? '' : 'invalid'}`}
+          style={{ width: 96 }}
+          value={codesText}
+          placeholder="e.g. 0, 3"
+          aria-label="Exit codes"
+          title="Exit codes of the script, separated by commas"
+          onInput={(e) => {
+            const text = (e.currentTarget as HTMLInputElement).value;
+            setCodesText(text);
+            set({ codes: parseCodes(text) });
+          }}
+          data-testid={tid('codes')}
+        />
+      )}
+      <button class="btn ghost sm icon danger" onClick={props.onRemove} aria-label="Remove" data-testid={tid('remove')}>
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
+
+/** "Run after": entries run in order after the script, each always or only on some results. */
+function AfterList(props: { items: AfterRef[] | undefined; onChange: (items: AfterRef[] | undefined) => void; testId?: string }) {
+  const ids = allIds(draft.value);
+  const items = props.items ?? [];
+  const set = (next: AfterRef[]) => props.onChange(next.length ? next : undefined);
+  return (
+    <Field
+      label="Run after"
+      hint="Other entries, run in order when this script ends: always, only if it succeeds or fails, or only with some exit codes. This entry shows running until the last one ends."
+    >
+      <div class="choices" data-testid={props.testId}>
+        {items.map((item, i) => (
+          <AfterRow
+            key={`${i}:${items.length}`}
+            item={item}
+            i={i}
+            ids={ids}
+            onChange={(v) => set(items.map((x, j) => (j === i ? v : x)))}
+            onRemove={() => set(items.filter((_, j) => j !== i))}
+            testId={props.testId ? `${props.testId}-${i}` : undefined}
+          />
+        ))}
+        <div class="row" style={{ alignItems: 'center' }}>
+          <select
+            class="select"
+            style={{ width: 'auto' }}
+            value=""
+            onChange={(e) => {
+              const v = (e.currentTarget as HTMLSelectElement).value;
+              if (v) set([...items, v]);
+              (e.currentTarget as HTMLSelectElement).value = '';
+            }}
+            aria-label="Add an entry to run after"
+            data-testid={props.testId ? `${props.testId}-add` : undefined}
+          >
+            <option value="">+ Add an entry to run after…</option>
+            {ids.map((x) => (
+              <option value={x.id}>
+                {x.label} ({x.id})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </Field>
+  );
+}
+
 export function ActionEditor(props: { value: ActionInput | undefined; onChange: (v: ActionInput | undefined) => void; placeholder?: string; testId?: string; scope?: VarScope }) {
   const action = toAction(props.value) ?? { run: '' };
   const [open, setOpen] = useState(() => Object.keys(action).some((k) => k !== 'run'));
@@ -361,7 +489,7 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
           </Field>
           <RefList title="Run before" hint="Actions of other entries, in order, before this script" refs={action.before} onChange={(before) => change({ before })} />
           <RefList title="Run together" hint="Actions of other entries, in parallel with this script" refs={action.parallel} onChange={(parallel) => change({ parallel })} />
-          <RefList title="Run after" hint="Actions of other entries, in order, after this script" refs={action.after} onChange={(after) => change({ after })} />
+          <AfterList items={action.after} onChange={(after) => change({ after })} testId={tid('after')} />
         </>
       )}
     </div>

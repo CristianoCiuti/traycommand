@@ -38,6 +38,8 @@ Installing an update:
 
 **Check now** on the Settings page checks immediately. Development builds never update themselves.
 
+From the command line: `TrayCommand.exe --update` checks and prints the result as JSON, `TrayCommand.exe --update=install` checks, downloads, verifies and installs (see the [command line](../reference/cli#tools-for-scripts-and-ai-agents)).
+
 ::: warning
 The updater replaces the folder TrayCommand runs from. If you run it from a folder you do not own (or from a read-only location) the update fails: install it for your user.
 :::

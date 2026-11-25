@@ -78,3 +78,13 @@ Untick anything you do not want. The other sections work the same way:
 **Import** adds everything to the configuration and saves it (a [backup](./startup-and-updates#backups) of the previous file is kept, so you can undo it from **Settings → Backups**). Icons are copied into the `icons` folder next to the configuration file; an icon with the same name but different content gets a new name. If you have unsaved changes in the editor, they are saved together with the import.
 
 If the result would not be valid, for example an imported entry runs one you left out, the window says which entry and why, and **Import** stays disabled until you change the choices.
+
+## From the command line
+
+The same export and import work without the window, for scripts and AI agents:
+
+- `TrayCommand.exe --export=<file>` exports everything (as **Export…** proposes); `--entries=<id>,<id>` exports those entries with their menus, their schedules and what they need (the entries they run, the variables they use).
+- `TrayCommand.exe --import=<file>` shows, as JSON, what the import would do to each entry with the proposed choices. Nothing changes.
+- `TrayCommand.exe --import=<file> --apply` imports it with those choices and saves; a backup of the previous file is kept.
+
+See the [command line](../reference/cli#tools-for-scripts-and-ai-agents) for the output.

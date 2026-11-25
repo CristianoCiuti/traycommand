@@ -7,6 +7,7 @@ import {
   TraySchema,
   isSeparator,
   normalizeAction,
+  refOf,
   parseConfig,
   type Action,
   type ActionInput,
@@ -326,7 +327,7 @@ export function referencedIds(node: Refs, schedules: Schedule[] = node.schedules
   const ids: string[] = [];
   for (const k of ['action', 'offAction', 'rightAction'] as const) {
     const a = normalizeAction(node[k]);
-    for (const when of ['before', 'parallel', 'after'] as const) ids.push(...(a?.[when] ?? []).map((ref) => ref.split(':')[0]!));
+    for (const when of ['before', 'parallel', 'after'] as const) ids.push(...(a?.[when] ?? []).map((ref) => refOf(ref).split(':')[0]!));
     for (const ref of notifyClicks(a)) ids.push(ref.split(':')[0]!);
   }
   if (node.enabledWhen) ids.push(node.enabledWhen.replace(/^!/, ''));
@@ -597,7 +598,8 @@ function renameRefs(node: Refs, renames: Map<string, string>) {
   for (const k of ['action', 'offAction', 'rightAction'] as const) {
     const a = node[k];
     if (a === undefined || typeof a === 'string') continue;
-    for (const when of ['before', 'parallel', 'after'] as const) if (a[when]) a[when] = a[when].map(swap);
+    for (const when of ['before', 'parallel'] as const) if (a[when]) a[when] = a[when].map(swap);
+    if (a.after) a.after = a.after.map((ref) => (typeof ref === 'string' ? swap(ref) : { ...ref, run: swap(ref.run) }));
     if (typeof a.notify === 'object' && a.notify.click) a.notify.click = swap(a.notify.click);
     if (a.notifyError?.click) a.notifyError.click = swap(a.notifyError.click);
   }
@@ -867,4 +869,41 @@ export function planChanges(plan: ImportPlan): number {
 /** Ticking a row that is not imported: the first thing it can do. */
 export function checkedDecision(row: EntryRow): Decision {
   return row.options[0] ?? 'add';
+}
+
+/* ================================ command line ================================ */
+
+/**
+ * What --export writes: everything (as the export dialog proposes), or the entries with these ids
+ * (with their menus and schedules) and what they need: entries they run, variables they use.
+ */
+export function cliExportSelection(config: Config, ids?: string[]): { sel: ExportSelection; unknown: string[] } {
+  if (!ids?.length) return { sel: defaultExportSelection(config), unknown: [] };
+  const flat = flatten(config.trays);
+  const unknown = ids.filter((id) => !flat.some((f) => f.node.id === id));
+  let sel: ExportSelection = { entries: new Set(), schedules: new Set(), variables: new Set(), settings: new Set(), icons: true };
+  for (const id of ids) {
+    const f = flat.find((x) => x.node.id === id);
+    if (f) sel = toggleEntry(config, sel, f.key, true);
+  }
+  // what is needed may need more: until nothing is missing
+  for (let deps = exportDependencies(config, sel); deps.entries.length || deps.variables.length; deps = exportDependencies(config, sel)) {
+    sel = includeDependencies(config, sel, deps);
+  }
+  return { sel, unknown };
+}
+
+/** The plan of an import as the command line prints it. */
+export function importSummary(plan: ImportPlan) {
+  return {
+    counts: plan.counts,
+    entries: plan.entries
+      .filter((r) => r.status !== 'inside')
+      .map((r) => ({ label: r.label, id: r.id, status: r.status, decision: r.decision, ...(r.decision === 'rename' ? { newId: r.newId } : {}) })),
+    schedules: plan.schedules.filter((s) => s.checked).map((s) => `${s.entry}: ${s.text}`),
+    variables: plan.variables.filter((v) => v.checked).map((v) => v.name),
+    settings: plan.settings.filter((s) => s.checked).map((s) => s.name),
+    issues: plan.issues,
+    warnings: plan.warnings,
+  };
 }

@@ -43,6 +43,8 @@ export interface ExecutionLog {
   source?: RunSource;
   /** Values typed for the inputs of the action (passwords masked). */
   inputs?: Record<string, string>;
+  /** Not run: an entry of `after` whose condition did not match the result (why). */
+  skipped?: string;
 }
 
 export interface TestResult {

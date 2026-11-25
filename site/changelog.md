@@ -2,12 +2,24 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.13.0 — steps that depend on the result, command line export, import and update
+
+- **Run after only on some results**: an item of `after` can be `{ "run": "id", "when": "success" }` (only if the script succeeds), `"failed"` (only if it fails) or `{ "run": "id", "exitCodes": [3] }` (only with those exit codes). A plain reference still always runs. Steps left out are listed in the **Activity** as *Skipped*, with the reason. In the editor, **Run after** under **Options** of the action has one row per entry: the entry, which of its actions, and when it runs. Docs: [run after only on some results](./guide/concepts#run-after-only-on-some-results).
+- The entry clicked shows **running** until its whole chain ends (`before`, `parallel`, `after`), not only its own script; a second click meanwhile is refused, and schedules and alert buttons wait for it.
+- **Command line**:
+  - `--export=<file> [--entries=id,id]` writes an export as **Export…** does;
+  - `--import=<file>` shows what an import would do, `--import=<file> --apply` does it (a backup is kept);
+  - `--update` checks for a new version, `--update=install` downloads, verifies and installs it (a running TrayCommand installs it itself and restarts).
+  See the [command line](./reference/cli#tools-for-scripts-and-ai-agents).
+- The AI skill knows conditional `after`, the confirmation button and the new command line options (export and import through TrayCommand, with a dry run first).
+- Steadier end-to-end tests: the editor dialogs listen to their keys as soon as they appear, the colours of the window buttons are sent again after a theme change even when no frame is drawn, and the first state check of a cold machine has the time it needs.
+
 ## 2.12.0 — confirmations in TrayCommand's own window
 
 - `confirm` of an action now asks in a **TrayCommand window**, with the look and theme of the app, like the confirmation of a shortcut: <kbd>Enter</kbd> runs, <kbd>Esc</kbd> cancels. It was a system dialog with the buttons *Run / Cancel*. Every run started by a person asks (click, menu, launcher, shortcut, alert choice, notification click); scheduled runs still skip it.
 - The text of the confirm button can be your own: `"confirm": { "text": "Restart the VDI?", "button": "Restart" }`. A plain string works as before, with the **Run** button. In the editor: **Confirm button**, next to the confirmation text under **Options** of the action. Both texts allow `${VARIABLES}` and the values asked by the action, and are listed on the Variables page.
-- The confirmations of the editor are dialogs of the editor too, no longer system windows: deleting an entry, restoring a backup, deleting a variable still in use, making a secret a plain variable, and closing the editor with unsaved changes (**Keep editing** / **Discard and close**).
-- **Quit TrayCommand** from the tray no longer loses the unsaved changes of the editor: it brings the editor to the front and asks (**Keep editing** / **Discard and quit**). Without unsaved changes it quits at once, as before. <kbd>Enter</kbd> confirms, <kbd>Esc</kbd> cancels. The windows to choose a file or a folder stay those of the system.
+- The confirmations of the editor are dialogs of the editor too, no longer system windows: deleting an entry, restoring a backup, deleting a variable still in use, making a secret a plain variable, and closing the editor with unsaved changes (**Keep editing** / **Discard and close**). <kbd>Enter</kbd> confirms, <kbd>Esc</kbd> cancels. The windows to choose a file or a folder stay those of the system.
+- **Quit TrayCommand** from the tray no longer loses the unsaved changes of the editor: it brings the editor to the front and asks (**Keep editing** / **Discard and quit**). Without unsaved changes it quits at once, as before.
 - Docs: [ask for confirmation](./recipes/#ask-for-confirmation).
 
 ## 2.11.0 — clickable notifications

@@ -151,7 +151,7 @@ Both keep the entry in the file, so you can bring it back later. Hidden trays ca
 { "label": "Stop server", "enabledWhen": "server", "action": "nginx -s stop" }
 ```
 
-An entry is also not clickable while its own action is still running.
+An entry is also not clickable while its own action is still running, together with everything it runs (`before`, `parallel`, `after`): it shows *running* until the last one ends.
 
 ## Composing actions
 
@@ -183,6 +183,35 @@ Example: a **Proxy** toggle that also switches the Git and npm proxy toggles in 
 ```
 
 Turning **Proxy** on runs the `action` of both children; turning it off runs their `offAction`. The complete version is in the [recipes](../recipes/#system-proxy-with-git-and-npm).
+
+### Run after only on some results
+
+An item of `after` can depend on how the script ended. Write it as an object:
+
+| Item | Runs the entry |
+| --- | --- |
+| `"id"` or `{ "run": "id" }` | Always, as before. |
+| `{ "run": "id", "when": "success" }` | Only if the script succeeds: exit code 0, not timed out, not stopped. |
+| `{ "run": "id", "when": "failed" }` | Only if it fails. |
+| `{ "run": "id", "exitCodes": [3, 4] }` | Only if it ends with one of these exit codes (instead of `when`). |
+
+`run` takes the same references as above (`"id:on"`…). An item not run is listed in the **Activity** as *Skipped*, with the reason (*Not run: "Open VDI" ended with exit code 1*). The entry clicked shows *running* until the whole chain ends, and a second click meanwhile is refused.
+
+```json
+{
+  "id": "vdi_open",
+  "label": "Open the VDI",
+  "action": {
+    "run": "...open it from the portal, exit 0 when it worked...",
+    "after": [
+      { "run": "vdi_ready", "when": "success" },
+      { "run": "vdi_cleanup", "when": "failed" }
+    ]
+  }
+}
+```
+
+In the editor: **Options** of the action → **Run after**. Each row has the entry, which of its actions, and when it runs: *always*, *only if the script succeeds*, *only if the script fails* or *only with exit codes…*.
 
 ## Variables
 

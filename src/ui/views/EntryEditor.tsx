@@ -11,6 +11,7 @@ import { VarField } from '../components/VarField';
 import { ActionEditor, AddActionButton } from './ActionEditor';
 import { StateEditor } from './StateEditor';
 import { MenuEditor } from './MenuEditor';
+import { EnabledWhenEditor } from './EnabledWhenEditor';
 import { IconPicker } from './IconPicker';
 import { askConfirm } from '../components/ConfirmDialog';
 
@@ -249,25 +250,9 @@ export function EntryEditor(props: { path: number[] }) {
         <MenuEditor path={path} />
       </Card>
 
-      <Card title="Enabled when" icon={<Link2 size={16} />} desc="Follow the state of another toggle">
+      <Card title="Enabled when" icon={<Link2 size={16} />} desc="Clickable only while other toggles are ON or OFF: all of them, any of them, or groups of both" testId="card-enabled-when">
         <div class="card-body">
-          <div class="grid2">
-            <Field label="Enabled only while">
-              <select
-                class="select"
-                value={entry.enabledWhen ?? ''}
-                onChange={(e) => setKey('enabledWhen', ((e.currentTarget as HTMLSelectElement).value || undefined) as never)}
-              >
-                <option value="">Always</option>
-                {otherIds.map((x) => (
-                  <>
-                    <option value={x.id}>{x.label} is ON</option>
-                    <option value={`!${x.id}`}>{x.label} is OFF</option>
-                  </>
-                ))}
-              </select>
-            </Field>
-          </div>
+          <EnabledWhenEditor value={entry.enabledWhen} toggles={otherIds} onChange={(v) => setKey('enabledWhen', v as never)} />
         </div>
       </Card>
     </div>

@@ -8,7 +8,7 @@ The left column lists your trays:
 
 - a live **ON / OFF** pill for toggles (and **running** while an action runs),
 - the **eye** button hides or shows a tray without deleting it,
-- drag the handle to **reorder** trays,
+- drag the handle to **reorder** trays (lists whose order matters can be reordered by dragging everywhere: menu entries, **Run before**, **Run after**, the values asked by an action and the buttons of an alert, each by its handle ⋮⋮),
 - the search box filters by label or id,
 - **+** creates a new tray.
 
@@ -25,7 +25,7 @@ Select a tray to edit it on the right. The header has the icon picker, the label
 | **Keyboard shortcut** | A global [shortcut](./launcher#shortcuts-for-entries): click it and press the keys. |
 | **Schedule** | [Runs at set times](./schedules), at an interval or at startup, with the next run in the card header. |
 | **Menu** / **Sub menu** | The entries of the menu: add **Item**, **Sub menu** or **Separator**; move up/down, hide, duplicate, delete. Click an entry to edit it; breadcrumbs bring you back. |
-| **Enabled when** | Follow another toggle: enabled only while it is ON or OFF. |
+| **Enabled when** | Follow other toggles: clickable only while they are ON or OFF, all of them (**All (and)**), any of them (**Any (or)**) or groups of both. The result is written in words underneath. |
 
 Each action editor has the **Script** box, the values to [ask before running](./inputs) (**Ask for a value**) and, under the advanced options, shell, working folder, timeout, notification, confirmation text and the text of its button, **Run in a visible terminal**, **Run as administrator**, environment variables, and the composed actions **Run before**, **Run together** and **Run after**.
 

@@ -91,7 +91,7 @@ Each item of `trays` is one tray icon.
 | `icon` | string | Image file (png, ico, jpg). Relative paths are resolved from the configuration file folder. Without it the TrayCommand icon is used. |
 | `hidden` | boolean | Hide without deleting. State checks are paused. |
 | `disabled` | boolean | Not clickable (click opens the menu); state checks are paused. |
-| `enabledWhen` | string | Clickable only while the entry with this id is ON (`"id"`) or OFF (`"!id"`). |
+| `enabledWhen` | string or object | Clickable only while the entry with this id is ON (`"id"`) or OFF (`"!id"`); `{ "all": [...] }` while all the conditions hold, `{ "any": [...] }` while at least one does. Groups can be nested. See [enabled when](../guide/concepts#enabled-when). |
 | `action` | [action](#actions) | Run on left click (on click while OFF, for toggles). Without it, left click opens the menu. |
 | `offAction` | [action](#actions) | Toggles only: run on click while ON. |
 | `rightAction` | [action](#actions) | Run on right click. Without it, right click opens the menu. |
@@ -116,7 +116,7 @@ Same as a tray, except:
 | `icon` | string | 16 px image shown next to the label. |
 | `hidden` | boolean | Not shown. Children and state checks are paused too. |
 | `disabled` | boolean | Shown greyed out; state checks are paused. |
-| `enabledWhen` | string | `"id"` or `"!id"`, see above. |
+| `enabledWhen` | string or object | `"id"`, `"!id"`, `{ "all": [...] }` or `{ "any": [...] }`, see above. |
 | `action` | [action](#actions) | Run on click. |
 | `offAction` | [action](#actions) | Toggles only: run on click while ON. |
 | `state` | [state](#state) | Makes the entry a toggle (check mark when it has no icon). |

@@ -146,3 +146,57 @@ export function timeAgo(t: number) {
   if (s < 86400) return `${Math.round(s / 3600)} h ago`;
   return new Date(t).toLocaleString();
 }
+
+/** The list with the item at `from` moved to `to`. */
+export function moveItem<T>(list: T[], from: number, to: number): T[] {
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item!);
+  return next;
+}
+
+/**
+ * Reordering a list by dragging: `grip(i)` goes on what is dragged (the whole item, or a handle
+ * inside it), `slot(i)` on the item that takes the drop. `over` is the item under the pointer.
+ */
+export function useReorder(onMove: (from: number, to: number) => void) {
+  const [from, setFrom] = useState<number>();
+  const [over, setOver] = useState<number>();
+  const end = () => {
+    setFrom(undefined);
+    setOver(undefined);
+  };
+  return {
+    over: from !== undefined && over !== from ? over : undefined,
+    grip: (i: number) => ({
+      draggable: true,
+      title: 'Drag to change the order',
+      onDragStart: (e: DragEvent) => {
+        e.stopPropagation();
+        setFrom(i);
+        if (!e.dataTransfer) return;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(i));
+        const item = (e.currentTarget as HTMLElement).closest('[data-reorder]');
+        if (item && item !== e.currentTarget) e.dataTransfer.setDragImage(item, 12, 12);
+      },
+      onDragEnd: end,
+    }),
+    slot: (i: number) => ({
+      'data-reorder': '',
+      onDragOver: (e: DragEvent) => {
+        if (from === undefined) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        setOver(i);
+      },
+      onDrop: (e: DragEvent) => {
+        if (from === undefined) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (from !== i) onMove(from, i);
+        end();
+      },
+    }),
+  };
+}

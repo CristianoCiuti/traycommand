@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { CalendarClock, FolderOpen, Plus, Trash2 } from 'lucide-preact';
+import { CalendarClock, FolderOpen, GripVertical, Plus, Trash2 } from 'lucide-preact';
 import type { Action, Alert, Choice, Schedule, Watch } from '../../shared/config';
 import type { WatchStatus } from '../../shared/api';
 import { cronError, describeCron, describeInterval, nextCronRuns, parseInterval } from '../../shared/cron';
@@ -41,7 +41,7 @@ import {
   type ScheduleMode,
 } from '../../shared/scheduleForm';
 import { api } from '../store';
-import { Field, Switch } from '../components/ui';
+import { Field, Switch, moveItem, useReorder } from '../components/ui';
 import { VarField, type VarScope } from '../components/VarField';
 
 const DAYS = [
@@ -294,6 +294,7 @@ function AlertEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: n
   const patch = (p: Partial<Alert>) => a && setAlert(patchAlert(a, p));
   const choices = a?.choices ?? [];
   const setChoice = (i: number, c: Choice) => patch({ choices: choices.map((x, j) => (j === i ? c : x)) });
+  const reorder = useReorder((from, to) => patch({ choices: moveItem(choices, from, to) }));
   // the timeout fields keep what is typed (and the unit chosen); they follow the file only when it changes elsewhere
   const [time, setTime] = useState(() => {
     const t = timeoutParts(a?.timeout);
@@ -342,10 +343,13 @@ function AlertEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: n
                 const kind = choiceKind(c);
                 const action = typeof c.action === 'string' ? c.action : (c.action?.run ?? '');
                 return (
-                  <div class="choice" data-testid={`alert-choice-${props.i}-${j}`}>
+                  <div class={`choice sortable${reorder.over === j ? ' drag-over' : ''}`} data-testid={`alert-choice-${props.i}-${j}`} {...reorder.slot(j)}>
+                    <span class="handle grab" {...reorder.grip(j)} data-testid={`alert-choice-grip-${props.i}-${j}`}>
+                      <GripVertical size={14} />
+                    </span>
                     <span class="choice-num">{j + 1}</span>
                     <VarField invalid={!c.label.trim()} style={{ width: 150 }} value={c.label} scope={scheduleScope(s)} onInput={(label) => setAlert(renameChoice(a, j, label))} ariaLabel="Text of the button" testId={`alert-choice-label-${props.i}-${j}`} />
-                    <select class="select" style={{ width: 150 }} value={kind} onChange={(e) => setChoice(j, withChoiceKind(c, (e.currentTarget as HTMLSelectElement).value as ChoiceKind, props.entries[0]?.id))} aria-label="What the button does">
+                    <select class="select" style={{ width: 176 }} value={kind} onChange={(e) => setChoice(j, withChoiceKind(c, (e.currentTarget as HTMLSelectElement).value as ChoiceKind, props.entries[0]?.id))} aria-label="What the button does">
                       <option value="self">Runs this entry</option>
                       <option value="entry">Runs another entry</option>
                       <option value="command">Runs a command</option>
@@ -433,7 +437,7 @@ function AlertEditor(props: { s: Schedule; onChange: (s: Schedule) => void; i: n
                 <option value="m">minutes</option>
                 <option value="h">hours</option>
               </select>
-              <select class="select" style={{ width: 190 }} value={a.default ?? ''} onChange={(e) => patch({ default: (e.currentTarget as HTMLSelectElement).value || undefined })} aria-label="Then" disabled={!hasTimeout || !choices.length} data-testid={`alert-default-${props.i}`}>
+              <select class="select" style={{ width: 216 }} value={a.default ?? ''} onChange={(e) => patch({ default: (e.currentTarget as HTMLSelectElement).value || undefined })} aria-label="Then" disabled={!hasTimeout || !choices.length} data-testid={`alert-default-${props.i}`}>
                 <option value="">close it, nothing runs</option>
                 {choices.map((c) => (
                   <option value={c.label}>run “{c.label}”</option>

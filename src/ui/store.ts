@@ -216,12 +216,12 @@ export function siblingsOf(config: Config, path: number[]): (MenuNode | Tray)[] 
   return parent?.menu;
 }
 
-export function allIds(config: Config | undefined): { id: string; label: string }[] {
-  const out: { id: string; label: string }[] = [];
+export function allIds(config: Config | undefined): { id: string; label: string; toggle: boolean }[] {
+  const out: { id: string; label: string; toggle: boolean }[] = [];
   const visit = (node: MenuNode | Tray) => {
     if (isSeparator(node as MenuNode)) return;
     const e = node as MenuEntry;
-    if (e.id) out.push({ id: e.id, label: e.label });
+    if (e.id) out.push({ id: e.id, label: e.label, toggle: !!e.state });
     e.menu?.forEach(visit);
   };
   config?.trays.forEach(visit);

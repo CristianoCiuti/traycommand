@@ -167,6 +167,24 @@ describe('after: engine', () => {
     expect(s.calls).toEqual(['open', 'ok-step']);
   });
 
+  it('the entry is busy also while its before and parallel entries run, and those are busy too', async () => {
+    const seen: Record<string, [boolean, boolean]> = {};
+    const trays = [
+      { id: 'main', label: 'Main', action: { run: 'main', before: ['pre'], parallel: ['side'] } },
+      { id: 'pre', label: 'Pre', action: 'pre' },
+      { id: 'side', label: 'Side', action: 'side' },
+    ] as ConfigInput['trays'];
+    const s = setup(trays, {}, {
+      run: async (script) => {
+        seen[script] = [s.engine.get('main')!.busy, s.engine.get(script)!.busy];
+        return res();
+      },
+    });
+    await s.engine.click('main');
+    expect(seen).toEqual({ pre: [true, true], main: [true, true], side: [true, true] });
+    expect(['main', 'pre', 'side'].map((id) => s.engine.get(id)!.busy)).toEqual([false, false, false]);
+  });
+
   it('an after that runs the same entry (another action) does not free it before the chain ends', async () => {
     const states: boolean[] = [];
     const s = setup([{ id: 'vpn', label: 'VPN', state: { check: 'check' }, action: { run: 'vpn-on', after: ['vpn:off', 'other'] }, offAction: 'vpn-off' }, { id: 'other', label: 'Other', action: 'other' }], {}, {

@@ -15,6 +15,7 @@ import {
   confirmTexts,
   afterParts,
   refOf,
+  enabledHolds,
 } from '../shared/config';
 import { expand, type VariableContext } from '../shared/variables';
 import { nextCron, parseCron, parseInterval } from '../shared/cron';
@@ -268,13 +269,7 @@ export class Engine {
   isEnabled(entry: RuntimeEntry): boolean {
     if (entry.entry.disabled || entry.busy) return false;
     const cond = entry.entry.enabledWhen;
-    if (cond) {
-      const negate = cond.startsWith('!');
-      const target = this.byId.get(negate ? cond.slice(1) : cond);
-      const on = target?.on === true;
-      if (negate ? on : !on) return false;
-    }
-    return true;
+    return !cond || enabledHolds(cond, (id) => this.byId.get(id)?.on === true);
   }
 
   nextRun(entry: RuntimeEntry): number | undefined {

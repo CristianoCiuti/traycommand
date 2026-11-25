@@ -1,9 +1,9 @@
 import { useRef, useState } from 'preact/hooks';
-import { ChevronDown, ChevronRight, CirclePlay, Loader2, Plus, ShieldAlert, Trash2, X } from 'lucide-preact';
+import { ChevronDown, ChevronRight, CirclePlay, Loader2, Plus, ShieldAlert, X, GripVertical } from 'lucide-preact';
 import { afterParts, confirmTexts, type Action, type ActionInput, type AfterRef, type AfterWhen, type Shell } from '../../shared/config';
 import type { TestResult } from '../../shared/api';
 import { allIds, api, draft } from '../store';
-import { Field, Switch, TextArea, formatDuration } from '../components/ui';
+import { Field, Switch, TextArea, formatDuration, moveItem, useReorder } from '../components/ui';
 import { InputsEditor } from './InputsEditor';
 import { VarField, type VarScope } from '../components/VarField';
 
@@ -138,55 +138,79 @@ function makeConfirm(text: string, button: string): Action['confirm'] {
   return { text, button };
 }
 
-function RefList(props: { title: string; hint: string; refs: string[] | undefined; onChange: (refs: string[] | undefined) => void }) {
+/** One entry as a chip: its id, which of its actions (same, on, off, right click) and a button that removes it. */
+function RefChip(props: { refId: string; onChange: (ref: string) => void; onRemove: () => void; testId?: string; drag?: Record<string, unknown>; over?: boolean }) {
+  const [id = '', kind = ''] = props.refId.split(':');
+  const tid = (s: string) => (props.testId ? `${props.testId}-${s}` : undefined);
+  return (
+    <span class={`chip${props.drag ? ' grab' : ''}${props.over ? ' drag-over' : ''}`} data-testid={tid('entry')} {...props.drag}>
+      {props.drag && <GripVertical size={12} class="grip" aria-hidden="true" />}
+      {id}
+      <select
+        value={kind}
+        onChange={(e) => {
+          const k = (e.currentTarget as HTMLSelectElement).value;
+          props.onChange(k ? `${id}:${k}` : id);
+        }}
+        aria-label="Which action"
+        data-testid={tid('kind')}
+      >
+        <option value="">same</option>
+        <option value="on">on</option>
+        <option value="off">off</option>
+        <option value="right">right</option>
+      </select>
+      <button onClick={props.onRemove} aria-label="Remove" data-testid={tid('remove')}>
+        <X size={12} />
+      </button>
+    </span>
+  );
+}
+
+/** The small select that adds an entry to a list of references. */
+function AddEntry(props: { onAdd: (id: string) => void; label?: string; testId?: string }) {
   const ids = allIds(draft.value);
+  return (
+    <select
+      class="select"
+      style={{ width: 'auto', height: 26, padding: '0 28px 0 8px', fontSize: 12 }}
+      value=""
+      onChange={(e) => {
+        const v = (e.currentTarget as HTMLSelectElement).value;
+        if (v) props.onAdd(v);
+        (e.currentTarget as HTMLSelectElement).value = '';
+      }}
+      aria-label={props.label ?? 'Add an entry'}
+      data-testid={props.testId}
+    >
+      <option value="">+ add entry…</option>
+      {ids.map((x) => (
+        <option value={x.id}>
+          {x.label} ({x.id})
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function RefList(props: { title: string; hint: string; refs: string[] | undefined; onChange: (refs: string[] | undefined) => void; ordered?: boolean; testId?: string }) {
   const refs = props.refs ?? [];
   const set = (next: string[]) => props.onChange(next.length ? next : undefined);
+  const reorder = useReorder((from, to) => set(moveItem(refs, from, to)));
   return (
     <Field label={props.title} hint={props.hint}>
-      <div class="chips">
-        {refs.map((ref, i) => {
-          const [id, kind] = ref.split(':');
-          return (
-            <span class="chip">
-              {id}
-              <select
-                value={kind ?? ''}
-                onChange={(e) => {
-                  const k = (e.currentTarget as HTMLSelectElement).value;
-                  const next = [...refs];
-                  next[i] = k ? `${id}:${k}` : id!;
-                  set(next);
-                }}
-              >
-                <option value="">same</option>
-                <option value="on">on</option>
-                <option value="off">off</option>
-                <option value="right">right</option>
-              </select>
-              <button onClick={() => set(refs.filter((_, j) => j !== i))} aria-label="Remove">
-                <X size={12} />
-              </button>
-            </span>
-          );
-        })}
-        <select
-          class="select"
-          style={{ width: 'auto', height: 26, padding: '0 6px', fontSize: 12 }}
-          value=""
-          onChange={(e) => {
-            const v = (e.currentTarget as HTMLSelectElement).value;
-            if (v) set([...refs, v]);
-            (e.currentTarget as HTMLSelectElement).value = '';
-          }}
-        >
-          <option value="">+ add entry…</option>
-          {ids.map((x) => (
-            <option value={x.id}>
-              {x.label} ({x.id})
-            </option>
-          ))}
-        </select>
+      <div class="chips" data-testid={props.testId}>
+        {refs.map((ref, i) => (
+          <RefChip
+            refId={ref}
+            onChange={(v) => set(refs.map((x, j) => (j === i ? v : x)))}
+            onRemove={() => set(refs.filter((_, j) => j !== i))}
+            testId={props.testId ? `${props.testId}-${i}` : undefined}
+            drag={props.ordered ? { ...reorder.grip(i), ...reorder.slot(i) } : undefined}
+            over={reorder.over === i}
+          />
+        ))}
+        <AddEntry onAdd={(v) => set([...refs, v])} />
       </div>
     </Field>
   );
@@ -203,84 +227,70 @@ export function makeAfter(run: string, mode: AfterMode, codes: number[]): AfterR
 /** Exit codes typed in a field: the whole numbers in it ("0, 3 4" → [0, 3, 4]). */
 export const parseCodes = (text: string): number[] => [...new Set((text.match(/-?\d+/g) ?? []).map(Number))];
 
-/** One entry of "Run after": which entry, which of its actions, and on which result of the script. */
-function AfterRow(props: { item: AfterRef; i: number; ids: { id: string; label: string }[]; onChange: (item: AfterRef) => void; onRemove: () => void; testId?: string }) {
+/** One entry of "Run after": the entry chip (as in Run before), then on which result of the script it runs. */
+function AfterRow(props: { item: AfterRef; i: number; onChange: (item: AfterRef) => void; onRemove: () => void; testId?: string; reorder: ReturnType<typeof useReorder> }) {
   const { run, when, exitCodes } = afterParts(props.item);
-  const [id = '', kind = ''] = run.split(':');
   const mode: AfterMode = exitCodes ? 'codes' : when;
-  const [codesText, setCodesText] = useState((exitCodes ?? []).join(', '));
-  const set = (next: { id?: string; kind?: string; mode?: AfterMode; codes?: number[] }) => {
-    const nid = next.id ?? id;
-    const nkind = next.kind ?? kind;
-    props.onChange(makeAfter(nkind ? `${nid}:${nkind}` : nid, next.mode ?? mode, next.codes ?? exitCodes ?? []));
-  };
+  const [typed, setCodesText] = useState((exitCodes ?? []).join(', '));
+  // what is typed, while it still says the same codes (after a reorder the row shows another item)
+  const codesText = parseCodes(typed).join() === (exitCodes ?? []).join() ? typed : (exitCodes ?? []).join(', ');
+  const set = (next: { run?: string; mode?: AfterMode; codes?: number[] }) => props.onChange(makeAfter(next.run ?? run, next.mode ?? mode, next.codes ?? exitCodes ?? []));
   const tid = (s: string) => (props.testId ? `${props.testId}-${s}` : undefined);
   return (
-    <div class="choice" data-testid={props.testId}>
+    <div class={`chips sortable${props.reorder.over === props.i ? ' drag-over' : ''}`} data-testid={props.testId} {...props.reorder.slot(props.i)}>
+      <span class="handle grab" {...props.reorder.grip(props.i)} data-testid={tid('grip')}>
+        <GripVertical size={14} />
+      </span>
       <span class="choice-num">{props.i + 1}</span>
-      <select class="select" style={{ flex: 1, minWidth: 0 }} value={id} onChange={(e) => set({ id: (e.currentTarget as HTMLSelectElement).value })} aria-label="Entry" data-testid={tid('entry')}>
-        {!props.ids.some((x) => x.id === id) && <option value={id}>{id} (unknown)</option>}
-        {props.ids.map((x) => (
-          <option value={x.id}>
-            {x.label} ({x.id})
-          </option>
-        ))}
-      </select>
-      <select class="select" style={{ width: 128 }} value={kind} onChange={(e) => set({ kind: (e.currentTarget as HTMLSelectElement).value })} aria-label="Which action" data-testid={tid('kind')}>
-        <option value="">same action</option>
-        <option value="on">turn on</option>
-        <option value="off">turn off</option>
-        <option value="right">right click</option>
-      </select>
-      <select
-        class="select"
-        style={{ width: 196 }}
-        value={mode}
-        onChange={(e) => {
-          const m = (e.currentTarget as HTMLSelectElement).value as AfterMode;
-          if (m === 'codes') setCodesText((exitCodes ?? []).join(', '));
-          set({ mode: m });
-        }}
-        aria-label="When it runs"
-        data-testid={tid('when')}
-      >
-        <option value="always">always</option>
-        <option value="success">only if the script succeeds</option>
-        <option value="failed">only if the script fails</option>
-        <option value="codes">only with exit codes…</option>
-      </select>
-      {mode === 'codes' && (
-        <input
-          class={`input mono ${exitCodes?.length ? '' : 'invalid'}`}
-          style={{ width: 96 }}
-          value={codesText}
-          placeholder="e.g. 0, 3"
-          aria-label="Exit codes"
-          title="Exit codes of the script, separated by commas"
-          onInput={(e) => {
-            const text = (e.currentTarget as HTMLInputElement).value;
-            setCodesText(text);
-            set({ codes: parseCodes(text) });
+      <RefChip refId={run} onChange={(v) => set({ run: v })} onRemove={props.onRemove} testId={props.testId} />
+      <span class="chip opt">
+        <select
+          value={mode}
+          onChange={(e) => {
+            const m = (e.currentTarget as HTMLSelectElement).value as AfterMode;
+            if (m === 'codes') setCodesText((exitCodes ?? []).join(', '));
+            set({ mode: m });
           }}
-          data-testid={tid('codes')}
-        />
+          aria-label="When it runs"
+          data-testid={tid('when')}
+        >
+          <option value="always">always</option>
+          <option value="success">only if the script succeeds</option>
+          <option value="failed">only if the script fails</option>
+          <option value="codes">only with exit codes…</option>
+        </select>
+      </span>
+      {mode === 'codes' && (
+        <span class={`chip ${exitCodes?.length ? '' : 'invalid'}`}>
+          codes
+          <input
+            value={codesText}
+            size={8}
+            placeholder="e.g. 0, 3"
+            aria-label="Exit codes"
+            title="Exit codes of the script, separated by commas"
+            onInput={(e) => {
+              const text = (e.currentTarget as HTMLInputElement).value;
+              setCodesText(text);
+              set({ codes: parseCodes(text) });
+            }}
+            data-testid={tid('codes')}
+          />
+        </span>
       )}
-      <button class="btn ghost sm icon danger" onClick={props.onRemove} aria-label="Remove" data-testid={tid('remove')}>
-        <Trash2 size={14} />
-      </button>
     </div>
   );
 }
 
 /** "Run after": entries run in order after the script, each always or only on some results. */
 function AfterList(props: { items: AfterRef[] | undefined; onChange: (items: AfterRef[] | undefined) => void; testId?: string }) {
-  const ids = allIds(draft.value);
   const items = props.items ?? [];
   const set = (next: AfterRef[]) => props.onChange(next.length ? next : undefined);
+  const reorder = useReorder((from, to) => set(moveItem(items, from, to)));
   return (
     <Field
       label="Run after"
-      hint="Other entries, run in order when this script ends: always, only if it succeeds or fails, or only with some exit codes. This entry shows running until the last one ends."
+      hint="Other entries, run in order when this script ends: always, only if it succeeds or fails, or only with some exit codes. Drag them by the handle to change the order. This entry shows running until the last one ends."
     >
       <div class="choices" data-testid={props.testId}>
         {items.map((item, i) => (
@@ -288,32 +298,14 @@ function AfterList(props: { items: AfterRef[] | undefined; onChange: (items: Aft
             key={`${i}:${items.length}`}
             item={item}
             i={i}
-            ids={ids}
             onChange={(v) => set(items.map((x, j) => (j === i ? v : x)))}
             onRemove={() => set(items.filter((_, j) => j !== i))}
             testId={props.testId ? `${props.testId}-${i}` : undefined}
+            reorder={reorder}
           />
         ))}
-        <div class="row" style={{ alignItems: 'center' }}>
-          <select
-            class="select"
-            style={{ width: 'auto' }}
-            value=""
-            onChange={(e) => {
-              const v = (e.currentTarget as HTMLSelectElement).value;
-              if (v) set([...items, v]);
-              (e.currentTarget as HTMLSelectElement).value = '';
-            }}
-            aria-label="Add an entry to run after"
-            data-testid={props.testId ? `${props.testId}-add` : undefined}
-          >
-            <option value="">+ Add an entry to run after…</option>
-            {ids.map((x) => (
-              <option value={x.id}>
-                {x.label} ({x.id})
-              </option>
-            ))}
-          </select>
+        <div class="chips">
+          <AddEntry onAdd={(v) => set([...items, v])} label="Add an entry to run after" testId={props.testId ? `${props.testId}-add` : undefined} />
         </div>
       </div>
     </Field>
@@ -487,7 +479,7 @@ export function ActionEditor(props: { value: ActionInput | undefined; onChange: 
               }}
             />
           </Field>
-          <RefList title="Run before" hint="Actions of other entries, in order, before this script" refs={action.before} onChange={(before) => change({ before })} />
+          <RefList title="Run before" hint="Actions of other entries, in order, before this script. Drag them by the handle to change the order." refs={action.before} onChange={(before) => change({ before })} ordered testId={tid('before')} />
           <RefList title="Run together" hint="Actions of other entries, in parallel with this script" refs={action.parallel} onChange={(parallel) => change({ parallel })} />
           <AfterList items={action.after} onChange={(after) => change({ after })} testId={tid('after')} />
         </>

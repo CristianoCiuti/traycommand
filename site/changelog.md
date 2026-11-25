@@ -2,6 +2,12 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.14.0 — conditions made of several toggles, reordering by dragging
+
+- **Enabled when** can depend on several toggles: `{ "all": ["vpn", "proxy"] }` while all of them hold (and), `{ "any": ["vpn", "!office"] }` while at least one does (or), and groups inside groups: `{ "all": ["vpn", { "any": ["proxy", "!office"] }] }`. A single `"id"` / `"!id"` works as before. In the editor the **Enabled when** card has **All (and)** / **Any (or)**, toggles that are **ON** or **OFF**, groups, and the condition written in words; the launcher tells why an entry is not clickable in the same words. Docs: [enabled when](./guide/concepts#enabled-when).
+- **Run after** looks like **Run before**: each entry is the same chip (the entry, *same / on / off / right*, ×), followed by when it runs and, with exit codes, the codes, in chips of the same kind.
+- Lists whose order matters can be **reordered by dragging**: **Run before**, **Run after**, menu entries, the values asked by an action and the buttons of an alert, each by its handle ⋮⋮. **Run together** has none: its entries start at the same time.
+
 ## 2.13.1 — OpenCode
 
 - The AI agent is called **OpenCode** everywhere in TrayCommand: the banner that proposes the skill, the toasts, **Settings → AI assistants**, the docs. Its folder and command are still `~/.config/opencode` and `opencode`.

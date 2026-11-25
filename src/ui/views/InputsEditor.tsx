@@ -1,6 +1,6 @@
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-preact';
+import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from 'lucide-preact';
 import type { Input } from '../../shared/config';
-import { Field, Switch, TextArea } from '../components/ui';
+import { Field, Switch, TextArea, moveItem, useReorder } from '../components/ui';
 import { VarField } from '../components/VarField';
 
 const TYPES: { value: NonNullable<Input['type']>; label: string }[] = [
@@ -31,12 +31,8 @@ export function InputsEditor(props: { value: Input[] | undefined; onChange: (v: 
     next[i] = merged;
     set(next);
   };
-  const move = (i: number, d: -1 | 1) => {
-    const next = [...inputs];
-    const [x] = next.splice(i, 1);
-    next.splice(i + d, 0, x!);
-    set(next);
-  };
+  const move = (i: number, d: -1 | 1) => set(moveItem(inputs, i, i + d));
+  const reorder = useReorder((from, to) => set(moveItem(inputs, from, to)));
 
   return (
     <div class="inputs-editor" data-testid={props.testId}>
@@ -45,8 +41,11 @@ export function InputsEditor(props: { value: Input[] | undefined; onChange: (v: 
         const type = input.type ?? 'text';
         const optionsText = (input.options ?? []).map((o) => (typeof o === 'string' ? o : o.label && o.label !== o.value ? `${o.value}=${o.label}` : o.value)).join('\n');
         return (
-          <div class="input-def">
+          <div class={`input-def sortable${reorder.over === i ? ' drag-over' : ''}`} {...reorder.slot(i)}>
             <div class="input-def-head">
+              <span class="handle grab" {...reorder.grip(i)} data-testid={`input-grip-${i}`}>
+                <GripVertical size={14} />
+              </span>
               <input
                 class="input mono name"
                 value={input.name}

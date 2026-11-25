@@ -209,6 +209,12 @@ Each item checks the script's result on its own: `"when": "failed"` would also r
 { "label": "Deploy (only with VPN on)", "enabledWhen": "vpn", "action": { "run": "./deploy.ps1", "cwd": "C:/projects/app", "confirm": "Deploy now?", "terminal": true } }
 ```
 
+Several toggles: clickable while the VPN is ON and either the proxy is ON or the office network is OFF (`all` = and, `any` = or, groups can be nested):
+
+```json
+{ "label": "Deploy", "enabledWhen": { "all": ["vpn", { "any": ["proxy", "!office"] }] }, "action": "./deploy.ps1" }
+```
+
 ## Ask for values before running (form)
 
 ```json

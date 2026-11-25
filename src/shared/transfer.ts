@@ -8,6 +8,8 @@ import {
   isSeparator,
   normalizeAction,
   refOf,
+  enabledIds,
+  mapEnabledIds,
   parseConfig,
   type Action,
   type ActionInput,
@@ -330,7 +332,7 @@ export function referencedIds(node: Refs, schedules: Schedule[] = node.schedules
     for (const when of ['before', 'parallel', 'after'] as const) ids.push(...(a?.[when] ?? []).map((ref) => refOf(ref).split(':')[0]!));
     for (const ref of notifyClicks(a)) ids.push(ref.split(':')[0]!);
   }
-  if (node.enabledWhen) ids.push(node.enabledWhen.replace(/^!/, ''));
+  if (node.enabledWhen) ids.push(...enabledIds(node.enabledWhen));
   for (const s of schedules) for (const c of s.alert?.choices ?? []) if (c.run !== undefined && c.run !== 'self') ids.push(c.run.split(':')[0]!);
   return [...new Set(ids)];
 }
@@ -603,7 +605,7 @@ function renameRefs(node: Refs, renames: Map<string, string>) {
     if (typeof a.notify === 'object' && a.notify.click) a.notify.click = swap(a.notify.click);
     if (a.notifyError?.click) a.notifyError.click = swap(a.notifyError.click);
   }
-  if (node.enabledWhen) node.enabledWhen = node.enabledWhen.replace(/^(!?)(.*)$/, (_m, not: string, id: string) => `${not}${swap(id)}`);
+  if (node.enabledWhen) node.enabledWhen = mapEnabledIds(node.enabledWhen, (id) => renames.get(id) ?? id);
   for (const s of node.schedules ?? []) renameScheduleRefs(s, renames);
 }
 

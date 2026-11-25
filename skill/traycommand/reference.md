@@ -50,7 +50,7 @@ Do not change settings unless the user explicitly asks. In particular never turn
 | `icon` | string | Image file (png, ico, jpg), relative to the config folder. Default: TrayCommand logo. |
 | `hidden` | boolean | Not shown, kept in the file. Checks paused. |
 | `disabled` | boolean | Not clickable (click opens the menu). Checks paused. |
-| `enabledWhen` | string | Clickable only while entry `id` is ON (`"id"`) or OFF (`"!id"`). |
+| `enabledWhen` | string or object | Clickable only while entry `id` is ON (`"id"`) or OFF (`"!id"`); `{ "all": [c, ...] }` = all conditions (and), `{ "any": [c, ...] }` = at least one (or); conditions are `"id"`, `"!id"` or nested groups, e.g. `{ "all": ["vpn", { "any": ["proxy", "!office"] }] }`. |
 | `action` | action | Left click (click while OFF for toggles). Without it left click opens the menu. |
 | `offAction` | action | Toggles only: click while ON. |
 | `rightAction` | action | Right click. Without it right click opens the menu. |
@@ -181,7 +181,7 @@ Keys joined by `+`: modifiers `Ctrl`, `Alt`, `Shift`, `Win` (`Super`/`Meta`/`Cmd
 
 ## Checks done by the validator
 
-Unique ids; every ref in `before` / `parallel` / `after` (also `after[].run`) / `enabledWhen` exists; an `after` item has `when` or `exitCodes`, not both, and `exitCodes` has at least one integer; `on` / `off` / `pattern` are valid regexes; `settings.appMenu` is `"own"` or a tray id; shortcuts valid and unique (also against `settings.launcherHotkey`); input names unique per action, `select` with `options` or `optionsCommand`; schedules with exactly one of `cron`/`every`/`startup`/`watch`, valid expression / interval (≥ 5 s) / folder / patterns / settle (≤ 1 h) / time window, something to run; `if` with a check command and valid `on`/`off` regexes; `alert` with a text or choices, at most 4 choices with unique labels, each with exactly one of `run`/`action`, `run` = `"self"` or an existing id (`:on`/`:off`/`:right` allowed), `timeout` between 5 s and 1 day, `default` and `click` = a choice label (`click` with a window style or `hotkeyConfirm` without `hotkey`: warning).
+Unique ids; every ref in `before` / `parallel` / `after` (also `after[].run`) / `enabledWhen` (every id of its groups) exists, and no group of `enabledWhen` is empty; an `after` item has `when` or `exitCodes`, not both, and `exitCodes` has at least one integer; `on` / `off` / `pattern` are valid regexes; `settings.appMenu` is `"own"` or a tray id; shortcuts valid and unique (also against `settings.launcherHotkey`); input names unique per action, `select` with `options` or `optionsCommand`; schedules with exactly one of `cron`/`every`/`startup`/`watch`, valid expression / interval (≥ 5 s) / folder / patterns / settle (≤ 1 h) / time window, something to run; `if` with a check command and valid `on`/`off` regexes; `alert` with a text or choices, at most 4 choices with unique labels, each with exactly one of `run`/`action`, `run` = `"self"` or an existing id (`:on`/`:off`/`:right` allowed), `timeout` between 5 s and 1 day, `default` and `click` = a choice label (`click` with a window style or `hotkeyConfirm` without `hotkey`: warning).
 
 Warnings (the file is valid, but check them): `offAction` without `state`; schedule `values` for unknown inputs; `run: "on"`/`"off"` on an entry without `state`; an alert `default` without `timeout` (never used); a button whose target has no such action (`"b:off"` on an entry without `offAction`); admin actions while `settings.allowAdminCommands` is off; icon files that do not exist.
 

@@ -353,6 +353,10 @@ input[type='time']::-webkit-calendar-picker-indicator:hover { background: var(--
 .chip button { border: 0; background: none; cursor: pointer; color: var(--text-3); display: flex; padding: 1px; border-radius: 0; }
 .chip button:hover { color: var(--danger); background: var(--danger-soft); }
 .chip select { border: 0; background-color: transparent; font-size: 11.5px; color: var(--text-2); padding: 0 18px 0 2px; background-position: right 9px center, right 4px center; }
+.chip.opt { padding-left: 4px; }
+.chip input { border: 0; background: transparent; font: 11.5px var(--mono); color: var(--text); outline: none; padding: 0 2px; }
+.chip input::placeholder { color: var(--text-3); }
+.chip.invalid { border-color: var(--danger); }
 
 .menu-tree { display: flex; flex-direction: column; }
 .menu-row { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 0; border-left: 1px solid transparent; }
@@ -548,7 +552,7 @@ input[type='time']::-webkit-calendar-picker-indicator:hover { background: var(--
 /* ---------- inputs of an action ---------- */
 .inputs-editor { display: flex; flex-direction: column; gap: 10px; }
 .input-def { border: 1px solid var(--border); border-left: 2px solid var(--accent); border-radius: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
-.input-def-head { display: grid; grid-template-columns: 150px 1fr 120px auto; gap: 8px; align-items: center; }
+.input-def-head { display: grid; grid-template-columns: 14px 150px 1fr 120px auto; gap: 8px; align-items: center; }
 .input-def-head .name { font-weight: 700; }
 .input-def-acts { display: flex; gap: 2px; align-items: center; }
 /* insertable variables: dashed tokens (solid once used), same button role */
@@ -670,3 +674,28 @@ label.xfer-row { cursor: pointer; }
 .var-table .disclosure { white-space: nowrap; }
 .var-uses { display: flex; flex-direction: column; border: 1px solid var(--border); border-left: 2px solid var(--accent); background: var(--bg); padding: 4px 0; max-height: 260px; overflow-y: auto; }
 .var-add { display: grid; grid-template-columns: 200px 1fr auto auto; gap: 12px; align-items: end; padding: 10px 12px; border: 1px dashed var(--border-strong); background: var(--bg); }
+
+/* ---------- reordering by dragging ---------- */
+.grab { cursor: grab; }
+.grab:active { cursor: grabbing; }
+[data-reorder].drag-over { outline: 2px dashed var(--accent); outline-offset: 2px; }
+
+/* ---------- enabled when: groups of conditions ---------- */
+.cond-editor { display: flex; flex-direction: column; gap: 10px; }
+.cond-group { display: flex; flex-direction: column; gap: 8px; }
+.cond-group.nested { padding: 8px 10px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); background: var(--panel-2); }
+.cond-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cond-head .hint { color: var(--text-3); font-size: 12px; }
+.cond-items { display: flex; flex-direction: column; gap: 6px; }
+.cond-item { display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: start; }
+.cond-item > .chip { justify-self: start; }
+.cond-word { color: var(--accent); font: 600 11.5px/26px var(--mono); text-align: right; }
+.cond-summary { color: var(--text-2); font-size: 12.5px; }
+.cond-summary b { color: var(--text); font-weight: 600; }
+.chip-btn svg { vertical-align: -1px; }
+.chip .grip { flex: none; margin-left: -5px; color: var(--text-3); }
+.grab:hover .grip, .handle.grab:hover { color: var(--accent); }
+.menu-row { grid-template-columns: 14px 24px 1fr auto; }
+.menu-sep-row { grid-template-columns: 14px 1fr auto; }
+.menu-row .handle, .menu-sep-row .handle { opacity: 0.45; }
+.menu-row:hover .handle, .menu-sep-row:hover .handle { opacity: 1; }

@@ -1,7 +1,7 @@
-import { ArrowDown, ArrowUp, ChevronRight, Copy, Eye, EyeOff, FolderPlus, Minus, Plus, Trash2, ToggleRight } from 'lucide-preact';
+import { ArrowDown, ArrowUp, ChevronRight, Copy, Eye, EyeOff, FolderPlus, GripVertical, Minus, Plus, Trash2, ToggleRight } from 'lucide-preact';
 import { type MenuEntry, type MenuNode, isSeparator } from '../../shared/config';
 import { draft, entryAt, mutate, selection, status, statusKey, uniqueId } from '../store';
-import { EntryIcon } from '../components/ui';
+import { EntryIcon, useReorder } from '../components/ui';
 
 function describe(e: MenuEntry): string {
   const parts: string[] = [];
@@ -22,6 +22,20 @@ function Rows(props: { path: number[]; nodes: MenuNode[] }) {
       [list[i], list[j]] = [list[j]!, list[i]!];
     });
   const remove = (i: number) => mutate((c) => entryAt(c, props.path)!.menu!.splice(i, 1));
+  // dragging a row moves it among the rows of the same menu
+  const reorder = useReorder((from, to) =>
+    mutate((c) => {
+      const list = entryAt(c, props.path)!.menu!;
+      const [moved] = list.splice(from, 1);
+      list.splice(to, 0, moved!);
+    }),
+  );
+  const grip = (i: number) => (
+    <span class="handle grab" {...reorder.grip(i)} data-testid="menu-grip">
+      <GripVertical size={14} />
+    </span>
+  );
+  const over = (i: number) => (reorder.over === i ? ' drag-over' : '');
   const duplicate = (i: number) =>
     mutate((c) => {
       const list = entryAt(c, props.path)!.menu!;
@@ -67,7 +81,8 @@ function Rows(props: { path: number[]; nodes: MenuNode[] }) {
         );
         if (isSeparator(node))
           return (
-            <div class="menu-sep-row">
+            <div class={`menu-sep-row${over(i)}`} {...reorder.slot(i)} data-testid="menu-sep-row">
+              {grip(i)}
               <div class="menu-sep" />
               {acts}
             </div>
@@ -75,7 +90,8 @@ function Rows(props: { path: number[]; nodes: MenuNode[] }) {
         const st = status.value.get(statusKey(childPath));
         return (
           <>
-            <div class="menu-row" style={node.hidden || node.disabled ? { opacity: 0.5 } : undefined} data-testid="menu-row">
+            <div class={`menu-row${over(i)}`} {...reorder.slot(i)} style={node.hidden || node.disabled ? { opacity: 0.5 } : undefined} data-testid="menu-row">
+              {grip(i)}
               <span class="ico">
                 <EntryIcon path={node.icon} size={16} fallback={node.state ? <ToggleRight size={15} /> : node.menu ? <ChevronRight size={15} /> : <span class="dot" style={{ width: 5, height: 5 }} />} />
               </span>

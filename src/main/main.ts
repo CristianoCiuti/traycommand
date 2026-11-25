@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { isSeparator, normalizeAction, parseConfig, SCHEMA_URL, STYLES, type Action, type Config, type MenuEntry, type MenuNode, type Style, type Tray } from '../shared/config';
+import { describeEnabled, isSeparator, normalizeAction, parseConfig, SCHEMA_URL, STYLES, type Action, type Config, type MenuEntry, type MenuNode, type Style, type Tray } from '../shared/config';
 import { expand } from '../shared/variables';
 import type { AgentSkillInfo, AppInfo, ExecutionLog, ExportRequest, ExportResult, LauncherItem, LauncherShow, LoadedConfig, OpenImportResult, SaveResult, SecretChange, SecretsInfo, SkillsInfo, TestResult } from '../shared/api';
 import { canonicalHotkey, formatHotkey } from '../shared/hotkey';
@@ -239,10 +239,11 @@ function unavailable(e: RuntimeEntry): string {
   if (e.busy) return 'Still running, try again when it finishes';
   if (engine.isDisabled(e)) return 'Disabled';
   const cond = e.entry.enabledWhen;
-  if (cond) {
-    const target = engine.get(cond.replace(/^!/, ''));
-    return `Available only while ${target ? engine.label(target) : cond} is ${cond.startsWith('!') ? 'OFF' : 'ON'}`;
-  }
+  if (cond)
+    return `Available only while ${describeEnabled(cond, (id) => {
+      const target = engine.get(id);
+      return target ? engine.label(target) : id;
+    })}`;
   return 'Not available right now';
 }
 

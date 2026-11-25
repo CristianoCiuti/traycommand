@@ -310,17 +310,67 @@ export const HotkeyConfirmSchema = z
   .describe('Ask before the keyboard shortcut runs the entry: true = default texts, or custom texts. Clicks, the launcher and schedules do not ask. Default: no confirmation.');
 export type HotkeyConfirm = z.infer<typeof HotkeyConfirmSchema>;
 
+/** When an entry is clickable: a toggle ON ("id") or OFF ("!id"), or all / any of several conditions. */
+export type EnabledWhen = string | { all: EnabledWhen[] } | { any: EnabledWhen[] };
+export const ENABLED_GROUPS = ['all', 'any'] as const;
+export type EnabledGroup = (typeof ENABLED_GROUPS)[number];
+const toggleRef = z.string().regex(/^!?[A-Za-z0-9_.-]+$/, 'Write the id of a toggle, or !id for while it is OFF');
+export const EnabledWhenSchema: z.ZodType<EnabledWhen> = z.lazy(() =>
+  z
+    .union([
+      toggleRef.describe('"id" = while that toggle is ON, "!id" = while it is OFF.'),
+      z.object({ all: z.array(EnabledWhenSchema).min(1, 'Add at least one condition') }).strict().describe('Enabled while all these conditions are true (and).'),
+      z.object({ any: z.array(EnabledWhenSchema).min(1, 'Add at least one condition') }).strict().describe('Enabled while at least one of these conditions is true (or).'),
+    ])
+    .meta({ id: 'EnabledWhen', title: 'Condition on the state of toggles' }),
+);
+
+/** The group (all / any) and its conditions, or undefined for a single toggle. */
+export function enabledGroup(cond: EnabledWhen): { kind: EnabledGroup; items: EnabledWhen[] } | undefined {
+  if (typeof cond === 'string') return undefined;
+  return 'all' in cond ? { kind: 'all', items: cond.all } : { kind: 'any', items: cond.any };
+}
+
+/** The ids of the toggles a condition looks at. */
+export function enabledIds(cond: EnabledWhen): string[] {
+  if (typeof cond === 'string') return [cond.replace(/^!/, '')];
+  return enabledGroup(cond)!.items.flatMap(enabledIds);
+}
+
+/** Whether a condition holds, given which toggles are ON. */
+export function enabledHolds(cond: EnabledWhen, isOn: (id: string) => boolean): boolean {
+  if (typeof cond === 'string') return cond.startsWith('!') ? !isOn(cond.slice(1)) : isOn(cond);
+  const group = enabledGroup(cond)!;
+  const test = (c: EnabledWhen) => enabledHolds(c, isOn);
+  return group.kind === 'all' ? group.items.every(test) : group.items.some(test);
+}
+
+/** The same condition with every id passed through `swap`. */
+export function mapEnabledIds(cond: EnabledWhen, swap: (id: string) => string): EnabledWhen {
+  if (typeof cond === 'string') return cond.startsWith('!') ? `!${swap(cond.slice(1))}` : swap(cond);
+  const group = enabledGroup(cond)!;
+  const items = group.items.map((c) => mapEnabledIds(c, swap));
+  return group.kind === 'all' ? { all: items } : { any: items };
+}
+
+/** A condition in words: "Server is ON and (VPN is OFF or Proxy is ON)". */
+export function describeEnabled(cond: EnabledWhen, label: (id: string) => string, nested = false): string {
+  if (typeof cond === 'string') return `${label(cond.replace(/^!/, ''))} is ${cond.startsWith('!') ? 'OFF' : 'ON'}`;
+  const group = enabledGroup(cond)!;
+  if (!group.items.length) return '(nothing yet)';
+  const text = group.items.map((c) => describeEnabled(c, label, true)).join(group.kind === 'all' ? ' and ' : ' or ');
+  return nested && group.items.length > 1 ? `(${text})` : text;
+}
+
 const entryBase = {
   id: id.optional(),
   label: z.string().describe('Text shown in the menu (tooltip for a tray).'),
   icon: z.string().optional().describe('Image file (png, ico, jpg). Relative paths are resolved from the config file folder.'),
   hidden: z.boolean().optional().describe('Hide without deleting.'),
   disabled: z.boolean().optional().describe('Shown greyed out and not clickable; state checks are paused.'),
-  enabledWhen: z
-    .string()
-    .regex(/^!?[A-Za-z0-9_.-]+$/)
-    .optional()
-    .describe('Enabled only while the entry with this id is ON ("!id" = while it is OFF).'),
+  enabledWhen: EnabledWhenSchema.optional().describe(
+    'Clickable only while a toggle is ON ("id") or OFF ("!id"), or while all ({ "all": [...] }) or any ({ "any": [...] }) of several conditions hold; groups can be nested.',
+  ),
   action: ActionInputSchema.optional().describe('Run on click (on click while OFF, for toggles).'),
   offAction: ActionInputSchema.optional().describe('Toggles only: run on click while ON.'),
   state: StateSchema.optional(),
@@ -335,7 +385,7 @@ export interface MenuEntry {
   icon?: string;
   hidden?: boolean;
   disabled?: boolean;
-  enabledWhen?: string;
+  enabledWhen?: EnabledWhen;
   action?: ActionInput;
   offAction?: ActionInput;
   state?: State;
@@ -645,7 +695,7 @@ export function parseConfig(raw: unknown): ParseResult {
       ];
       for (const c of clicks) if (c.ref) clickRefs.push({ ref: c.ref, path: c.at });
     }
-    if (entry.enabledWhen) checkRef(entry.enabledWhen.replace(/^!/, ''), `${path}.enabledWhen`);
+    if (entry.enabledWhen) for (const id of enabledIds(entry.enabledWhen)) checkRef(id, `${path}.enabledWhen`);
     for (const pattern of ['on', 'off'] as const) {
       const source = entry.state?.[pattern];
       if (source === undefined) continue;

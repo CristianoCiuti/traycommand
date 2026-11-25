@@ -151,6 +151,14 @@ Both keep the entry in the file, so you can bring it back later. Hidden trays ca
 { "label": "Stop server", "enabledWhen": "server", "action": "nginx -s stop" }
 ```
 
+To depend on several toggles, combine them: `{ "all": [...] }` while all of them hold (and), `{ "any": [...] }` while at least one does (or). A group can hold other groups:
+
+```json
+{ "label": "Deploy", "enabledWhen": { "all": ["vpn", { "any": ["proxy", "!office"] }] }, "action": "./deploy.ps1" }
+```
+
+Here **Deploy** is clickable while the VPN is ON and either the proxy is ON or the office network is OFF. In the editor, the **Enabled when** card builds the same thing: choose **All (and)** or **Any (or)**, add toggles (each **is ON** or **is OFF**) and groups, and read the result in words underneath. Entries that are not clickable say why in the launcher, in the same words.
+
 An entry is also not clickable while its own action is still running, together with everything it runs (`before`, `parallel`, `after`): it shows *running* until the last one ends.
 
 ## Composing actions

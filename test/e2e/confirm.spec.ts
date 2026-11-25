@@ -26,9 +26,17 @@ const closeEditor = () =>
 test.beforeAll(async () => {
   work = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-e2e-'));
   fs.cpSync(path.join(here, 'fixtures'), work, { recursive: true });
+  // only OpenCode on this PC: its user folder, and no claude command on the PATH (it may be installed here)
+  fs.mkdirSync(path.join(work, 'home', '.config', 'opencode'), { recursive: true });
+  const exe = ['claude', 'claude.exe', 'claude.cmd', 'claude.ps1'];
+  const PATH = (process.env.PATH ?? '')
+    .split(path.delimiter)
+    .filter((dir) => !exe.some((f) => fs.existsSync(path.join(dir, f))))
+    .join(path.delimiter);
+  const env = { ...process.env, PATH, Path: PATH, TRAYCOMMAND_E2E: '1', TRAYCOMMAND_AGENTS_HOME: path.join(work, 'home') };
   app = await electron.launch({
     args: [root, `--data-dir=${path.join(work, 'data')}`, `--config=${path.join(work, 'config.json')}`],
-    env: { ...process.env, TRAYCOMMAND_E2E: '1', TRAYCOMMAND_AGENTS_HOME: path.join(work, 'home') },
+    env,
   });
   // a system message box would block the test: fail loudly instead
   await app.evaluate(({ dialog }) => {
@@ -54,6 +62,22 @@ test.afterAll(async () => {
   } catch {
     /* temp folder still locked by the exiting app: harmless */
   }
+});
+
+test('only OpenCode on this PC: the banner and the settings name it alone', async () => {
+  const banner = page.getByTestId('skill-banner');
+  await expect(banner).toContainText('OpenCode is on this PC. Install the TrayCommand skill');
+  await expect(banner).not.toContainText('Claude Code');
+  await page.getByTestId('tab-settings').click();
+  await expect(page.getByTestId('skills-card')).toContainText('Create and change trays by asking Claude Code or OpenCode');
+  await expect(page.getByTestId('skill-opencode')).toContainText('OpenCode');
+  await expect(page.getByTestId('skill-opencode')).toContainText('Found on this PC, skill not installed');
+  await expect(page.getByTestId('skill-claude')).toContainText('Not found on this PC');
+  await expect(page.getByTestId('skill-install-claude')).toBeDisabled();
+  await expect(page.getByTestId('skill-install-opencode')).toBeEnabled();
+  await banner.getByRole('button', { name: 'Not now' }).click();
+  await expect(banner).toBeHidden();
+  await page.getByTestId('tab-trays').click();
 });
 
 test('deleting an entry asks in the editor: Esc and Cancel keep it, Delete removes it', async () => {

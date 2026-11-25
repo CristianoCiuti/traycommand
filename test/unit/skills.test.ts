@@ -99,7 +99,7 @@ describe('install, status and plan', () => {
     expect(fs.existsSync(path.join(home, '.config', 'opencode', 'opencode.jsonc'))).toBe(true);
   });
 
-  it('installs and reinstalls while a watcher keeps the new files open (opencode, antivirus)', async () => {
+  it('installs and reinstalls while a watcher keeps the new files open (OpenCode, antivirus)', async () => {
     const skills = path.join(home, '.config', 'opencode', 'skills');
     fs.mkdirSync(path.join(skills, 'traycommand.tmp-123'), { recursive: true }); // leftover of 2.1.0
     const open: number[] = [];

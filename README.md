@@ -15,7 +15,7 @@
 - **Compose actions**: run other entries before, together with, or after an action.
 - **Hide without deleting**, disable, reorder, duplicate.
 - **Start at login without admin rights**: a shortcut in your Startup folder. No Task Scheduler, no registry.
-- **Ask your AI agent**: TrayCommand installs a skill for Claude Code and opencode, so you can just ask *"add a tray that starts my Docker stack"*.
+- **Ask your AI agent**: TrayCommand installs a skill for Claude Code and OpenCode, so you can just ask *"add a tray that starts my Docker stack"*.
 - **Per-user install and self update** from GitHub releases, verified with SHA-256.
 - Windows, Linux (AppImage) and macOS.
 

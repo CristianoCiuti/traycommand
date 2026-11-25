@@ -21,7 +21,7 @@ async function shot(name: string) {
 test.beforeAll(async () => {
   work = fs.mkdtempSync(path.join(os.tmpdir(), 'tc-e2e-'));
   fs.cpSync(path.join(here, 'fixtures'), work, { recursive: true });
-  // fake home with Claude Code and opencode user folders: the real ones are never touched
+  // fake home with Claude Code and OpenCode user folders: the real ones are never touched
   agents = path.join(work, 'home');
   fs.mkdirSync(path.join(agents, '.claude'), { recursive: true });
   fs.mkdirSync(path.join(agents, '.config', 'opencode'), { recursive: true });
@@ -223,7 +223,7 @@ test('settings: elevated mode shows the red warning and needs explicit consent',
 test('AI skill: the banner offers it, install writes it for both agents, settings manage it', async () => {
   await page.getByTestId('tab-trays').click();
   const banner = page.getByTestId('skill-banner');
-  await expect(banner).toContainText('Claude Code and opencode');
+  await expect(banner).toContainText('Claude Code and OpenCode');
   await shot('12-skill-banner');
   await page.getByTestId('skill-banner-install').click();
   await expect(banner).toBeHidden();

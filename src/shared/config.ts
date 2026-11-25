@@ -399,7 +399,7 @@ export const SettingsSchema = z
     skillUpdates: z
       .enum(['auto', 'ask'])
       .default('auto')
-      .describe('TrayCommand skill for AI agents (Claude Code, opencode): "auto" = update it silently when TrayCommand has a newer one, "ask" = ask first.'),
+      .describe('TrayCommand skill for AI agents (Claude Code, OpenCode): "auto" = update it silently when TrayCommand has a newer one, "ask" = ask first.'),
   })
   .strict();
 export type Settings = z.infer<typeof SettingsSchema>;

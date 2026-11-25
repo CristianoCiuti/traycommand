@@ -48,7 +48,7 @@ function SkillsCard(props: { mode: 'auto' | 'ask'; setMode: (m: 'auto' | 'ask') 
     }
   };
   return (
-    <Card title="AI assistants" icon={<Sparkles size={16} />} desc="Create and change trays by asking Claude Code or opencode" testId="skills-card">
+    <Card title="AI assistants" icon={<Sparkles size={16} />} desc="Create and change trays by asking Claude Code or OpenCode" testId="skills-card">
       <div class="settings-list">
         <div class="setting" style={{ gridTemplateColumns: '1fr' }}>
           <div class="d" style={{ color: 'var(--text-2)' }}>

@@ -604,7 +604,7 @@ updater.onChange((info) => {
   if (info.state === 'available') trays?.scheduleSync();
 });
 
-/* ---------------- AI agent skill (Claude Code, opencode) ---------------- */
+/* ---------------- AI agent skill (Claude Code, OpenCode) ---------------- */
 
 // Tests point the agents' home elsewhere; isolated runs (--data-dir) never act on their own.
 const agentsHome = process.env.TRAYCOMMAND_AGENTS_HOME ?? os.homedir();

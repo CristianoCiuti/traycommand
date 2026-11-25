@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /*
- * TrayCommand skill for AI coding agents (Claude Code, opencode).
+ * TrayCommand skill for AI coding agents (Claude Code, OpenCode).
  *
  * The skill ships inside the app (resources/skill/traycommand). It is rendered with
  * the paths of this PC (executable, data folder, configuration file) and copied to
@@ -27,7 +27,7 @@ export interface AgentSpec {
 
 export const AGENTS: AgentSpec[] = [
   { id: 'claude', label: 'Claude Code', home: ['.claude'], commands: ['claude'] },
-  { id: 'opencode', label: 'opencode', home: ['.config', 'opencode'], commands: ['opencode'] },
+  { id: 'opencode', label: 'OpenCode', home: ['.config', 'opencode'], commands: ['opencode'] },
 ];
 
 export interface SkillEnv {
@@ -157,7 +157,7 @@ const BUSY = new Set(['EPERM', 'EBUSY', 'EACCES', 'ENOTEMPTY']);
 
 /**
  * Retries a file operation for a few seconds while the file is in use: the agents
- * (opencode, Claude Code) watch their skills folder and read new files as soon as they
+ * (OpenCode, Claude Code) watch their skills folder and read new files as soon as they
  * appear, and antivirus software scans them.
  */
 export function retryBusy<T>(fn: () => T, timeoutMs = 10000): T {

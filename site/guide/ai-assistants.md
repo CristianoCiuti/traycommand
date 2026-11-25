@@ -1,6 +1,6 @@
 # AI assistants
 
-TrayCommand can teach [Claude Code](https://claude.com/claude-code) and [opencode](https://opencode.ai) how to create and change your trays. Once the **TrayCommand skill** is installed, ask the agent in plain words:
+TrayCommand can teach [Claude Code](https://claude.com/claude-code) and [OpenCode](https://opencode.ai) how to create and change your trays. Once the **TrayCommand skill** is installed, ask the agent in plain words:
 
 > add a tray that starts and stops my Docker stack in C:\projects\dev-stack, with a green icon when it is running
 
@@ -12,7 +12,7 @@ The agent finds your configuration file, writes and tests the scripts, creates i
 
 ## Install the skill
 
-When TrayCommand finds Claude Code or opencode on your PC (their user folder, or the `claude` / `opencode` command), it proposes the skill:
+When TrayCommand finds Claude Code or OpenCode on your PC (their user folder, or the `claude` / `opencode` command), it proposes the skill:
 
 - a bar at the top of the editor: **Install**, **Not now** (asks again at the next start), **Don't ask again**;
 - if TrayCommand starts hidden, one notification per version; click it to open the settings.
@@ -22,7 +22,7 @@ You can also manage it at any time from **Settings → AI assistants**: install,
 | Agent | Skill folder |
 | --- | --- |
 | Claude Code | `~/.claude/skills/traycommand` |
-| opencode | `~/.config/opencode/skills/traycommand` |
+| OpenCode | `~/.config/opencode/skills/traycommand` |
 
 (`~` is your user folder, `%USERPROFILE%` on Windows.) Only that folder is written: no other file of the agent is changed.
 

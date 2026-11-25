@@ -310,8 +310,10 @@ export class Engine {
     return raw ? this.resolvePath(raw) : undefined;
   }
 
+  /** The label, or state.labelOff while the state is OFF. */
   label(entry: RuntimeEntry): string {
-    return this.shown(entry.entry.label);
+    const off = entry.entry.state?.labelOff;
+    return this.shown(off !== undefined && entry.on === false ? off : entry.entry.label);
   }
 
   /** "Tray › Sub menu" (ancestors only). */
@@ -577,7 +579,18 @@ export class Engine {
     this.hold(entry);
     try {
       await runRefs(action.before, false);
-      const [result] = await Promise.all([this.runOwn(entry, kind, action, ctx, label), runRefs(action.parallel, true)]);
+      // an exit code that an entry of after takes over ({ run, exitCodes }) is a way on, not an error
+      const routes = (r: RunResult) => {
+        if (isSuccess(r) || r.code === null || r.error || r.timedOut || r.killed) return undefined;
+        const names = (action.after ?? [])
+          .map(afterParts)
+          .filter((p) => p.exitCodes?.includes(r.code!))
+          .map((p) => this.refTargets(p.run, kind))
+          .filter((t) => t !== undefined)
+          .map((t) => `“${this.label(t.entry)}”`);
+        return names.length ? `Exit code ${r.code}: goes on with ${names.join(', ')}` : undefined;
+      };
+      const [result] = await Promise.all([this.runOwn(entry, kind, action, ctx, label, routes), runRefs(action.parallel, true)]);
       for (const ref of action.after ?? []) {
         const { run, when, exitCodes } = afterParts(ref);
         const target = this.refTargets(run, kind);
@@ -627,7 +640,7 @@ export class Engine {
     this.emit(entry.key);
   }
 
-  private async runOwn(entry: RuntimeEntry, kind: ActionKind, action: Action, ctx: ExecContext, name?: string): Promise<RunResult> {
+  private async runOwn(entry: RuntimeEntry, kind: ActionKind, action: Action, ctx: ExecContext, name?: string, routes?: (r: RunResult) => string | undefined): Promise<RunResult> {
     const label = name ?? this.label(entry);
     this.hold(entry);
     let result: RunResult;
@@ -644,6 +657,7 @@ export class Engine {
     }
 
     const ok = isSuccess(result);
+    const routed = ok ? undefined : routes?.(result);
     const redact = (text: string) => this.redact(text, ctx.secrets);
     const own = new Set((action.inputs ?? []).map((i) => i.name));
     const shown = Object.entries(ctx.values).filter(([k]) => own.has(k) || k === 'TC_EVENT' || k === 'TC_FILE' || (k === 'TC_FILES' && ctx.values.TC_FILES !== ctx.values.TC_FILE));
@@ -654,7 +668,8 @@ export class Engine {
       kind,
       script: action.run,
       code: result.code,
-      ok,
+      ok: ok || routed !== undefined,
+      routed,
       durationMs: result.durationMs,
       stdout: redact(result.stdout),
       stderr: redact(result.stderr),
@@ -663,7 +678,9 @@ export class Engine {
       inputs: shown.length ? Object.fromEntries(shown.map(([k, v]) => [k, v && ctx.secrets.includes(v) ? '••••' : redact(v)])) : undefined,
     });
 
-    if (!ok) {
+    if (routed) {
+      // taken over by after: neither an error nor a success to tell
+    } else if (!ok) {
       const reason = result.error ?? (result.timedOut ? `Timed out after ${action.timeout}s` : result.killed ? 'Stopped' : `Exit code ${result.code}`);
       const detail = redact(result.stderr || result.stdout).split(/\r?\n/).slice(-3).join('\n');
       const custom = action.notifyError?.text;

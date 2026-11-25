@@ -194,7 +194,8 @@ export class TrayManager {
       return { ...base, submenu: sub.length ? sub : [{ label: 'Empty', enabled: false }] };
     }
     if (isToggle && !icon) {
-      return { ...base, enabled, type: 'checkbox', checked: entry.on === true, click: () => void this.engine.click(entry.key) };
+      // nothing to run (a title that shows the state): greyed out
+      return { ...base, enabled: enabled && !!kind, type: 'checkbox', checked: entry.on === true, click: () => void this.engine.click(entry.key) };
     }
     return { ...base, enabled: enabled && !!kind, click: () => void this.engine.click(entry.key) };
   }

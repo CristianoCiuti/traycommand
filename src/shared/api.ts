@@ -45,6 +45,8 @@ export interface ExecutionLog {
   inputs?: Record<string, string>;
   /** Not run: an entry of `after` whose condition did not match the result (why). */
   skipped?: string;
+  /** The exit code was not 0 but an entry of `after` with that exit code takes over: not an error. */
+  routed?: string;
 }
 
 export interface TestResult {

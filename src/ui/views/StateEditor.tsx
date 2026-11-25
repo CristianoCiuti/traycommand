@@ -17,7 +17,7 @@ function validRegex(source: string | undefined) {
   }
 }
 
-export function StateEditor(props: { value: State; onChange: (s: State) => void; hasOffAction?: boolean }) {
+export function StateEditor(props: { value: State; onChange: (s: State) => void; hasOffAction?: boolean; label?: string }) {
   const s = props.value;
   const [result, setResult] = useState<TestResult>();
   const [running, setRunning] = useState(false);
@@ -67,6 +67,9 @@ export function StateEditor(props: { value: State; onChange: (s: State) => void;
           <IconPicker value={s.iconOff} onChange={(iconOff) => change({ iconOff })} compact />
         </Field>
       </div>
+      <Field label="Name when OFF" hint="Shown instead of the name while OFF: in the menu, the tooltip of the tray and the launcher. Empty = the same name. Without an action, the entry is a title that follows the state.">
+        <VarField value={s.labelOff ?? ''} placeholder={props.label || 'Same name'} onInput={(labelOff) => change({ labelOff: labelOff || undefined })} testId="state-label-off" />
+      </Field>
       <div class="grid2">
         <Field label="Check after an action (ms)" hint="Wait before checking again after a click: empty = 700, 0 = at once">
           <input

@@ -162,7 +162,7 @@ is the same as
 | `admin` | boolean | `false` | Run as administrator (prompt on every run). Requires `settings.allowAdminCommands`. See [administrator](../guide/administrator#run-as-administrator). |
 | `before` | array of refs | — | Actions of other entries to run, one after the other, before this one. |
 | `parallel` | array of refs | — | Actions of other entries to run together with this one. |
-| `after` | array of refs or `{ "run", "when"? }` / `{ "run", "exitCodes" }` | — | Actions of other entries to run, one after the other, after this one. `when`: `"always"` (default), `"success"`, `"failed"`; `exitCodes`: only with these exit codes. See [run after only on some results](../guide/concepts#run-after-only-on-some-results). |
+| `after` | array of refs or `{ "run", "when"? }` / `{ "run", "exitCodes" }` | — | Actions of other entries to run, one after the other, after this one. `when`: `"always"` (default), `"success"`, `"failed"`; `exitCodes`: only with these exit codes, which then are not errors (no error notification, *Exit N ↪* in the Activity). See [run after only on some results](../guide/concepts#run-after-only-on-some-results). |
 | `inputs` | array of [inputs](#inputs) | — | Values asked in a form before running, used as `${NAME}` and as environment variables. |
 
 A reference is `"id"` (same kind: on → on, off → off; right → on), `"id:on"`, `"id:off"` or `"id:right"`. See [composing actions](../guide/concepts#composing-actions). Unknown ids are errors.
@@ -181,6 +181,7 @@ An action succeeds when the script exits with code 0 within the timeout.
 | `off` | string | — | Regular expression: output matching it means OFF. Tested first. |
 | `interval` | integer | `60` | Seconds between checks (minimum 2). |
 | `iconOff` | string | — | Icon shown while OFF (the main `icon` is shown while ON). |
+| `labelOff` | string | — | Text shown instead of `label` while OFF: menu, tray tooltip, launcher. `${VARIABLES}` allowed. With no `action` the entry is a greyed title that follows the state. |
 | `recheckDelay` | integer (ms, 0–60000) | `700` | Wait between the end of an action of the entry and the check that follows it. `0` checks at once. |
 | `optimistic` | boolean | `false` | Show the new state as soon as the action succeeds: ON after `action`, OFF after `offAction` (exit code 0). The check that follows corrects it if it was wrong. Needs both `action` and `offAction` (warning otherwise); `rightAction` and alert choices do not change the state. |
 | `notify` | `{ "on"?, "off"? }` | — | Notification when the state changes to ON / OFF: `true` default text, a string = custom text. |

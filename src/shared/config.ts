@@ -200,6 +200,10 @@ export const StateSchema = z
       .optional()
       .describe('Show the new state as soon as the action succeeds (action → ON, offAction → OFF), without waiting for the check; the check that follows corrects it if wrong. Needs an offAction.'),
     iconOff: z.string().optional().describe('Icon shown when the state is OFF (the main icon is used when ON).'),
+    labelOff: z
+      .string()
+      .optional()
+      .describe('Text shown instead of the label while the state is OFF: menu, tray tooltip, launcher. ${VALUES} allowed. With no action the entry is a title that follows the state.'),
     notify: z
       .object({
         on: notify.optional(),

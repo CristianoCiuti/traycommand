@@ -2,6 +2,12 @@
 
 Full release notes and downloads are on the [GitHub releases page](https://github.com/CristianoCiuti/traycommand/releases).
 
+## 2.15.0 — exit codes that lead on, text that follows the state
+
+- **An exit code routed by `after` is not an error.** With `{ "run": "vdi_portal_open", "exitCodes": [3] }`, a script that exits 3 to say "go on with the portal" no longer shows *Failed: Exit code 3* (nor `notifyError`); the **Activity** shows it green, *Exit 3 ↪*, with where it went. Codes not listed, time-outs, stops and failures handled by `"when": "failed"` stay errors. The entry run after a click still asks its own confirmation.
+- **`state.labelOff`**: the text of a toggle while it is OFF, in the menu, the tray tooltip and the launcher (**Name when OFF** in the editor, under the state). An entry with a state and no action is a greyed title that tells the state, e.g. *VDI started and running* / *VDI not started* at the top of a menu.
+- A toggle without an icon and with nothing to run is greyed out in the menu, like the other entries with nothing to run.
+
 ## 2.14.1 — the editor opens at once
 
 - Opening the editor from the tray is **immediate**: closing it now hides it instead of destroying it, and when TrayCommand starts hidden (at login) the editor is loaded in the background. It took 1–5 seconds on some PCs, where starting a new window process is slow. Unsaved changes are still asked about on close (**Keep editing** / **Discard and close**); discarded ones are gone the next time it opens.

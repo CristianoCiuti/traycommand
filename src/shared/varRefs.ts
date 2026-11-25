@@ -115,6 +115,7 @@ export function textFields(config: Config): TextField[] {
     const state = entry.state;
     if (state) {
       add(`${key}.state.check`, 'State › Check script', state.check, [], (t) => (state.check = t));
+      if (state.labelOff !== undefined) add(`${key}.state.labelOff`, 'State › Name when OFF', state.labelOff, [], (t) => (state.labelOff = t));
       for (const k of ['on', 'off'] as const) {
         const n = state.notify;
         const message = n?.[k];

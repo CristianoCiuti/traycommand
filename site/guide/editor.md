@@ -19,7 +19,7 @@ Select a tray to edit it on the right. The header has the icon picker, the label
 | Card | What it sets |
 | --- | --- |
 | **Click** | The `action` run on click (on click while OFF, for toggles). Without it, a click opens the menu. |
-| **On / Off state** | The switch turns the entry into a toggle: check script, ON/OFF patterns, interval, shell, icon when OFF, notifications. |
+| **On / Off state** | The switch turns the entry into a toggle: check script, ON/OFF patterns, interval, shell, icon and name when OFF, notifications. |
 | **Turn off** | Only for toggles: the `offAction` run on click while ON. |
 | **Right click** | Only for trays: the `rightAction`. Without it, right click opens the menu. |
 | **Keyboard shortcut** | A global [shortcut](./launcher#shortcuts-for-entries): click it and press the keys. |

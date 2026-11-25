@@ -124,6 +124,16 @@ In the editor: **Show the new state at once** and **Check after an action (ms)**
 
 The tray icon switches between `icon` (ON) and `state.iconOff` (OFF). In menus, a toggle without an icon is shown with a check mark.
 
+The text can follow the state too: `state.labelOff` is shown instead of `label` while OFF, in the menu, the tooltip of the tray and the launcher. An entry with a `state` and no `action` is a **title** that tells the state, greyed out and not clickable:
+
+```json
+{
+  "label": "VDI started and running",
+  "icon": "icons/status_on.png",
+  "state": { "check": "...", "on": "visible|hidden", "interval": 2, "iconOff": "icons/status_off.png", "labelOff": "VDI not started" }
+}
+```
+
 ::: tip
 Use the **Test** button of the state check in the editor: it shows the output and the ON/OFF result computed with your patterns.
 :::
@@ -204,6 +214,8 @@ An item of `after` can depend on how the script ended. Write it as an object:
 | `{ "run": "id", "exitCodes": [3, 4] }` | Only if it ends with one of these exit codes (instead of `when`). |
 
 `run` takes the same references as above (`"id:on"`…). An item not run is listed in the **Activity** as *Skipped*, with the reason (*Not run: "Open VDI" ended with exit code 1*). The entry clicked shows *running* until the whole chain ends, and a second click meanwhile is refused.
+
+An exit code listed in `exitCodes` is a **way on, not an error**: the script can exit 3 to say "not open yet, go on with the portal" without an error notification (nor `notifyError`, nor the success `notify`, which is for exit code 0). The **Activity** shows it green, *Exit 3 ↪*, with where it went (*Exit code 3: goes on with "Open from the portal"*). Exit codes not listed, a time-out or a stop are still errors, and so is a failure handled by `"when": "failed"`. The entry run after a click still asks its own `confirm`; after a schedule it does not.
 
 ```json
 {

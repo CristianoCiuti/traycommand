@@ -84,7 +84,7 @@ A string (the script) or an object:
 | `admin` | boolean | `false` | Run elevated (UAC prompt each time). Needs `settings.allowAdminCommands`. |
 | `before` | refs | — | Actions of other entries to run first, in order. |
 | `parallel` | refs | — | Actions of other entries to run at the same time. |
-| `after` | refs or `{ "run", "when"? }` / `{ "run", "exitCodes" }` | — | Actions of other entries to run afterwards, in order. A plain ref always runs. `{ "run": "id", "when": "success" }` only if the script succeeds (exit 0, not timed out or stopped), `"failed"` only if it fails, `"always"` = default; `{ "run": "id", "exitCodes": [3] }` only with those exit codes (not together with `when`). Each item looks at the script's result on its own. Items not run appear as *Skipped* in the Activity. The entry stays busy (running, second click refused) until the last item ends. |
+| `after` | refs or `{ "run", "when"? }` / `{ "run", "exitCodes" }` | — | Actions of other entries to run afterwards, in order. A plain ref always runs. `{ "run": "id", "when": "success" }` only if the script succeeds (exit 0, not timed out or stopped), `"failed"` only if it fails, `"always"` = default; `{ "run": "id", "exitCodes": [3] }` only with those exit codes (not together with `when`); an exit code listed there is a way on, not an error: no error notification, no `notifyError`, no success `notify`, *Exit 3 ↪* in the Activity (`when: "failed"` keeps failures errors). Each item looks at the script's result on its own. Items not run appear as *Skipped* in the Activity. The entry stays busy (running, second click refused) until the last item ends. |
 | `inputs` | array of input | — | Values asked in a form before running (see below). |
 
 A ref is `"id"` (same kind: on→on, off→off, right→on), `"id:on"`, `"id:off"` or `"id:right"`. Unknown ids are errors. Success = exit code 0 within the timeout. While an action runs the entry is busy and cannot be clicked again.
@@ -99,6 +99,7 @@ A ref is `"id"` (same kind: on→on, off→off, right→on), `"id:on"`, `"id:off
 | `off` | string | — | Regex: output matching means OFF (tested first). |
 | `interval` | integer ≥ 2 | `60` | Seconds between checks. |
 | `iconOff` | string | — | Icon while OFF (`icon` is used while ON). |
+| `labelOff` | string | — | Text instead of `label` while OFF (menu, tray tooltip, launcher). An entry with `state` and no `action` = a greyed, non-clickable title that tells the state, e.g. `"label": "VDI running"`, `"state": { …, "labelOff": "VDI not started" }`. |
 | `recheckDelay` | integer ms 0–60000 | `700` | Wait after an action of the entry before checking again; `0` = at once. |
 | `optimistic` | boolean | `false` | Show ON after `action` / OFF after `offAction` as soon as it exits 0, then the check corrects it if wrong. Needs `action` and `offAction`. |
 | `notify` | `{ "on"?, "off"? }` | — | Notification when it turns ON / OFF (`true` or a text). |

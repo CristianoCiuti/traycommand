@@ -75,6 +75,10 @@ export function LogsView() {
                           <span class="pill muted" title={l.skipped}>
                             Skipped
                           </span>
+                        ) : l.routed ? (
+                          <span class="pill on" title={l.routed}>
+                            Exit {l.code} ↪
+                          </span>
                         ) : (
                           <span class={`pill ${l.ok ? 'on' : 'danger'}`}>{l.ok ? 'OK' : l.error ? 'Error' : `Exit ${l.code}`}</span>
                         )}
@@ -105,6 +109,7 @@ export function LogsView() {
                               </pre>
                             )}
                             {l.skipped && <pre style={{ borderTop: '1px dashed var(--border)' }}>{l.skipped}</pre>}
+                            {l.routed && <pre style={{ borderTop: '1px dashed var(--border)' }}>{l.routed}</pre>}
                             {!l.skipped && (l.stdout || !l.stderr) && <pre style={{ borderTop: '1px dashed var(--border)' }}>{l.stdout || '(no output)'}</pre>}
                             {(l.stderr || l.error) && <pre class="err">{[l.error, l.stderr].filter(Boolean).join('\n')}</pre>}
                           </div>

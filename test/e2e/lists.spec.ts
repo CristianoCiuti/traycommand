@@ -35,8 +35,24 @@ const config = {
       schedules: [{ cron: '0 9 * * 1-5', alert: { text: 'Start working?', choices: [{ label: 'Yes', run: 'self' }, { label: 'No', action: 'echo no' }, { label: 'Later', action: 'echo later' }] } }],
       menu: [toggle('vpn', 'VPN'), toggle('proxy', 'Proxy'), toggle('server', 'Server'), { id: 'notepad', label: 'Notepad', action: 'echo notepad' }],
     },
+    {
+      id: 'vdi',
+      label: 'VDI',
+      menu: [
+        // a title that tells the state: no action, its text follows ON / OFF
+        { id: 'vdi_status', label: 'VDI started and running', state: { check: 'exit 1', interval: 3600, labelOff: 'VDI not started' } },
+        { separator: true },
+        // exit 3 = "not started": goes on with the portal, without an error
+        { id: 'vdi_show', label: 'Show the VDI', action: { run: 'exit 3', after: [{ run: 'vdi_portal', exitCodes: [3] }] } },
+        { id: 'vdi_portal', label: 'Open from the portal', action: { run: 'echo portal', confirm: { text: 'Download a new .ica?', button: 'Open' } } },
+        // an exit code nobody takes over: still an error
+        { id: 'vdi_broken', label: 'Broken step', action: 'exit 5' },
+      ],
+    },
   ],
 };
+/** What TrayCommand would notify (an isolated run writes its notifications to its output). */
+const notifications: string[] = [];
 
 const saved = () => JSON.parse(fs.readFileSync(path.join(work, 'config.json'), 'utf8')).trays[0];
 async function save() {
@@ -65,6 +81,7 @@ test.beforeAll(async () => {
     args: [root, `--data-dir=${path.join(work, 'data')}`, `--config=${path.join(work, 'config.json')}`],
     env: { ...process.env, TRAYCOMMAND_E2E: '1', TRAYCOMMAND_AGENTS_HOME: path.join(work, 'home') },
   });
+  app.process().stdout?.on('data', (d: Buffer) => notifications.push(...String(d).split(/\r?\n/).filter((l) => l.startsWith('[notification]'))));
   page = await editorWindow(app);
   // light or dark comes from the system theme, as in the app (Playwright forces light otherwise)
   await page.emulateMedia({ colorScheme: 'no-override' as never });
@@ -213,4 +230,62 @@ test('enabled when: all / any of several toggles, with groups', async () => {
   await save();
   expect(saved().enabledWhen).toBeUndefined();
   await expect(summary).toContainText('Always clickable');
+});
+
+type MenuHook = { __traycommand: { trays: { menuFor(k: string): { items: { label: string; type: string; enabled: boolean }[] } }; engine: { click(k: string): Promise<boolean> } } };
+
+test('state.labelOff: a title at the top of the menu tells the state, greyed out; the editor sets its text', async () => {
+  const title = () => app.evaluate(() => {
+    const i = (globalThis as unknown as MenuHook).__traycommand.trays.menuFor('vdi').items[0]!;
+    return { label: i.label, type: i.type, enabled: i.enabled };
+  });
+  // every save reloads the configuration and checks all the states again (PowerShell, slow on a busy PC)
+  await expect.poll(title, { timeout: 60_000 }).toEqual({ label: 'VDI not started', type: 'checkbox', enabled: false });
+
+  await page.getByTestId('tray-row').nth(1).click();
+  await page.getByTestId('card-menu').getByText('VDI started and running').click();
+  const field = page.getByTestId('state-label-off');
+  await expect(field).toHaveValue('VDI not started');
+  await shot(page.getByTestId('card-state'), '57-state-label-off');
+  await field.fill('VDI is off');
+  await save();
+  expect(JSON.parse(fs.readFileSync(path.join(work, 'config.json'), 'utf8')).trays[1].menu[0].state.labelOff).toBe('VDI is off');
+  await expect.poll(async () => (await title()).label, { timeout: 60_000 }).toBe('VDI is off');
+});
+
+test('an exit code routed by after is not an error: no error notification, "Exit 3 ↪" in the activity, the next entry asks its confirmation', async () => {
+  const launcher = app.windows().find((w) => w.url().includes('launcher.html'))!;
+  const clicked = app.evaluate(() => (globalThis as unknown as MenuHook).__traycommand.engine.click('vdi_show'));
+  await expect(launcher.getByTestId('launcher-alert-text')).toHaveText('Download a new .ica?');
+  await expect(launcher.getByTestId('launcher-alert-choice-0')).toHaveText('Open');
+  await expect(launcher.getByTestId('launcher-alert')).toHaveAttribute('data-armed', 'true');
+  await launcher.getByTestId('launcher-alert-choice-0').click();
+  await clicked;
+  await page.getByTestId('tab-activity').click();
+  const routed = page.getByTestId('log-table').locator('tr', { hasText: 'Show the VDI' }).first();
+  await expect(routed).toContainText('Exit 3 ↪');
+  await expect(page.getByTestId('log-table').locator('tr', { hasText: 'Open from the portal' }).first()).toContainText('OK');
+  await routed.click();
+  await expect(page.getByTestId('log-table')).toContainText('Exit code 3: goes on with “Open from the portal”');
+  await shot(page.getByTestId('log-table'), '58-activity-routed');
+  expect(notifications.filter((n) => n.includes('Show the VDI'))).toEqual([]);
+  // an exit code nobody takes over is still notified as an error (and the notifications are really seen here)
+  await app.evaluate(() => (globalThis as unknown as MenuHook).__traycommand.engine.click('vdi_broken'));
+  await expect.poll(() => notifications.filter((n) => n.includes('Broken step'))).toEqual(['[notification] Broken step: Failed: Exit code 5']);
+
+  // the new parts in every look
+  for (const look of ['terminal', 'brutal', 'neon', 'aurora']) {
+    await page.getByTestId('tab-settings').click();
+    await page.getByTestId(`look-${look}`).click();
+    await save();
+    await expect(page.locator('.toast')).toBeHidden({ timeout: 15_000 });
+    await page.getByTestId('tab-activity').click();
+    await page.getByTestId('log-table').locator('tr', { hasText: 'Show the VDI' }).first().click();
+    await shot(page.getByTestId('log-table'), `59-activity-routed-${look}`);
+    await page.getByTestId('tab-trays').click();
+    await page.getByTestId('tray-row').nth(1).click();
+    await page.getByTestId('card-menu').getByText('VDI started and running').click();
+    await shot(page.getByTestId('card-state'), `59-state-label-off-${look}`);
+  }
+  await page.getByTestId('tab-trays').click();
 });
